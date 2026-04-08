@@ -33,9 +33,6 @@ class Database:
                     version VARCHAR(50) NOT NULL,
                     description TEXT,
                     release_date DATE,
-                    size INTEGER,
-                    hap_filename VARCHAR(255),
-                    hsp_filename VARCHAR(255),
                     deploy_path VARCHAR(500) DEFAULT '/data/local/tmp',
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     FOREIGN KEY (app_id) REFERENCES apps(id) ON DELETE CASCADE
@@ -95,17 +92,13 @@ class Database:
                             
                             # Insert version
                             cursor = conn.execute("""
-                                INSERT INTO versions (app_id, version, description, release_date, size, 
-                                                   hap_filename, hsp_filename, deploy_path)
-                                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                                INSERT INTO versions (app_id, version, description, release_date, deploy_path)
+                                VALUES (?, ?, ?, ?, ?)
                             """, (
                                 app_id,
                                 version_info.get('version'),
                                 version_info.get('description'),
                                 version_info.get('release_date'),
-                                version_info.get('size'),
-                                version_info.get('files', {}).get('hap'),
-                                version_info.get('files', {}).get('hsp'),
                                 version_info.get('deploy_path', '/data/local/tmp')
                             ))
                             version_id = cursor.lastrowid

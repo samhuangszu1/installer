@@ -202,7 +202,7 @@ class ModernDesignInstaller:
         title_text.pack(anchor=tk.W)
         
         subtitle_text = tk.Label(title_container,
-                                text="HarmonyOS App Installer",
+                                text="鸿蒙应用安装工具",
                                 bg=self.colors['bg_secondary'],
                                 fg=self.colors['text_secondary'],
                                 font=self.fonts['small'])
@@ -213,7 +213,7 @@ class ModernDesignInstaller:
         right_section.pack(side=tk.RIGHT, fill=tk.Y, padx=20)
         
         # 服务器配置按钮
-        server_btn = tk.Button(right_section, text="🌐 服务器",
+        server_btn = tk.Button(right_section, text="服务器",
                            command=self.configure_server,
                            font=self.fonts['small'],
                            bg=self.colors['bg_card'],
@@ -333,6 +333,9 @@ class ModernDesignInstaller:
         # 创建现代化树形视图
         self.version_tree = self.create_modern_treeview(list_container)
         self.version_tree.pack(fill=tk.BOTH, expand=True)
+        
+        # 绑定选择事件
+        self.version_tree.bind('<<TreeviewSelect>>', self.on_version_select)
     
     def create_control_panel(self, parent, row, column, columnspan=1):
         """创建控制面板"""
@@ -713,10 +716,10 @@ class ModernDesignInstaller:
                 with open(filename, 'w', encoding='utf-8') as f:
                     f.write(self.log_text.get(1.0, tk.END))
                 self.log(f"💾 日志已保存: {filename}")
-                messagebox.showinfo("成功", "日志保存成功")
+                messagebox.showinfo("复制成功", "UDID已复制到剪贴板")
         except Exception as e:
             self.log(f"❌ 保存失败: {str(e)}")
-            messagebox.showerror("错误", f"保存失败: {str(e)}")
+            messagebox.showerror("复制失败", f"UDID复制失败：\n{str(e)}")
     
     def load_apps_config(self):
         """从服务器加载应用配置"""
@@ -824,6 +827,7 @@ class ModernDesignInstaller:
             self.current_app = self.apps_config['apps'][index]
             self.log(f"📱 已选择: {self.current_app['name']}")
             self.show_app_info()
+            self.update_control_center()
             self.load_version_list()
     
     def show_app_info(self):
@@ -839,6 +843,72 @@ class ModernDesignInstaller:
         
         self.app_info_text.delete(1.0, tk.END)
         self.app_info_text.insert(1.0, info)
+    
+    def show_version_info(self, version):
+        """Display version-specific info"""
+        if not self.current_app or not version:
+            self.show_app_info()  # Fallback to app info
+            return
+        
+        # Get version info
+        version_info = self.get_version_info(version)
+        if not version_info:
+            self.show_app_info()  # Fallback to app info
+            return
+        
+        # Build version-specific info
+        info = f"Application Name: {self.current_app['name']}\n"
+        info += f"Package Name: {self.current_app['bundle_name']}\n"
+        info += f"Description: {self.current_app['description']}\n"
+        info += f"Selected Version: {version}\n"
+        info += f"Release Date: {version_info.get('release_date', 'N/A')}\n"
+        info += f"Size: {version_info.get('size', 'N/A')}\n"
+        info += f"Main Ability: {self.current_app['main_ability']}\n"
+        
+        # Add file info if available
+        files = version_info.get('files', {})
+        if isinstance(files, dict):
+            info += f"\nFiles:\n"
+            info += f"  HAP: {files.get('hap', 'N/A')}\n"
+            info += f"  HSP: {files.get('hsp', 'N/A')}\n"
+        
+        self.app_info_text.delete(1.0, tk.END)
+        self.app_info_text.insert(1.0, info)
+    
+    def update_control_center(self):
+        """Update control center with current app info"""
+        if not self.current_app:
+            return
+        
+        # Update button states
+        if hasattr(self, 'install_button'):
+            self.install_button.config(state='normal')
+        if hasattr(self, 'uninstall_button'):
+            self.uninstall_button.config(state='normal')
+        
+        # Update status text
+        if hasattr(self, 'status_text'):
+            self.status_text.config(text=f"准备安装: {self.current_app['name']}")
+        
+        # Update status indicator
+        if hasattr(self, 'status_indicator'):
+            self.update_status_indicator('success')
+    
+    def on_version_select(self, event):
+        """Version selection event"""
+        selection = self.version_tree.selection()
+        if not selection:
+            return
+        
+        # Get selected version
+        item = selection[0]
+        version_values = self.version_tree.item(item, 'values')
+        
+        if version_values:
+            version = version_values[0]  # First column is version
+            self.log(f"Selected version: {version}")
+            self.show_version_info(version)
+            self.update_control_center()
     
     def load_version_list(self):
         """从服务器加载版本列表"""
@@ -889,20 +959,33 @@ class ModernDesignInstaller:
     
     def detect_hdc_tool(self):
         """检测HDC工具"""
-        self.log("🔍 检测HDC工具...")
+        self.log("检测HDC工具...")
         
         system = platform.system()
         arch = platform.machine()
         
-        # 获取应用程序根目录（打包后使用sys._MEIPASS）
+        # Get application root directory (use sys._MEIPASS for packaged app)
         if getattr(sys, 'frozen', False):
-            # 打包后的应用
+            # Packaged application
             base_path = sys._MEIPASS
+            self.log(f"运行在打包模式，基础路径: {base_path}")
         else:
-            # 开发环境
+            # Development environment
             base_path = os.path.dirname(os.path.abspath(__file__))
+            self.log(f"运行在开发模式，基础路径: {base_path}")
         
-        self.log(f"📁 应用程序根目录: {base_path}")
+        self.log(f"系统: {system}, 架构: {arch}")
+        
+        # List available HDC directories for debugging
+        hdc_dirs = ['hdc_win', 'hdc_arm', 'hdc_x86']
+        for hdc_dir in hdc_dirs:
+            hdc_full_path = os.path.join(base_path, hdc_dir)
+            if os.path.exists(hdc_full_path):
+                self.log(f"找到HDC目录: {hdc_full_path}")
+                files = os.listdir(hdc_full_path)
+                self.log(f"  {hdc_dir}目录中的文件: {files}")
+            else:
+                self.log(f"HDC目录未找到: {hdc_full_path}")
         
         if system == "Darwin":
             if arch == "arm64":
@@ -919,17 +1002,20 @@ class ModernDesignInstaller:
         else:
             self.hdc_path = None
         
+        self.log(f"预期HDC路径: {self.hdc_path}")
+        self.log(f"HDC文件存在: {os.path.exists(self.hdc_path) if self.hdc_path else '未设置路径'}")
+        
         if self.hdc_path and os.path.exists(self.hdc_path):
             self.status_text.config(text="HDC已连接", fg=self.colors['bg_success'])
             self.update_status_indicator('success')
-            self.log(f"✅ HDC工具已就绪")
+            self.log(f"HDC工具就绪: {self.hdc_path}")
             self.install_button.config(state='normal')
             self.uninstall_button.config(state='normal')
             self.get_udid_button.config(state='normal')
         else:
             self.status_text.config(text="HDC未连接", fg=self.colors['bg_danger'])
             self.update_status_indicator('danger')
-            self.log(f"❌ HDC工具未找到")
+            self.log(f"HDC工具未找到: {self.hdc_path}")
             self.install_button.config(state='disabled')
             self.uninstall_button.config(state='disabled')
             self.get_udid_button.config(state='disabled')
@@ -1039,7 +1125,7 @@ class ModernDesignInstaller:
         try:
             self.root.clipboard_clear()
             self.root.clipboard_append(udid)
-            self.show_toast("UDID copied to clipboard!")
+            self.show_toast("UDID 复制成功!")
             # Find and close the dialog
             for widget in self.root.winfo_children():
                 if isinstance(widget, tk.Toplevel) and widget.title() == "Device UDID":
@@ -1047,7 +1133,7 @@ class ModernDesignInstaller:
                     break
         except Exception as e:
             self.log(f"Failed to copy UDID: {str(e)}")
-            messagebox.showerror("Error", f"Failed to copy UDID: {str(e)}")
+            self.show_toast(f"Failed to copy UDID: {str(e)}")
     
     def show_toast(self, message):
         """显示提示"""
@@ -1131,6 +1217,10 @@ class ModernDesignInstaller:
             
             deploy_path = version_info.get('deploy_path', f"data/local/tmp/{self.current_app['id']}")
             
+            # Ensure deploy_path uses forward slashes for Android
+            deploy_path = deploy_path.replace('\\', '/')
+            self.log(f"Deploy path (Android format): {deploy_path}")
+            
             # 检查文件是否存在
             if not os.path.exists(hap_file):
                 self.log(f"❌ HAP文件不存在: {hap_file}")
@@ -1145,12 +1235,14 @@ class ModernDesignInstaller:
             self.log(f"✅ 文件检查通过: HAP={os.path.basename(hap_file)}, HSP={os.path.basename(hsp_file)}")
             
             # 安装步骤
+            android_deploy_path = deploy_path.replace('\\', '/')
             steps = [
                 ("停止应用", f"shell aa force-stop {self.current_app['bundle_name']}"),
-                ("卸载旧版", f"shell bm uninstall -n {self.current_app['bundle_name']} -k"),
-                ("上传HAP", f"file send {hap_file} {deploy_path}"),
-                ("上传HSP", f"file send {hsp_file} {deploy_path}"),
-                ("安装应用", f"shell bm install -p {deploy_path}"),
+                ("卸载旧版本", f"shell bm uninstall -n {self.current_app['bundle_name']} -k"),
+                ("上传HSP", f"file send {hsp_file} {android_deploy_path}"),
+                ("上传HAP", f"file send {hap_file} {android_deploy_path}"),
+                ("安装HSP", f"shell bm install -p {android_deploy_path}/{os.path.basename(hsp_file)}"),
+                ("安装HAP", f"shell bm install -p {android_deploy_path}/{os.path.basename(hap_file)}"),
                 ("启动应用", f"shell aa start -a {self.current_app['main_ability']} -b {self.current_app['bundle_name']} -m entry")
             ]
             
@@ -1167,7 +1259,7 @@ class ModernDesignInstaller:
                     self.log(f"&#x274c; {step_name}&#x5931;&#x8d25;")
                     
                     # &#x5bf9;&#x4e8e;&#x67d0;&#x4e9b;&#x6b65;&#x9aa4;&#xff0c;&#x5931;&#x8d25;&#x662f;&#x53ef;&#x63a5;&#x53d7;&#x7684;
-                    if step_name in ["&#x505c;&#x6b62;&#x5e94;&#x7528;", "&#x5378;&#x8f7d;&#x65e7;&#x7248;"]:
+                    if step_name in ["&#x505c;&#x6b62;&#x5e94;&#x7528;", "&#x5378;&#x8f7d;&#x65e7;&#x7248;", "Install HAP"]:
                         self.log(f"&#x26a0;&#xfe0f; {step_name}&#x5931;&#x8d25;&#x4f46;&#x7ee7;&#x7eed;&#x6267;&#x884c;")
                         continue
                     elif step_name == "&#x542f;&#x52a8;&#x5e94;&#x7522;":
@@ -1175,26 +1267,48 @@ class ModernDesignInstaller:
                         continue
                     else:
                         # &#x5173;&#x952e;&#x6b65;&#x9aa4;&#x5931;&#x8d25;&#xff0c;&#x505c;&#x6b62;&#x5b89;&#x88c5;
-                        messagebox.showerror("&#x9519;&#x8bef;", f"{step_name}&#x5931;&#x8d25;:\n{output.strip()}")
+                        messagebox.showerror("错误", f"{step_name}失败:\n{output.strip()}")
                         return
             
-            # &#x9a8c;&#x8bc1;&#x5e94;&#x7528;&#x662f;&#x5426;&#x771f;&#x6b63;&#x5b89;&#x88c5;&#x6210;&#x529f;
-            self.log("✅ 正在验证安装结果")
-            # 使用bm dump来检查应用是否安装成功
+            # &#x9a8c;&#x8bc1;&#x5e94;&#x7528;&#x662f;&#x5426;&#x771f;&#x6b63;&#x5b89;&#x88c5;&#x6210;&# Verify if app is truly installed successfully
+            self.log("Verifying installation result...")
+            
+            # Wait a moment for installation to complete
+            time.sleep(2)
+            
+            # Method 1: Use bm dump to check if app is installed
             verify_success, verify_output = self.run_hdc_command(f"shell bm dump -n {self.current_app['bundle_name']}", show_output=True)
             
-            if verify_success and verify_output and self.current_app['bundle_name'] in verify_output:
-                self.log("✅ 应用安装验证成功")
-                self.log("✅ 安装完成")
-                messagebox.showinfo("成功", f"🎉 应用版本 {version} 安装成功！\n\n✓ 已在设备上验证")
-            else:
-                self.log("✅ 应用安装验证成功 (基于安装成功消息)")
-                self.log("✅ 安装完成")
-                messagebox.showinfo("成功", f"🎉 应用版本 {version} 安装成功！\n\n✓ 安装完成\n\n注意：应用可能需要手动启动")
+            # Method 2: Use bm dump -a to list all installed apps
+            list_success, list_output = self.run_hdc_command("shell bm dump -a", show_output=False)
             
+            app_installed = False
+            if verify_success and verify_output and "error:" not in verify_output.lower():
+                app_installed = True
+                self.log("App installation verification successful (bm dump)")
+            elif list_success and list_output and self.current_app['bundle_name'] in list_output:
+                app_installed = True
+                self.log("App installation verification successful (bm dump -a)")
+            
+            if app_installed:
+                self.log("Installation completed successfully")
+                messagebox.showinfo("安装成功", f"应用版本 {version} 安装成功！\n\n已在设备上验证")
+                
+                # Try to start the app
+                self.log("Attempting to start the app...")
+                start_success, start_output = self.run_hdc_command(f"shell aa start -a {self.current_app['main_ability']} -b {self.current_app['bundle_name']} -m entry", show_output=True)
+                if start_success:
+                    self.log("App started successfully")
+                else:
+                    self.log(f"App start failed, but installation succeeded: {start_output}")
+            else:
+                self.log("Installation verification failed")
+                self.log(f"bm dump output: {verify_output}")
+                self.log(f"bm dump -a output: {list_output}")
+                messagebox.showwarning("安装警告", f"应用安装完成但验证失败。\n\n应用可能未正确安装。\n\n请在设备上手动检查。")        
         except Exception as e:
             self.log(f"&#x274c; &#x5b89;&#x88c5;&#x5f02;&#x5e38;: {str(e)}")
-            messagebox.showerror("错误", f"安装异常: {str(e)}")
+            messagebox.showerror("安装错误", f"安装异常：{str(e)}")
         
         finally:
             self.progress.stop()
@@ -1344,10 +1458,10 @@ class ModernDesignInstaller:
         
         if success:
             self.log("✅ 卸载成功")
-            messagebox.showinfo("成功", "应用卸载成功")
+            messagebox.showinfo("卸载成功", "应用卸载成功")
         else:
             self.log(f"❌ 卸载失败: {output}")
-            messagebox.showerror("错误", f"卸载失败: {output}")
+            messagebox.showerror("卸载失败", f"应用卸载失败：\n{output}")
     
     def refresh_all(self):
         """刷新所有信息"""

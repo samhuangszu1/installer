@@ -32,9 +32,6 @@ class Version:
     version: str = ""
     description: str = ""
     release_date: Optional[str] = None
-    size: Optional[int] = None
-    hap_filename: Optional[str] = None
-    hsp_filename: Optional[str] = None
     deploy_path: str = "/data/local/tmp"
     created_at: Optional[datetime] = None
     
@@ -45,9 +42,6 @@ class Version:
             'version': self.version,
             'description': self.description,
             'release_date': self.release_date,
-            'size': self.size,
-            'hap_filename': self.hap_filename,
-            'hsp_filename': self.hsp_filename,
             'deploy_path': self.deploy_path,
             'created_at': self.created_at.isoformat() if self.created_at else None
         }

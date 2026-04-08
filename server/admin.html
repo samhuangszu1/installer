@@ -288,7 +288,6 @@
                             <th>Version</th>
                             <th>Description</th>
                             <th>Release Date</th>
-                            <th>Size</th>
                             <th>Files</th>
                             <th>Actions</th>
                         </tr>
@@ -312,17 +311,25 @@
                 </div>
                 
                 <div class="file-upload" onclick="document.getElementById('file-input').click()">
-                    <p>Click to select file or drag and drop</p>
-                    <input type="file" id="file-input" style="display: none;" onchange="uploadFile()">
+                    <p>Click to select files or drag and drop (HAP/HSP files)</p>
+                    <input type="file" id="file-input" style="display: none;" multiple accept=".hap,.hsp" onchange="uploadFile()">
                 </div>
-                
-                <div class="form-group">
-                    <label for="file-type">File Type:</label>
-                    <select id="file-type">
-                        <option value="hap">HAP File</option>
-                        <option value="hsp">HSP File</option>
-                    </select>
-                </div>
+            </div>
+            
+            <div class="card">
+                <h2>Files List</h2>
+                <table class="table" id="files-table">
+                    <thead>
+                        <tr>
+                            <th>File Type</th>
+                            <th>File Name</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- Files will be loaded here -->
+                    </tbody>
+                </table>
             </div>
         </div>
     </div>
@@ -376,10 +383,6 @@
                 <div class="form-group">
                     <label for="version-release-date">Release Date:</label>
                     <input type="date" id="version-release-date">
-                </div>
-                <div class="form-group">
-                    <label for="version-size">Size (bytes):</label>
-                    <input type="number" id="version-size">
                 </div>
                 <div class="form-group">
                     <label for="version-deploy-path">Deploy Path:</label>
@@ -456,12 +459,101 @@
                         <td>${app.current_version || '-'}</td>
                         <td>
                             <button class="btn" onclick="editApp(${app.id})">Edit</button>
+                            <button class="btn btn-primary" onclick="goToVersions(${app.id})">Versions</button>
                             <button class="btn btn-danger" onclick="deleteApp(${app.id})">Delete</button>
                         </td>
                     `;
                 });
             } catch (error) {
                 showStatus('Error loading apps: ' + error.message, 'error');
+            }
+        }
+        
+        // Navigation functions
+        function goToVersions(appId) {
+            if (!appId) return;
+            
+            // Set the app select value
+            document.getElementById('app-select').value = appId;
+            currentAppId = appId;
+            
+            // Switch to versions tab
+            showTab('versions');
+            
+            // Load versions for this app
+            loadVersions();
+        }
+        
+        function goToFiles(versionId) {
+            if (!versionId) return;
+            
+            // Set the version select value
+            document.getElementById('version-select').value = versionId;
+            
+            // Switch to files tab
+            showTab('files');
+            
+            // Load files for this version
+            loadFiles(versionId);
+        }
+        
+        async function loadFiles(versionId) {
+            if (!versionId) return;
+            
+            try {
+                const response = await fetch(`${API_BASE}/versions/${versionId}/info`);
+                const data = await response.json();
+                
+                const tbody = document.querySelector('#files-table tbody');
+                tbody.innerHTML = '';
+                
+                if (data.files) {
+                    Object.entries(data.files).forEach(([fileType, fileName]) => {
+                        if (fileName) {  // Only show if file exists
+                            const row = tbody.insertRow();
+                            row.innerHTML = `
+                                <td>${fileType.toUpperCase()}</td>
+                                <td>${fileName}</td>
+                                <td>
+                                    <button class="btn btn-primary" onclick="downloadFile('${fileName}')">Download</button>
+                                    <button class="btn btn-danger" onclick="deleteFile('${versionId}', '${fileType}')">Delete</button>
+                                </td>
+                            `;
+                        }
+                    });
+                } else {
+                    showStatus('No files found for this version', 'warning');
+                }
+                
+            } catch (error) {
+                showStatus('Error loading files: ' + error.message, 'error');
+            }
+        }
+        
+        function downloadFile(fileName) {
+            window.open(`/files/${fileName}`, '_blank');
+        }
+        
+        async function deleteFile(versionId, fileType) {
+            if (!confirm(`Are you sure you want to delete this ${fileType} file?`)) return;
+            
+            try {
+                const response = await fetch(`${API_BASE}/versions/${versionId}/files/${fileType}`, {
+                    method: 'DELETE'
+                });
+                
+                if (response.ok) {
+                    showToast('File deleted successfully', 'success');
+                    loadFiles(versionId);  // Refresh the file list
+                    loadVersions();  // Refresh versions list to update file display
+                    loadStats();
+                } else {
+                    const error = await response.json();
+                    showStatus('Error deleting file: ' + error.error, 'error');
+                }
+                
+            } catch (error) {
+                showStatus('Error deleting file: ' + error.message, 'error');
             }
         }
         
@@ -490,6 +582,18 @@
             }
         }
         
+        // Add version select change event listener
+        document.getElementById('version-select').addEventListener('change', function() {
+            const versionId = this.value;
+            if (versionId) {
+                loadFiles(versionId);
+            } else {
+                // Clear files table
+                const tbody = document.querySelector('#files-table tbody');
+                tbody.innerHTML = '';
+            }
+        });
+        
         // Load versions for selected app
         async function loadVersions() {
             const appId = document.getElementById('app-select').value;
@@ -506,16 +610,16 @@
                 
                 data.versions.forEach(version => {
                     const row = tbody.insertRow();
-                    const files = version.files ? version.files.map(f => f.filename).join(', ') : '-';
+                    const files = version.files ? Object.values(version.files).join(', ') : '-';
                     
                     row.innerHTML = `
                         <td>${version.version}</td>
                         <td>${version.description || '-'}</td>
                         <td>${version.release_date || '-'}</td>
-                        <td>${version.size ? formatBytes(version.size) : '-'}</td>
                         <td>${files}</td>
                         <td>
                             <button class="btn" onclick="editVersion(${version.id})">Edit</button>
+                            <button class="btn btn-primary" onclick="goToFiles(${version.id})">Files</button>
                             <button class="btn btn-danger" onclick="deleteVersion(${version.id})">Delete</button>
                         </td>
                     `;
@@ -581,7 +685,7 @@
                 });
                 
                 if (response.ok) {
-                    showStatus('Application created successfully', 'success');
+                    showToast('Application created successfully', 'success');
                     closeModal('create-app-modal');
                     loadApps();
                     loadAppSelect();
@@ -603,7 +707,6 @@
                 version: document.getElementById('version-number').value,
                 description: document.getElementById('version-description').value,
                 release_date: document.getElementById('version-release-date').value,
-                size: parseInt(document.getElementById('version-size').value) || null,
                 deploy_path: document.getElementById('version-deploy-path').value,
                 set_as_current: document.getElementById('set-as-current').checked
             };
@@ -618,7 +721,7 @@
                 });
                 
                 if (response.ok) {
-                    showStatus('Version created successfully', 'success');
+                    showToast('Version created successfully', 'success');
                     closeModal('create-version-modal');
                     loadVersions();
                     loadStats();
@@ -636,7 +739,6 @@
         function uploadFile() {
             const fileInput = document.getElementById('file-input');
             const versionId = document.getElementById('version-select').value;
-            const fileType = document.getElementById('file-type').value;
             
             if (!versionId) {
                 showStatus('Please select a version first', 'error');
@@ -644,58 +746,72 @@
             }
             
             if (!fileInput.files.length) {
-                showStatus('Please select a file', 'error');
+                showStatus('Please select files', 'error');
                 return;
             }
             
-            const formData = new FormData();
-            formData.append('file', fileInput.files[0]);
-            formData.append('version_id', versionId);
-            formData.append('file_type', fileType);
+            // Validate file types
+            const validFiles = [];
+            const invalidFiles = [];
             
-            fetch(`${API_BASE}/upload`, {
-                method: 'POST',
-                body: formData
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.error) {
-                    showStatus('Error uploading file: ' + data.error, 'error');
+            Array.from(fileInput.files).forEach(file => {
+                const extension = file.name.toLowerCase().split('.').pop();
+                if (extension === 'hap' || extension === 'hsp') {
+                    validFiles.push(file);
                 } else {
-                    showStatus('File uploaded successfully', 'success');
-                    fileInput.value = '';
-                    loadVersions();
-                    loadStats();
+                    invalidFiles.push(file.name);
                 }
-            })
-            .catch(error => {
-                showStatus('Error uploading file: ' + error.message, 'error');
+            });
+            
+            if (invalidFiles.length > 0) {
+                showStatus(`Invalid files: ${invalidFiles.join(', ')}. Only HAP and HSP files are allowed.`, 'error');
+                return;
+            }
+            
+            if (validFiles.length === 0) {
+                showStatus('No valid HAP/HSP files found', 'error');
+                return;
+            }
+            
+            // Upload each file
+            let uploadedCount = 0;
+            let totalCount = validFiles.length;
+            
+            validFiles.forEach(file => {
+                const formData = new FormData();
+                formData.append('file', file);
+                formData.append('version_id', versionId);
+                
+                // Auto-detect file type from extension
+                const extension = file.name.toLowerCase().split('.').pop();
+                formData.append('file_type', extension);
+                
+                fetch(`${API_BASE}/upload`, {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) {
+                        showStatus(`Error uploading ${file.name}: ${data.error}`, 'error');
+                    } else {
+                        uploadedCount++;
+                        if (uploadedCount === totalCount) {
+                            showToast(`${uploadedCount} files uploaded successfully`, 'success');
+                            fileInput.value = '';
+                            loadFiles(versionId);  // Refresh file list
+                            loadVersions();  // Refresh versions list
+                            loadStats();
+                        }
+                    }
+                })
+                .catch(error => {
+                    showStatus(`Error uploading ${file.name}: ${error.message}`, 'error');
+                });
             });
         }
         
         // Delete functions
-        async function deleteApp(appId) {
-            if (!confirm('Are you sure you want to delete this application?')) return;
-            
-            try {
-                const response = await fetch(`${API_BASE}/apps/${appId}`, {
-                    method: 'DELETE'
-                });
-                
-                if (response.ok) {
-                    showStatus('Application deleted successfully', 'success');
-                    loadApps();
-                    loadAppSelect();
-                    loadStats();
-                } else {
-                    const error = await response.json();
-                    showStatus('Error deleting app: ' + error.error, 'error');
-                }
-            } catch (error) {
-                showStatus('Error deleting app: ' + error.message, 'error');
-            }
-        }
-        
         async function deleteVersion(versionId) {
             if (!confirm('Are you sure you want to delete this version?')) return;
             
@@ -705,7 +821,7 @@
                 });
                 
                 if (response.ok) {
-                    showStatus('Version deleted successfully', 'success');
+                    showToast('Version deleted successfully', 'success');
                     loadVersions();
                     loadStats();
                 } else {
@@ -719,22 +835,124 @@
         
         // Utility functions
         function showStatus(message, type) {
-            const statusDiv = document.getElementById('status-message');
-            statusDiv.className = `status ${type}`;
-            statusDiv.textContent = message;
-            statusDiv.style.display = 'block';
+            // Create toast element
+            const toast = document.createElement('div');
+            toast.className = `toast toast-${type}`;
+            toast.textContent = message;
             
+            // Add styles
+            toast.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                padding: 15px 20px;
+                border-radius: 8px;
+                color: white;
+                font-weight: 500;
+                z-index: 10000;
+                opacity: 0;
+                transform: translateX(100%);
+                transition: all 0.3s ease;
+                max-width: 300px;
+                word-wrap: break-word;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            `;
+            
+            // Set background color based on type
+            if (type === 'success') {
+                toast.style.backgroundColor = '#28a745';
+            } else if (type === 'error') {
+                toast.style.backgroundColor = '#dc3545';
+            } else if (type === 'warning') {
+                toast.style.backgroundColor = '#ffc107';
+                toast.style.color = '#212529';
+            } else {
+                toast.style.backgroundColor = '#17a2b8';
+            }
+            
+            // Add to body
+            document.body.appendChild(toast);
+            
+            // Animate in
             setTimeout(() => {
-                statusDiv.style.display = 'none';
-            }, 5000);
+                toast.style.opacity = '1';
+                toast.style.transform = 'translateX(0)';
+            }, 10);
+            
+            // Remove after delay
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transform = 'translateX(100%)';
+                setTimeout(() => {
+                    if (toast.parentNode) {
+                        toast.parentNode.removeChild(toast);
+                    }
+                }, 300);
+            }, 3000);
         }
         
-        function formatBytes(bytes) {
-            if (bytes === 0) return '0 Bytes';
-            const k = 1024;
-            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-            const i = Math.floor(Math.log(bytes) / Math.log(k));
-            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        // Toast notification function for important messages
+        function showToast(message, type = 'success') {
+            // Remove existing toast if any
+            const existingToast = document.querySelector('.toast');
+            if (existingToast) {
+                existingToast.remove();
+            }
+            
+            // Create toast element
+            const toast = document.createElement('div');
+            toast.className = `toast toast-${type}`;
+            toast.textContent = message;
+            
+            // Add styles
+            toast.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                padding: 15px 20px;
+                border-radius: 8px;
+                color: white;
+                font-weight: 500;
+                z-index: 10000;
+                opacity: 0;
+                transform: translateX(100%);
+                transition: all 0.3s ease;
+                max-width: 300px;
+                word-wrap: break-word;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            `;
+            
+            // Set background color based on type
+            if (type === 'success') {
+                toast.style.backgroundColor = '#28a745';
+            } else if (type === 'error') {
+                toast.style.backgroundColor = '#dc3545';
+            } else if (type === 'warning') {
+                toast.style.backgroundColor = '#ffc107';
+                toast.style.color = '#212529';
+            } else {
+                toast.style.backgroundColor = '#17a2b8';
+            }
+            
+            // Add to body
+            document.body.appendChild(toast);
+            
+            // Animate in
+            setTimeout(() => {
+                toast.style.opacity = '1';
+                toast.style.transform = 'translateX(0)';
+            }, 10);
+            
+            // Remove after delay
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transform = 'translateX(100%)';
+                setTimeout(() => {
+                    if (toast.parentNode) {
+                        toast.parentNode.removeChild(toast);
+                    }
+                }, 300);
+            }, 3000);
         }
         
         // Close modals when clicking outside

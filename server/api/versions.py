@@ -67,17 +67,13 @@ def init_versions_routes(app):
                 
                 # Create version
                 cursor = conn.execute("""
-                    INSERT INTO versions (app_id, version, description, release_date, size, 
-                                         hap_filename, hsp_filename, deploy_path)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    INSERT INTO versions (app_id, version, description, release_date, deploy_path)
+                    VALUES (?, ?, ?, ?, ?)
                 """, (
                     app_id,
                     data.get('version'),
                     data.get('description', ''),
                     data.get('release_date'),
-                    data.get('size'),
-                    data.get('hap_filename'),
-                    data.get('hsp_filename'),
                     data.get('deploy_path', '/data/local/tmp')
                 ))
                 version_id = cursor.lastrowid
@@ -114,16 +110,12 @@ def init_versions_routes(app):
                 # Update version
                 cursor = conn.execute("""
                     UPDATE versions 
-                    SET version = ?, description = ?, release_date = ?, size = ?, 
-                        hap_filename = ?, hsp_filename = ?, deploy_path = ?
+                    SET version = ?, description = ?, release_date = ?, deploy_path = ?
                     WHERE id = ?
                 """, (
                     data.get('version'),
                     data.get('description'),
                     data.get('release_date'),
-                    data.get('size'),
-                    data.get('hap_filename'),
-                    data.get('hsp_filename'),
                     data.get('deploy_path'),
                     version_id
                 ))
@@ -198,7 +190,6 @@ def init_versions_routes(app):
                     'version': version['version'],
                     'description': version['description'],
                     'release_date': version['release_date'],
-                    'size': version['size'],
                     'deploy_path': version['deploy_path'],
                     'files': files,
                     'bundle_name': version['bundle_name'],
@@ -207,5 +198,47 @@ def init_versions_routes(app):
                 
                 return jsonify(version_info)
                 
+        except Exception as e:
+            return jsonify({'error': str(e)}), 500
+    
+    @app.route('/api/versions/<int:version_id>/files/<file_type>', methods=['DELETE'])
+    def delete_version_file(version_id, file_type):
+        """Delete specific file type from a version"""
+        try:
+            with db.get_connection() as conn:
+                # Get version info
+                cursor = conn.execute("""
+                    SELECT v.*, a.name as app_name, a.bundle_name
+                    FROM versions v
+                    JOIN apps a ON v.app_id = a.id
+                    WHERE v.id = ?
+                """, (version_id,))
+                version_data = cursor.fetchone()
+
+                if not version_data:
+                    return jsonify({'error': 'Version not found'}), 404
+
+                # Get file info before deletion
+                cursor = conn.execute("SELECT filename FROM files WHERE version_id = ? AND file_type = ?", 
+                                   (version_id, file_type))
+                file_info = cursor.fetchone()
+                
+                if not file_info:
+                    return jsonify({'error': 'File not found'}), 404
+
+                # Delete file from disk
+                upload_dir = os.path.join('uploads', 'apps', str(version_data['app_id']), str(version_id))
+                file_path = os.path.join(upload_dir, file_info['filename'])
+                if os.path.exists(file_path):
+                    os.remove(file_path)
+
+                # Delete file record
+                cursor = conn.execute("DELETE FROM files WHERE version_id = ? AND file_type = ?", 
+                                   (version_id, file_type))
+                
+                conn.commit()
+
+                return jsonify({'message': f'{file_type} file deleted successfully'})
+
         except Exception as e:
             return jsonify({'error': str(e)}), 500

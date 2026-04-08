@@ -42,15 +42,23 @@ def init_files_routes(app):
                 file_path = os.path.join(upload_dir, filename)
                 file.save(file_path)
                 
-                # Update version record
-                if file_type == 'hap':
-                    conn.execute("UPDATE versions SET hap_filename = ? WHERE id = ?", 
-                               (filename, version_id))
-                else:
-                    conn.execute("UPDATE versions SET hsp_filename = ? WHERE id = ?", 
-                               (filename, version_id))
+                # Check if file of this type already exists and delete it
+                cursor = conn.execute("SELECT filename FROM files WHERE version_id = ? AND file_type = ?", 
+                                   (version_id, file_type))
+                existing_file = cursor.fetchone()
                 
-                # Insert file record
+                if existing_file:
+                    # Delete old file from disk
+                    old_filename = existing_file['filename']
+                    old_file_path = os.path.join(upload_dir, old_filename)
+                    if os.path.exists(old_file_path):
+                        os.remove(old_file_path)
+                    
+                    # Delete old file record
+                    conn.execute("DELETE FROM files WHERE version_id = ? AND file_type = ?", 
+                               (version_id, file_type))
+                
+                # Insert new file record
                 file_size = os.path.getsize(file_path)
                 cursor = conn.execute("""
                     INSERT INTO files (version_id, file_type, filename, file_path, file_size)
