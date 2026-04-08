@@ -1,167 +1,134 @@
-# 鸿蒙应用安装工具服务端
+# HarmonyOS Installer - Database Version
 
-提供应用管理、版本管理和文件下载功能的Flask服务端。
+## Overview
 
-## 🚀 快速开始
+这是数据库版本的HarmonyOS安装工具服务器，替代了原来的JSON文件存储方式。
 
-### 1. 安装依赖
+## Features
 
+- **SQLite数据库存储**：应用、版本和文件的统一管理
+- **RESTful API**：完整的CRUD操作
+- **Web管理界面**：直观的管理面板
+- **文件上传下载**：安全的文件管理
+- **向后兼容**：支持现有客户端
+
+## Quick Start
+
+### 1. 启动服务器
 ```bash
-# 方式1: 使用启动脚本（推荐）
-python start_server.py
-
-# 方式2: 手动安装
-pip install -r requirements.txt
 python app.py
 ```
 
-### 2. 启动服务器
+### 2. 访问管理界面
+打开浏览器访问：`http://localhost:5000/admin`
 
-```bash
-# 使用启动脚本
-python start_server.py
+### 3. 客户端使用
+客户端会自动适配新的API端点，无需修改配置。
 
-# 或直接运行
-python app.py
-```
+## API Endpoints
 
-服务器将在 `http://localhost:5000` 启动
+### 应用管理
+- `GET /api/apps` - 获取所有应用
+- `POST /api/apps` - 创建新应用
+- `PUT /api/apps/{id}` - 更新应用
+- `DELETE /api/apps/{id}` - 删除应用
 
-## 📋 API端点
+### 版本管理
+- `GET /api/apps/{app_id}/versions` - 获取应用版本
+- `POST /api/apps/{app_id}/versions` - 创建新版本
+- `PUT /api/versions/{id}` - 更新版本
+- `DELETE /api/versions/{id}` - 删除版本
 
-### API endpoints
-- `GET /apps` - Get application list
-- `GET /apps/{app_id}/versions` - Get application version list
-- `GET /apps/{app_id}/versions/{version}` - Get version details
-- `GET /files/{filename}` - Download file
-- `GET /files` - List files
-- `GET /health` - Health check
-- `GET /` - 服务信息
+### 文件管理
+- `POST /api/upload` - 上传文件
+- `GET /api/files/{id}` - 下载文件
+- `DELETE /api/files/{id}` - 删除文件
 
-## 📁 目录结构
+### 系统端点
+- `GET /health` - 健康检查
+- `GET /admin` - 管理界面
+- `GET /` - API文档
+
+## Project Structure
 
 ```
 server/
 ├── app.py              # 主应用文件
-├── start_server.py      # 启动脚本
-├── requirements.txt     # 依赖包
-├── apps.json          # 应用配置
-├── files/             # 文件存储
-│   ├── debug.hap
-│   └── tztzfnetwork-signed.hsp
-└── versions/          # 版本信息存储
-    └── com_ytzq_hmos/
-        └── 1.0.0/
-            └── version_info.json
+├── database/           # 数据库模块
+│   ├── __init__.py
+│   ├── database.py    # 数据库连接
+│   └── models.py      # 数据模型
+├── api/               # API接口
+│   ├── __init__.py
+│   ├── apps.py        # 应用API
+│   ├── versions.py    # 版本API
+│   └── files.py       # 文件API
+├── uploads/           # 文件存储
+├── database/          # 数据库文件
+├── admin.html         # 管理界面
+└── requirements.txt    # 依赖包
 ```
 
-## ⚙️ 配置说明
+## Database Schema
 
-### 应用配置 (apps.json)
-```json
-{
-  "apps": [
-    {
-      "id": "com.ytzq.hmos",
-      "name": "YTZQ鸿蒙应用",
-      "description": "YTZQ公司开发的鸿蒙应用",
-      "current_version": "1.0.0",
-      "main_ability": "com.ytzq.hmos.MainAbility",
-      "versions_dir": "versions/com_ytzq_hmos"
-    }
-  ]
-}
-```
+数据库包含三个主要表：
+- **apps** - 应用基本信息
+- **versions** - 版本信息
+- **files** - 文件管理
 
-### 版本信息 (version_info.json)
-```json
-{
-  "version": "1.0.0",
-  "description": "YTZQ鸿蒙应用 v1.0.0",
-  "release_date": "2024-01-01",
-  "size": "~10MB",
-  "files": {
-    "hap": "debug.hap",
-    "hsp": "tztzfnetwork-signed.hsp"
-  },
-  "changelog": [
-    "初始版本发布",
-    "支持鸿蒙OS 4.0+"
-  ]
-}
-```
+详细的表结构请参考 `database/database.py`。
 
-## 🔧 开发说明
+## Admin Panel
 
-### 添加新应用
-1. 在 `apps.json` 中添加应用信息
-2. 在 `versions/` 中创建对应的版本目录
-3. 添加版本信息和文件
+访问 `http://localhost:5000/admin` 可以：
+- 查看统计信息（应用、版本、文件数量）
+- 管理应用（创建、编辑、删除）
+- 管理版本（创建、编辑、删除）
+- 上传文件（HAP、HSP）
+- 实时数据更新
 
-### 添加新版本
-1. 在对应应用的版本目录中创建新版本目录
-2. 添加 `version_info.json` 文件
-3. 将HAP/HSP文件复制到 `files/` 目录
+## Migration from JSON Version
 
-### 文件上传
-将HAP、HSP等文件上传到 `files/` 目录，然后通过API提供下载。
+如果从JSON版本升级：
 
-## 🌐 客户端配置
-
-在客户端配置服务器地址：
-```
-服务器地址: http://127.0.0.1:5000
-```
-
-**重要提示**：不要添加 `/api` 前缀，客户端直接使用基地址。
-
-## 🛡️ 安全说明
-
-- 当前版本未启用身份验证
-- 建议在生产环境中添加API密钥验证
-- 文件下载建议添加访问控制
-
-## 📝 日志
-
-服务器运行时会输出详细的日志信息，包括：
-- API请求记录
-- 文件下载记录
-- 错误信息
-
-## 🔄 部署建议
-
-### 开发环境
+1. 运行数据迁移（如果需要）：
 ```bash
-python start_server.py
+python migrate.py
 ```
 
-### 生产环境
+2. 数据库会自动创建并导入现有数据
+
+## Requirements
+
 ```bash
-# 使用WSGI服务器
-pip install gunicorn
-gunicorn -w 4 -b 0.0.0.0:5000 app:app
-
-# 或使用Docker
-docker build -t harmony-server .
-docker run -p 5000:5000 harmony-server
+pip install -r requirements.txt
 ```
 
-## 🐛 故障排除
+## Development
 
-### 常见问题
+### 添加新功能
+1. 在 `database/models.py` 中定义数据模型
+2. 在相应的 `api/*.py` 文件中添加API端点
+3. 更新 `admin.html` 添加管理界面
 
-1. **端口被占用**
-   - 修改 `app.py` 中的端口号
-   - 或停止占用5000端口的其他服务
+### 数据库位置
+默认数据库文件：`server/database/harmony_installer.db`
 
-2. **文件不存在**
-   - 检查 `files/` 目录中是否有对应文件
-   - 确认文件名拼写正确
+### 文件存储位置
+默认上传目录：`server/uploads/apps/`
 
-3. **跨域问题**
-   - 已启用CORS支持
-   - 检查客户端请求地址是否正确
+## Troubleshooting
 
-### 调试模式
+### 数据库连接问题
+1. 确保Python有写入权限
+2. 检查数据库文件是否存在
+3. 重新启动服务器
 
-修改 `app.py` 中的 `Config.DEBUG` 为 `True` 启用调试模式。
+### 文件上传问题
+1. 检查uploads目录权限
+2. 验证文件大小限制
+3. 查看磁盘空间
+
+## License
+
+与原项目保持相同的许可证。

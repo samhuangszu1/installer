@@ -1,0 +1,748 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HarmonyOS Installer - Admin Panel</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f5f5f5;
+            color: #333;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .header {
+            background: #2196F3;
+            color: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        
+        .card {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .btn {
+            background: #2196F3;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        
+        .btn:hover {
+            background: #1976D2;
+        }
+        
+        .btn-danger {
+            background: #f44336;
+        }
+        
+        .btn-danger:hover {
+            background: #d32f2f;
+        }
+        
+        .form-group {
+            margin-bottom: 15px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        
+        input, textarea, select {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        
+        textarea {
+            height: 60px;
+            resize: vertical;
+        }
+        
+        .table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+        
+        .table th, .table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        
+        .table th {
+            background: #f8f9fa;
+            font-weight: bold;
+        }
+        
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+        }
+        
+        .modal-content {
+            background: white;
+            margin: 5% auto;
+            padding: 20px;
+            border-radius: 8px;
+            width: 80%;
+            max-width: 600px;
+        }
+        
+        .close {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        
+        .close:hover {
+            color: black;
+        }
+        
+        .tabs {
+            display: flex;
+            border-bottom: 1px solid #ddd;
+            margin-bottom: 20px;
+        }
+        
+        .tab {
+            padding: 10px 20px;
+            cursor: pointer;
+            border: none;
+            background: none;
+            font-size: 16px;
+        }
+        
+        .tab.active {
+            border-bottom: 2px solid #2196F3;
+            color: #2196F3;
+        }
+        
+        .tab-content {
+            display: none;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        .file-upload {
+            border: 2px dashed #ddd;
+            padding: 20px;
+            text-align: center;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        
+        .file-upload:hover {
+            border-color: #2196F3;
+        }
+        
+        .status {
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .stat-card {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .stat-number {
+            font-size: 36px;
+            font-weight: bold;
+            color: #2196F3;
+        }
+        
+        .stat-label {
+            color: #666;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>HarmonyOS Installer - Admin Panel</h1>
+            <p>Manage applications and versions</p>
+        </div>
+        
+        <div class="stats" id="stats">
+            <div class="stat-card">
+                <div class="stat-number" id="appCount">0</div>
+                <div class="stat-label">Applications</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="versionCount">0</div>
+                <div class="stat-label">Versions</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="fileCount">0</div>
+                <div class="stat-label">Files</div>
+            </div>
+        </div>
+        
+        <div class="tabs">
+            <button class="tab active" onclick="showTab('apps')">Applications</button>
+            <button class="tab" onclick="showTab('versions')">Versions</button>
+            <button class="tab" onclick="showTab('files')">Files</button>
+        </div>
+        
+        <!-- Applications Tab -->
+        <div id="apps-tab" class="tab-content active">
+            <div class="card">
+                <h2>Applications</h2>
+                <button class="btn" onclick="showCreateAppModal()">Create New App</button>
+                <button class="btn" onclick="loadApps()">Refresh</button>
+                
+                <table class="table" id="apps-table">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Bundle Name</th>
+                            <th>Main Ability</th>
+                            <th>Current Version</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- Apps will be loaded here -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        
+        <!-- Versions Tab -->
+        <div id="versions-tab" class="tab-content">
+            <div class="card">
+                <h2>Versions</h2>
+                <div class="form-group">
+                    <label for="app-select">Select Application:</label>
+                    <select id="app-select" onchange="loadVersions()">
+                        <option value="">Select an app...</option>
+                    </select>
+                </div>
+                <button class="btn" onclick="showCreateVersionModal()">Create New Version</button>
+                <button class="btn" onclick="loadVersions()">Refresh</button>
+                
+                <table class="table" id="versions-table">
+                    <thead>
+                        <tr>
+                            <th>Version</th>
+                            <th>Description</th>
+                            <th>Release Date</th>
+                            <th>Size</th>
+                            <th>Files</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- Versions will be loaded here -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        
+        <!-- Files Tab -->
+        <div id="files-tab" class="tab-content">
+            <div class="card">
+                <h2>File Upload</h2>
+                <div class="form-group">
+                    <label for="version-select">Select Version:</label>
+                    <select id="version-select">
+                        <option value="">Select a version...</option>
+                    </select>
+                </div>
+                
+                <div class="file-upload" onclick="document.getElementById('file-input').click()">
+                    <p>Click to select file or drag and drop</p>
+                    <input type="file" id="file-input" style="display: none;" onchange="uploadFile()">
+                </div>
+                
+                <div class="form-group">
+                    <label for="file-type">File Type:</label>
+                    <select id="file-type">
+                        <option value="hap">HAP File</option>
+                        <option value="hsp">HSP File</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Create App Modal -->
+    <div id="create-app-modal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal('create-app-modal')">&times;</span>
+            <h2>Create New Application</h2>
+            <form id="create-app-form">
+                <div class="form-group">
+                    <label for="app-name">Name:</label>
+                    <input type="text" id="app-name" required>
+                </div>
+                <div class="form-group">
+                    <label for="app-description">Description:</label>
+                    <textarea id="app-description"></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="app-bundle-name">Bundle Name:</label>
+                    <input type="text" id="app-bundle-name" required>
+                </div>
+                <div class="form-group">
+                    <label for="app-main-ability">Main Ability:</label>
+                    <input type="text" id="app-main-ability" required>
+                </div>
+                <div class="form-group">
+                    <label for="app-current-version">Current Version:</label>
+                    <input type="text" id="app-current-version">
+                </div>
+                <button type="submit" class="btn">Create App</button>
+                <button type="button" class="btn" onclick="closeModal('create-app-modal')">Cancel</button>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Create Version Modal -->
+    <div id="create-version-modal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal('create-version-modal')">&times;</span>
+            <h2>Create New Version</h2>
+            <form id="create-version-form">
+                <div class="form-group">
+                    <label for="version-number">Version:</label>
+                    <input type="text" id="version-number" required>
+                </div>
+                <div class="form-group">
+                    <label for="version-description">Description:</label>
+                    <textarea id="version-description"></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="version-release-date">Release Date:</label>
+                    <input type="date" id="version-release-date">
+                </div>
+                <div class="form-group">
+                    <label for="version-size">Size (bytes):</label>
+                    <input type="number" id="version-size">
+                </div>
+                <div class="form-group">
+                    <label for="version-deploy-path">Deploy Path:</label>
+                    <input type="text" id="version-deploy-path" value="/data/local/tmp">
+                </div>
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" id="set-as-current"> Set as current version
+                    </label>
+                </div>
+                <button type="submit" class="btn">Create Version</button>
+                <button type="button" class="btn" onclick="closeModal('create-version-modal')">Cancel</button>
+            </form>
+        </div>
+    </div>
+    
+    <div id="status-message"></div>
+    
+    <script>
+        const API_BASE = '/api';
+        let currentAppId = null;
+        
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            loadStats();
+            loadApps();
+            loadAppSelect();
+        });
+        
+        // Tab management
+        function showTab(tabName) {
+            // Hide all tabs
+            document.querySelectorAll('.tab-content').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            
+            // Show selected tab
+            document.getElementById(tabName + '-tab').classList.add('active');
+            event.target.classList.add('active');
+        }
+        
+        // Load statistics
+        async function loadStats() {
+            try {
+                const response = await fetch('/health');
+                const data = await response.json();
+                
+                document.getElementById('appCount').textContent = data.apps || 0;
+                document.getElementById('versionCount').textContent = data.versions || 0;
+                document.getElementById('fileCount').textContent = data.files || 0;
+            } catch (error) {
+                console.error('Error loading stats:', error);
+            }
+        }
+        
+        // Load applications
+        async function loadApps() {
+            try {
+                const response = await fetch(`${API_BASE}/apps`);
+                const data = await response.json();
+                
+                const tbody = document.querySelector('#apps-table tbody');
+                tbody.innerHTML = '';
+                
+                data.apps.forEach(app => {
+                    const row = tbody.insertRow();
+                    row.innerHTML = `
+                        <td>${app.name}</td>
+                        <td>${app.bundle_name}</td>
+                        <td>${app.main_ability}</td>
+                        <td>${app.current_version || '-'}</td>
+                        <td>
+                            <button class="btn" onclick="editApp(${app.id})">Edit</button>
+                            <button class="btn btn-danger" onclick="deleteApp(${app.id})">Delete</button>
+                        </td>
+                    `;
+                });
+            } catch (error) {
+                showStatus('Error loading apps: ' + error.message, 'error');
+            }
+        }
+        
+        // Load app select
+        async function loadAppSelect() {
+            try {
+                const response = await fetch(`${API_BASE}/apps`);
+                const data = await response.json();
+                
+                const select = document.getElementById('app-select');
+                select.innerHTML = '<option value="">Select an app...</option>';
+                
+                data.apps.forEach(app => {
+                    const option = document.createElement('option');
+                    option.value = app.id;
+                    option.textContent = `${app.name} (${app.bundle_name})`;
+                    select.appendChild(option);
+                });
+                
+                // Also load for version select
+                const versionSelect = document.getElementById('version-select');
+                versionSelect.innerHTML = '<option value="">Select a version...</option>';
+                
+            } catch (error) {
+                console.error('Error loading app select:', error);
+            }
+        }
+        
+        // Load versions for selected app
+        async function loadVersions() {
+            const appId = document.getElementById('app-select').value;
+            if (!appId) return;
+            
+            currentAppId = appId;
+            
+            try {
+                const response = await fetch(`${API_BASE}/apps/${appId}/versions`);
+                const data = await response.json();
+                
+                const tbody = document.querySelector('#versions-table tbody');
+                tbody.innerHTML = '';
+                
+                data.versions.forEach(version => {
+                    const row = tbody.insertRow();
+                    const files = version.files ? version.files.map(f => f.filename).join(', ') : '-';
+                    
+                    row.innerHTML = `
+                        <td>${version.version}</td>
+                        <td>${version.description || '-'}</td>
+                        <td>${version.release_date || '-'}</td>
+                        <td>${version.size ? formatBytes(version.size) : '-'}</td>
+                        <td>${files}</td>
+                        <td>
+                            <button class="btn" onclick="editVersion(${version.id})">Edit</button>
+                            <button class="btn btn-danger" onclick="deleteVersion(${version.id})">Delete</button>
+                        </td>
+                    `;
+                });
+                
+                // Update version select for file upload
+                updateVersionSelect(data.versions);
+                
+            } catch (error) {
+                showStatus('Error loading versions: ' + error.message, 'error');
+            }
+        }
+        
+        // Update version select
+        function updateVersionSelect(versions) {
+            const select = document.getElementById('version-select');
+            select.innerHTML = '<option value="">Select a version...</option>';
+            
+            versions.forEach(version => {
+                const option = document.createElement('option');
+                option.value = version.id;
+                option.textContent = `${version.version} - ${version.description || 'No description'}`;
+                select.appendChild(option);
+            });
+        }
+        
+        // Modal management
+        function showCreateAppModal() {
+            document.getElementById('create-app-modal').style.display = 'block';
+        }
+        
+        function showCreateVersionModal() {
+            if (!currentAppId) {
+                showStatus('Please select an application first', 'error');
+                return;
+            }
+            document.getElementById('create-version-modal').style.display = 'block';
+        }
+        
+        function closeModal(modalId) {
+            document.getElementById(modalId).style.display = 'none';
+        }
+        
+        // Form submissions
+        document.getElementById('create-app-form').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const formData = {
+                name: document.getElementById('app-name').value,
+                description: document.getElementById('app-description').value,
+                bundle_name: document.getElementById('app-bundle-name').value,
+                main_ability: document.getElementById('app-main-ability').value,
+                current_version: document.getElementById('app-current-version').value
+            };
+            
+            try {
+                const response = await fetch(`${API_BASE}/apps`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(formData)
+                });
+                
+                if (response.ok) {
+                    showStatus('Application created successfully', 'success');
+                    closeModal('create-app-modal');
+                    loadApps();
+                    loadAppSelect();
+                    loadStats();
+                    this.reset();
+                } else {
+                    const error = await response.json();
+                    showStatus('Error creating app: ' + error.error, 'error');
+                }
+            } catch (error) {
+                showStatus('Error creating app: ' + error.message, 'error');
+            }
+        });
+        
+        document.getElementById('create-version-form').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const formData = {
+                version: document.getElementById('version-number').value,
+                description: document.getElementById('version-description').value,
+                release_date: document.getElementById('version-release-date').value,
+                size: parseInt(document.getElementById('version-size').value) || null,
+                deploy_path: document.getElementById('version-deploy-path').value,
+                set_as_current: document.getElementById('set-as-current').checked
+            };
+            
+            try {
+                const response = await fetch(`${API_BASE}/apps/${currentAppId}/versions`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(formData)
+                });
+                
+                if (response.ok) {
+                    showStatus('Version created successfully', 'success');
+                    closeModal('create-version-modal');
+                    loadVersions();
+                    loadStats();
+                    this.reset();
+                } else {
+                    const error = await response.json();
+                    showStatus('Error creating version: ' + error.error, 'error');
+                }
+            } catch (error) {
+                showStatus('Error creating version: ' + error.message, 'error');
+            }
+        });
+        
+        // File upload
+        function uploadFile() {
+            const fileInput = document.getElementById('file-input');
+            const versionId = document.getElementById('version-select').value;
+            const fileType = document.getElementById('file-type').value;
+            
+            if (!versionId) {
+                showStatus('Please select a version first', 'error');
+                return;
+            }
+            
+            if (!fileInput.files.length) {
+                showStatus('Please select a file', 'error');
+                return;
+            }
+            
+            const formData = new FormData();
+            formData.append('file', fileInput.files[0]);
+            formData.append('version_id', versionId);
+            formData.append('file_type', fileType);
+            
+            fetch(`${API_BASE}/upload`, {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    showStatus('Error uploading file: ' + data.error, 'error');
+                } else {
+                    showStatus('File uploaded successfully', 'success');
+                    fileInput.value = '';
+                    loadVersions();
+                    loadStats();
+                }
+            })
+            .catch(error => {
+                showStatus('Error uploading file: ' + error.message, 'error');
+            });
+        }
+        
+        // Delete functions
+        async function deleteApp(appId) {
+            if (!confirm('Are you sure you want to delete this application?')) return;
+            
+            try {
+                const response = await fetch(`${API_BASE}/apps/${appId}`, {
+                    method: 'DELETE'
+                });
+                
+                if (response.ok) {
+                    showStatus('Application deleted successfully', 'success');
+                    loadApps();
+                    loadAppSelect();
+                    loadStats();
+                } else {
+                    const error = await response.json();
+                    showStatus('Error deleting app: ' + error.error, 'error');
+                }
+            } catch (error) {
+                showStatus('Error deleting app: ' + error.message, 'error');
+            }
+        }
+        
+        async function deleteVersion(versionId) {
+            if (!confirm('Are you sure you want to delete this version?')) return;
+            
+            try {
+                const response = await fetch(`${API_BASE}/versions/${versionId}`, {
+                    method: 'DELETE'
+                });
+                
+                if (response.ok) {
+                    showStatus('Version deleted successfully', 'success');
+                    loadVersions();
+                    loadStats();
+                } else {
+                    const error = await response.json();
+                    showStatus('Error deleting version: ' + error.error, 'error');
+                }
+            } catch (error) {
+                showStatus('Error deleting version: ' + error.message, 'error');
+            }
+        }
+        
+        // Utility functions
+        function showStatus(message, type) {
+            const statusDiv = document.getElementById('status-message');
+            statusDiv.className = `status ${type}`;
+            statusDiv.textContent = message;
+            statusDiv.style.display = 'block';
+            
+            setTimeout(() => {
+                statusDiv.style.display = 'none';
+            }, 5000);
+        }
+        
+        function formatBytes(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+        
+        // Close modals when clicking outside
+        window.onclick = function(event) {
+            if (event.target.classList.contains('modal')) {
+                event.target.style.display = 'none';
+            }
+        }
+    </script>
+</body>
+</html>

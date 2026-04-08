@@ -722,7 +722,7 @@ class ModernDesignInstaller:
         """从服务器加载应用配置"""
         try:
             # 从服务器获取应用列表
-            apps_url = f"{self.server_base_url}/apps"
+            apps_url = f"{self.server_base_url}/api/apps"
             self.log(f"🌐 获取应用列表: {apps_url}")
             
             response = requests.get(apps_url, timeout=10)
@@ -852,7 +852,7 @@ class ModernDesignInstaller:
         try:
             # 从服务器获取版本列表
             app_id = self.current_app['id']
-            versions_url = f"{self.server_base_url}/apps/{app_id}/versions"
+            versions_url = f"{self.server_base_url}/api/apps/{app_id}/versions"
             self.log(f"🌐 正在从服务器获取版本列表: {versions_url}")
             
             response = requests.get(versions_url, timeout=10)
@@ -1199,32 +1199,38 @@ class ModernDesignInstaller:
         finally:
             self.progress.stop()
             self.install_button.config(state='normal')
-            self.log("✅ 安装流程结束")
-    
     def get_version_info(self, version):
         """获取版本信息"""
         try:
-            # 尝试从服务器获取版本信息
+            # 首先获取所有版本，找到匹配的版本
             app_id = self.current_app['id']
-            version_url = f"{self.server_base_url}/apps/{app_id}/versions/{version}"
-            self.log(f"🌐 获取版本信息: {version_url}")
+            versions_url = f"{self.server_base_url}/api/apps/{app_id}/versions"
+            self.log(f"🌐 获取版本列表: {versions_url}")
             
-            response = requests.get(version_url, timeout=10)
+            response = requests.get(versions_url, timeout=10)
             if response.status_code == 200:
-                version_data = response.json()
-                self.log(f"&#x1d4cb; &#x670d;&#x52a1;&#x5668;&#x8fd4;&#x56de;&#x6570;&#x636e;&#x7c7b;&#x578b;: {type(version_data)}")
-                if isinstance(version_data, dict):
-                    self.log(f"&#x1d4cb; &#x6570;&#x636e;&#x952e;: {list(version_data.keys())}")
-                elif isinstance(version_data, list):
-                    self.log(f"&#x1d4cb; &#x5217;&#x8868;&#x957f;&#x5ea6;: {len(version_data)}")
-                    if len(version_data) > 0:
-                        self.log(f"&#x1d4cb; &#x7b2c;&#x4e00;&#x4e2a;&#x5143;&#x7d20;&#x7c7b;&#x578b;: {type(version_data[0])}")
-                return version_data
+                versions_data = response.json()
+                versions = versions_data.get('versions', [])
+                
+                # 找到匹配的版本
+                version_info = None
+                for v in versions:
+                    if v.get('version') == version:
+                        version_info = v
+                        break
+                
+                if version_info:
+                    self.log(f"📝 找到版本: {version_info.get('version')}")
+                    return version_info
+                else:
+                    self.log(f"❌ 未找到版本: {version}")
+                    return None
             else:
                 raise Exception(f"服务器响应错误: {response.status_code}")
                 
         except requests.exceptions.RequestException as e:
             return None
+
             
         except Exception as e:
             self.log(f"❌ 版本信息获取失败: {str(e)}")

@@ -1,0 +1,143 @@
+from flask import request, jsonify, send_file
+from database.database import db
+from werkzeug.utils import secure_filename
+import os
+import uuid
+
+def init_files_routes(app):
+    
+    @app.route('/api/upload', methods=['POST'])
+    def upload_file():
+        """Upload file"""
+        try:
+            if 'file' not in request.files:
+                return jsonify({'error': 'No file provided'}), 400
+            
+            file = request.files['file']
+            version_id = request.form.get('version_id')
+            file_type = request.form.get('file_type')  # 'hap' or 'hsp'
+            
+            if not version_id or not file_type:
+                return jsonify({'error': 'Missing version_id or file_type'}), 400
+            
+            if file_type not in ['hap', 'hsp']:
+                return jsonify({'error': 'Invalid file_type. Must be hap or hsp'}), 400
+            
+            if file.filename == '':
+                return jsonify({'error': 'No file selected'}), 400
+            
+            # Check if version exists
+            with db.get_connection() as conn:
+                cursor = conn.execute("SELECT * FROM versions WHERE id = ?", (version_id,))
+                version = cursor.fetchone()
+                if not version:
+                    return jsonify({'error': 'Version not found'}), 400
+                
+                # Create upload directory
+                upload_dir = os.path.join('uploads', 'apps', str(version['app_id']), version_id)
+                os.makedirs(upload_dir, exist_ok=True)
+                
+                # Save file
+                filename = secure_filename(file.filename)
+                file_path = os.path.join(upload_dir, filename)
+                file.save(file_path)
+                
+                # Update version record
+                if file_type == 'hap':
+                    conn.execute("UPDATE versions SET hap_filename = ? WHERE id = ?", 
+                               (filename, version_id))
+                else:
+                    conn.execute("UPDATE versions SET hsp_filename = ? WHERE id = ?", 
+                               (filename, version_id))
+                
+                # Insert file record
+                file_size = os.path.getsize(file_path)
+                cursor = conn.execute("""
+                    INSERT INTO files (version_id, file_type, filename, file_path, file_size)
+                    VALUES (?, ?, ?, ?, ?)
+                """, (version_id, file_type, filename, file_path, file_size))
+                
+                conn.commit()
+                
+                return jsonify({
+                    'message': 'File uploaded successfully',
+                    'filename': filename,
+                    'file_size': file_size,
+                    'file_id': cursor.lastrowid
+                })
+                
+        except Exception as e:
+            return jsonify({'error': str(e)}), 500
+    
+    @app.route('/api/files/<int:file_id>', methods=['GET'])
+    def download_file(file_id):
+        """Download file"""
+        try:
+            with db.get_connection() as conn:
+                cursor = conn.execute("SELECT * FROM files WHERE id = ?", (file_id,))
+                file_record = cursor.fetchone()
+                
+                if not file_record:
+                    return jsonify({'error': 'File not found'}), 404
+                
+                if not os.path.exists(file_record['file_path']):
+                    return jsonify({'error': 'File not found on disk'}), 404
+                
+                return send_file(
+                    file_record['file_path'],
+                    as_attachment=True,
+                    download_name=file_record['filename']
+                )
+                
+        except Exception as e:
+            return jsonify({'error': str(e)}), 500
+    
+    @app.route('/api/files/<int:file_id>', methods=['DELETE'])
+    def delete_file(file_id):
+        """Delete file"""
+        try:
+            with db.get_connection() as conn:
+                cursor = conn.execute("SELECT * FROM files WHERE id = ?", (file_id,))
+                file_record = cursor.fetchone()
+                
+                if not file_record:
+                    return jsonify({'error': 'File not found'}), 404
+                
+                # Delete file from disk
+                if os.path.exists(file_record['file_path']):
+                    os.remove(file_record['file_path'])
+                
+                # Delete from database
+                conn.execute("DELETE FROM files WHERE id = ?", (file_id,))
+                conn.commit()
+                
+                return jsonify({'message': 'File deleted successfully'})
+                
+        except Exception as e:
+            return jsonify({'error': str(e)}), 500
+    
+    @app.route('/api/versions/<int:version_id>/files/<file_type>/download', methods=['GET'])
+    def download_version_file(version_id, file_type):
+        """Download specific file for a version"""
+        try:
+            with db.get_connection() as conn:
+                cursor = conn.execute("""
+                    SELECT * FROM files 
+                    WHERE version_id = ? AND file_type = ?
+                """, (version_id, file_type))
+                file_record = cursor.fetchone()
+                
+                if not file_record:
+                    return jsonify({'error': 'File not found'}), 404
+                
+                if not os.path.exists(file_record['file_path']):
+                    return jsonify({'error': 'File not found on disk'}), 404
+                
+                return send_file(
+                    file_record['file_path'],
+                    as_attachment=True,
+                    download_name=file_record['filename']
+                )
+                
+        except Exception as e:
+            return jsonify({'error': str(e)}), 500
