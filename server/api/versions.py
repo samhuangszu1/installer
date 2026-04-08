@@ -26,9 +26,14 @@ def init_versions_routes(app):
                     
                     # Get files for this version
                     files_cursor = conn.execute("""
-                        SELECT * FROM files WHERE version_id = ?
+                        SELECT file_type, filename FROM files WHERE version_id = ?
                     """, (version_data['id'],))
-                    version_data['files'] = [dict(f) for f in files_cursor.fetchall()]
+                    
+                    files = {}
+                    for file_row in files_cursor.fetchall():
+                        files[file_row['file_type']] = file_row['filename']
+                    
+                    version_data['files'] = files
                     
                     versions.append(version_data)
                 
@@ -124,9 +129,22 @@ def init_versions_routes(app):
                 ))
                 conn.commit()
                 
-                # Return updated version
+                # Return updated version with files
                 cursor = conn.execute("SELECT * FROM versions WHERE id = ?", (version_id,))
                 version = dict(cursor.fetchone())
+                
+                # Get files for this version
+                files_cursor = conn.execute("""
+                    SELECT f.file_type, f.filename FROM files f
+                    JOIN versions v ON f.version_id = v.id
+                    WHERE v.id = ?
+                """, (version_id,))
+                
+                files = {}
+                for file_row in files_cursor.fetchall():
+                    files[file_row['file_type']] = file_row['filename']
+                
+                version['files'] = files
                 
                 return jsonify(version)
                 

@@ -1118,7 +1118,7 @@ class ModernDesignInstaller:
                 return
             
             # 获取本地文件路径
-            app_download_dir = os.path.join(self.download_dir, self.current_app['id'])
+            app_download_dir = os.path.join(self.download_dir, str(self.current_app['id']))
             hap_file = os.path.join(app_download_dir, version_info['files']['hap'])
             hsp_file = os.path.join(app_download_dir, version_info['files']['hsp'])
             
@@ -1217,6 +1217,13 @@ class ModernDesignInstaller:
                 for v in versions:
                     if v.get('version') == version:
                         version_info = v
+                        # 从版本信息中提取文件信息
+                        files = v.get('files', {})
+                        if not isinstance(files, dict):
+                            self.log(f"❌ 版本文件信息格式错误: 期望字典，实际收到 {type(files)}")
+                            messagebox.showerror("错误", f"版本文件信息格式错误: {type(files)}")
+                            return None
+                        version_info = v  # 使用整个版本信息
                         break
                 
                 if version_info:
@@ -1242,7 +1249,18 @@ class ModernDesignInstaller:
     def download_version_files(self, version_info, version):
         """下载版本文件"""
         try:
+            # 检查version_info是否为字典类型
+            if not isinstance(version_info, dict):
+                self.log(f"❌ 版本信息格式错误: 期望字典，实际收到 {type(version_info)}")
+                messagebox.showerror("错误", f"版本信息格式错误: {type(version_info)}")
+                return False
+            
             files = version_info.get('files', {})
+            if not isinstance(files, dict):
+                self.log(f"❌ 文件信息格式错误: 期望字典，实际收到 {type(files)}")
+                messagebox.showerror("错误", f"文件信息格式错误: {type(files)}")
+                return False
+                
             hap_filename = files.get('hap')
             hsp_filename = files.get('hsp')
             
@@ -1252,7 +1270,7 @@ class ModernDesignInstaller:
                 return False
             
             # 创建app_id对应的下载目录
-            app_download_dir = os.path.join(self.download_dir, self.current_app['id'])
+            app_download_dir = os.path.join(self.download_dir, str(self.current_app['id']))
             if not os.path.exists(app_download_dir):
                 os.makedirs(app_download_dir)
                 self.log(f"📁 创建应用下载目录: {app_download_dir}")
