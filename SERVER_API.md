@@ -2,21 +2,25 @@
 
 ## 概述
 
-鸿蒙应用安装工具服务器API提供应用和版本管理功能。
+这是数据库版本的HarmonyOS安装工具服务器API文档。
 
 ## 基础URL
 
 ```
-https://your-server.com/api
+http://localhost:5000/api
 ```
+
+## 认证
+
+目前版本不需要认证，所有端点都是公开的。
 
 ## API端点
 
-### 1. 获取应用列表
+### 应用管理
 
-**请求：**
-```
-GET /apps
+#### 获取所有应用
+```http
+GET /api/apps
 ```
 
 **响应：**
@@ -24,22 +28,52 @@ GET /apps
 {
   "apps": [
     {
-      "id": "com.example.app",
-      "name": "示例应用",
-      "description": "这是一个示例应用",
+      "id": 1,
+      "name": "YTZQ",
+      "description": "YTZQ",
+      "bundle_name": "com.ytzq.hmos",
+      "main_ability": "EntryAbility",
       "current_version": "1.0.0",
-      "bundle_name": "com.example.app",
-      "main_ability": "EntryAbility"
+      "created_at": "2026-04-08T06:17:06",
+      "updated_at": "2026-04-08T06:17:06"
     }
   ]
 }
 ```
 
-### 2. 获取应用版本列表
-
-**请求：**
+#### 创建应用
+```http
+POST /api/apps
+Content-Type: application/json
 ```
-GET /apps/{app_id}/versions
+
+**请求体：**
+```json
+{
+  "name": "App Name",
+  "description": "App Description",
+  "bundle_name": "com.example.app",
+  "main_ability": "EntryAbility",
+  "current_version": "1.0.0"
+}
+```
+
+#### 更新应用
+```http
+PUT /api/apps/{id}
+Content-Type: application/json
+```
+
+#### 删除应用
+```http
+DELETE /api/apps/{id}
+```
+
+### 版本管理
+
+#### 获取应用版本
+```http
+GET /api/apps/{app_id}/versions
 ```
 
 **响应：**
@@ -47,198 +81,290 @@ GET /apps/{app_id}/versions
 {
   "versions": [
     {
+      "id": 1,
+      "app_id": 1,
       "version": "1.0.0",
-      "release_date": "2024-04-07",
       "description": "初始版本发布",
-      "files": {
-        "hap": "debug.hap",
-        "hsp": "tztzfnetwork-signed.hsp"
-      },
-      "requirements": "鸿蒙系统 3.0+",
-      "changelog": [
-        "初始版本发布",
-        "基础功能实现"
-      ],
-      "deploy_path": "data/local/tmp/test123",
-      "size": "~15MB"
-    },
-    {
-      "version": "1.1.0",
-      "release_date": "2024-04-10",
-      "description": "功能更新版本",
-      "files": {
-        "hap": "debug-v1.1.0.hap",
-        "hsp": "tztzfnetwork-signed-v1.1.0.hsp"
-      },
-      "requirements": "鸿蒙系统 3.0+",
-      "changelog": [
-        "新增功能A",
-        "修复bug",
-        "性能优化"
-      ],
-      "deploy_path": "data/local/tmp/test123",
-      "size": "~18MB"
+      "release_date": "2024-04-03",
+      "size": null,
+      "hap_filename": "debug.hap",
+      "hsp_filename": "tztzfnetwork-signed.hsp",
+      "deploy_path": "/data/local/tmp",
+      "created_at": "2026-04-08T06:17:06",
+      "files": [
+        {
+          "id": 1,
+          "version_id": 1,
+          "file_type": "hap",
+          "filename": "debug.hap",
+          "file_path": "C:\\path\\to\\debug.hap",
+          "file_size": 109920232,
+          "upload_time": "2026-04-08T06:17:06"
+        },
+        {
+          "id": 2,
+          "version_id": 1,
+          "file_type": "hsp",
+          "filename": "tztzfnetwork-signed.hsp",
+          "file_path": "C:\\path\\to\\tztzfnetwork-signed.hsp",
+          "file_size": 11010581,
+          "upload_time": "2026-04-08T06:17:06"
+        }
+      ]
     }
   ]
 }
 ```
 
-### 3. 获取特定版本信息
-
-**请求：**
+#### 创建版本
+```http
+POST /api/apps/{app_id}/versions
+Content-Type: application/json
 ```
-GET /apps/{app_id}/versions/{version}
+
+**请求体：**
+```json
+{
+  "version": "1.0.1",
+  "description": "New version description",
+  "release_date": "2024-04-10",
+  "size": 15728640,
+  "deploy_path": "/data/local/tmp",
+  "set_as_current": true
+}
+```
+
+#### 获取版本信息（旧格式）
+```http
+GET /api/versions/{version_id}/info
 ```
 
 **响应：**
 ```json
 {
   "version": "1.0.0",
-  "release_date": "2024-04-07",
   "description": "初始版本发布",
+  "release_date": "2024-04-03",
+  "size": null,
+  "deploy_path": "/data/local/tmp",
   "files": {
     "hap": "debug.hap",
     "hsp": "tztzfnetwork-signed.hsp"
   },
-  "requirements": "鸿蒙系统 3.0+",
-  "changelog": [
-    "初始版本发布",
-    "基础功能实现"
-  ],
-  "deploy_path": "data/local/tmp/test123",
-  "size": "~15MB"
+  "bundle_name": "com.ytzq.hmos",
+  "main_ability": "EntryAbility"
 }
 ```
 
-### 4. 下载文件
+### 文件管理
 
-**请求：**
+#### 上传文件
+```http
+POST /api/upload
+Content-Type: multipart/form-data
 ```
-GET /files/{filename}
+
+**表单数据：**
+- `file`: 二进制文件数据
+- `version_id`: 目标版本ID
+- `file_type`: "hap" 或 "hsp"
+
+**响应：**
+```json
+{
+  "message": "File uploaded successfully",
+  "filename": "debug.hap",
+  "file_size": 109920232,
+  "file_id": 1
+}
+```
+
+#### 下载文件
+```http
+GET /api/files/{id}
+```
+
+#### 下载版本文件
+```http
+GET /api/versions/{version_id}/files/{file_type}/download
+```
+
+**参数：**
+- `version_id`: 版本ID
+- `file_type`: "hap" 或 "hsp"
+
+#### 删除文件
+```http
+DELETE /api/files/{id}
+```
+
+### 系统端点
+
+#### 健康检查
+```http
+GET /health
 ```
 
 **响应：**
-文件二进制数据
+```json
+{
+  "status": "healthy",
+  "database": "connected",
+  "apps": 1,
+  "versions": 1,
+  "files": 2
+}
+```
+
+#### API文档
+```http
+GET /
+```
+
+#### 管理面板
+```http
+GET /admin
+```
+
+返回Web管理界面。
 
 ## 错误处理
 
-所有API端点都应返回适当的HTTP状态码：
+所有端点返回适当的HTTP状态码：
 
-- `200 OK` - 请求成功
+- `200 OK` - 成功
+- `201 Created` - 资源创建成功
+- `400 Bad Request` - 无效输入数据
 - `404 Not Found` - 资源不存在
-- `500 Internal Server Error` - 服务器内部错误
+- `500 Internal Server Error` - 服务器错误
 
-错误响应格式：
+**错误响应格式：**
 ```json
 {
-  "error": "错误描述",
-  "code": "ERROR_CODE"
+  "error": "错误描述"
 }
 ```
 
-## 文件存储结构
+## 数据库架构
 
-建议的服务器文件存储结构：
-
-```
-/
-├── api/
-│   ├── apps.py          # 应用列表API
-│   ├── versions.py      # 版本列表API
-│   └── files.py         # 文件下载API
-├── files/
-│   ├── debug.hap
-│   ├── tztzfnetwork-signed.hsp
-│   ├── debug-v1.1.0.hap
-│   └── tztzfnetwork-signed-v1.1.0.hsp
-└── static/
-    └── ...
+### 应用表
+```sql
+CREATE TABLE apps (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name VARCHAR(255) NOT NULL,
+    description TEXT,
+    bundle_name VARCHAR(255) NOT NULL,
+    main_ability VARCHAR(255) NOT NULL,
+    current_version VARCHAR(50),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
 ```
 
-## 示例实现 (Flask)
-
-```python
-from flask import Flask, jsonify, send_file
-import os
-
-app = Flask(__name__)
-
-# 示例应用数据
-APPS_DATA = {
-    "apps": [
-        {
-            "id": "com.example.app",
-            "name": "示例应用",
-            "description": "这是一个示例应用",
-            "versions_dir": "versions/com_example_app",
-            "current_version": "1.0.0",
-            "bundle_name": "com.example.app",
-            "main_ability": "EntryAbility"
-        }
-    ]
-}
-
-# 示例版本数据
-VERSIONS_DATA = {
-    "com.example.app": {
-        "versions": [
-            {
-                "version": "1.0.0",
-                "release_date": "2024-04-07",
-                "description": "初始版本发布",
-                "files": {
-                    "hap": "debug.hap",
-                    "hsp": "tztzfnetwork-signed.hsp"
-                },
-                "requirements": "鸿蒙系统 3.0+",
-                "changelog": ["初始版本发布", "基础功能实现"],
-                "deploy_path": "data/local/tmp/test123",
-                "size": "~15MB"
-            }
-        ]
-    }
-}
-
-@app.route('/api/apps', methods=['GET'])
-def get_apps():
-    return jsonify(APPS_DATA)
-
-@app.route('/api/apps/<app_id>/versions', methods=['GET'])
-def get_versions(app_id):
-    if app_id in VERSIONS_DATA:
-        return jsonify(VERSIONS_DATA[app_id])
-    return jsonify({"error": "应用不存在"}), 404
-
-@app.route('/api/apps/<app_id>/versions/<version>', methods=['GET'])
-def get_version(app_id, version):
-    if app_id in VERSIONS_DATA:
-        for v in VERSIONS_DATA[app_id]["versions"]:
-            if v["version"] == version:
-                return jsonify(v)
-    return jsonify({"error": "版本不存在"}), 404
-
-@app.route('/api/files/<filename>', methods=['GET'])
-def download_file(filename):
-    file_path = os.path.join('files', filename)
-    if os.path.exists(file_path):
-        return send_file(file_path)
-    return jsonify({"error": "文件不存在"}), 404
-
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000)
+### 版本表
+```sql
+CREATE TABLE versions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    app_id INTEGER NOT NULL,
+    version VARCHAR(50) NOT NULL,
+    description TEXT,
+    release_date DATE,
+    size INTEGER,
+    hap_filename VARCHAR(255),
+    hsp_filename VARCHAR(255),
+    deploy_path VARCHAR(500) DEFAULT '/data/local/tmp',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (app_id) REFERENCES apps(id) ON DELETE CASCADE
+);
 ```
 
-## 部署说明
+### 文件表
+```sql
+CREATE TABLE files (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    version_id INTEGER NOT NULL,
+    file_type VARCHAR(20) NOT NULL CHECK (file_type IN ('hap', 'hsp')),
+    filename VARCHAR(255) NOT NULL,
+    file_path VARCHAR(500) NOT NULL,
+    file_size INTEGER,
+    upload_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (version_id) REFERENCES versions(id) ON DELETE CASCADE
+);
+```
 
-1. 将HAP和HSP文件放在服务器的`files/`目录下
-2. 配置应用和版本数据
-3. 启动API服务
-4. 在客户端配置服务器地址
+## 文件存储
 
-## 安全考虑
+文件存储在`uploads/apps/{app_id}/{version_id}/`目录结构中。
 
-- 实现文件访问权限控制
-- 添加API认证机制
-- 限制文件下载速度
-- 记录下载日志
-- 防止恶意文件访问
+## 管理界面
+
+访问Web管理面板`http://localhost:5000/admin`以：
+
+- 查看统计数据（应用、版本、文件数量）
+- 管理应用（创建、编辑、删除）
+- 管理版本（创建、编辑、删除）
+- 上传文件（支持拖放）
+- 实时数据更新
+
+## 从JSON版本迁移
+
+如果从旧的JSON版本升级：
+
+1. 运行迁移脚本：
+```bash
+python migrate.py
+```
+
+2. 脚本将：
+   - 读取现有的`apps.json`和版本文件
+   - 将它们转换为数据库格式
+   - 保留文件位置
+   - 显示迁移统计数据
+
+## 客户端兼容性
+
+数据库版本通过以下方式保持与现有客户端的兼容性：
+
+1. **相同的响应格式**用于核心功能
+2. **向后兼容的端点**在需要时
+3. **无缝迁移**无需客户端更改
+
+## 开发
+
+### 项目结构
+```
+server/
+├── app.py              # 主Flask应用
+├── database/           # 数据库模块
+│   ├── __init__.py
+│   ├── database.py    # 数据库连接
+│   └── models.py      # 数据模型
+├── api/               # API端点
+│   ├── __init__.py
+│   ├── apps.py        # 应用API
+│   ├── versions.py    # 版本API
+│   └── files.py       # 文件API
+├── uploads/           # 文件存储目录
+├── admin.html         # Web管理界面
+└── requirements.txt    # 依赖项
+```
+
+### 添加新功能
+
+1. 在`database/models.py`中定义数据模型
+2. 在相应的`api/*.py`文件中添加API端点
+3. 更新`admin.html`以进行UI更改
+4. 使用提供的示例进行测试
+
+## 安全性
+
+- **SQL注入防护**：所有查询使用参数化语句
+- **文件上传验证**：文件经过验证并存储安全
+- **输入验证**：所有输入在处理前经过验证
+- **文件访问控制**：文件通过安全端点提供
+
+## 性能
+
+- **数据库索引**：主键和外键已索引
+- **连接池**：SQLite高效处理连接
+- **文件存储**：考虑大型部署时使用云存储
