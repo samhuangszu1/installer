@@ -1,0 +1,13 @@
+{
+  "apps": [
+    {
+      "id": "com.ytzq.hmos",
+      "name": "YTZQ",
+      "description": "YTZQ",
+      "current_version": "1.0.0",
+      "bundle_name": "com.ytzq.hmos",
+      "main_ability": "EntryAbility",
+      "versions_dir": "versions/com_ytzq_hmos"
+    }
+  ]
+}
