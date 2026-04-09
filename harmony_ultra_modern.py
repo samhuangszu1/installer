@@ -21,13 +21,8 @@ from urllib.parse import urljoin
 class ModernDesignInstaller:
     def __init__(self, root):
         self.root = root
-        self.root.title("鸿蒙应用安装工具")
-        self.root.geometry("1400x900")
-        self.root.resizable(True, True)
-        self.root.configure(bg='#0F1419')
-        
-        # 移除默认边框
-        self.root.overrideredirect(False)
+        # Don't set title or configure here - it's already set in main()
+        # This prevents white screen flash during UI creation
         
         # 现代化颜色方案
         self.colors = {
@@ -73,6 +68,9 @@ class ModernDesignInstaller:
         # 创建界面
         self.create_modern_interface()
         
+        # 延迟检测HDC工具（确保UI完全加载）
+        self.root.after(100, self.detect_hdc_tool)
+        
         # 加载配置（现在log_text已经创建）
         self.load_local_settings()
         
@@ -84,28 +82,16 @@ class ModernDesignInstaller:
         if not self.check_initial_config():
             # 强制弹出配置界面
             self.log("⚠️ 配置不完整，请先配置服务器和下载目录")
-            result = messagebox.askyesno(
-                "配置向导",
-                "欢迎使用鸿蒙应用安装工具！\n\n检测到您还没有完成初始配置。\n\n是否现在打开配置界面？",
-                icon='question'
-            )
-            
-            if result:
-                self.configure_server()
-            else:
-                self.log("❌ 用户取消配置，程序退出")
-                self.root.quit()
+            # Delay the dialog to avoid white screen flicker
+            self.root.after(200, self.show_initial_config_dialog)
             return
         
         # 加载配置
         self.load_apps_config()
         
-        # 自动检测HDC工具
-        self.detect_hdc_tool()
-        
         # 添加窗口拖拽功能
         self.setup_window_drag()
-    
+        
     def setup_custom_styles(self):
         """设置自定义样式"""
         self.style = ttk.Style()
@@ -438,20 +424,18 @@ class ModernDesignInstaller:
         tree_frame.pack(fill=tk.BOTH, expand=True)
         
         # 创建树形视图
-        columns = ('version', 'date', 'size', 'action')
+        columns = ('version', 'date', 'action')
         tree = ttk.Treeview(tree_frame, columns=columns, show='tree headings', height=12)
         
         # 配置列
         tree.heading('#0', text='描述')
         tree.heading('version', text='版本')
         tree.heading('date', text='发布日期')
-        tree.heading('size', text='大小')
         tree.heading('action', text='操作')
         
         tree.column('#0', width=180)
         tree.column('version', width=100)
         tree.column('date', width=120)
-        tree.column('size', width=80)
         tree.column('action', width=80)
         
         # 设置样式
@@ -689,20 +673,62 @@ class ModernDesignInstaller:
         """停止拖拽"""
         pass
     
+    def show_initial_config_dialog(self):
+        """Show initial configuration dialog"""
+        result = messagebox.askyesno(
+            "配置向导",
+            "欢迎使用鸿蒙应用安装工具！\n\n检测到初始配置。\n\n是否现在打开配置界面？",
+            icon='question'
+        )
+        
+        if result:
+            self.configure_server()
+        else:
+            # User clicked "No", exit the application
+            self.log("User cancelled configuration, exiting application")
+            self.root.quit()
+    
     def log(self, message):
-        """添加日志信息"""
+        """Add log message"""
         timestamp = time.strftime("%H:%M:%S")
         formatted_message = f"[{timestamp}] {message}"
         self.log_text.insert(tk.END, formatted_message + "\n")
         self.log_text.see(tk.END)
-        self.root.update_idletasks()
         
-        # 更新状态栏
+        # Only update if window is visible to prevent flashing
+        if hasattr(self.root, '_window_visible') and self.root._window_visible:
+            self.root.update_idletasks()
+        
+        # Update status bar
         self.status_info.config(text=message)
     
     def clear_log(self):
-        """清除日志"""
+        """Clear log"""
         self.log_text.delete(1.0, tk.END)
+        self.log(" Console cleared")
+
+    def save_log(self):
+        """Save log"""
+        try:
+            filename = filedialog.asksaveasfilename(
+                defaultextension=".log",
+                filetypes=[("Log files", "*.log"), ("Text files", "*.txt"), ("All files", "*.*")]
+            )
+            if filename:
+                with open(filename, 'w', encoding='utf-8') as f:
+                    f.write(self.log_text.get(1.0, tk.END))
+                self.log(f" Log saved: {filename}")
+                messagebox.showinfo("Success", "Log saved successfully")
+        except Exception as e:
+            self.log(f" Save failed: {str(e)}")
+            messagebox.showerror("Error", f"Failed to save log: {str(e)}")
+
+
+        response = requests.get(apps_url, timeout=10)
+        if response.status_code == 200:
+            self.apps_config = response.json()
+            self.log(f" 已从服务器加载 {len(self.apps_config['apps'])} 个应用")
+            self.populate_app_list()
         self.log("🗑️ 控制台已清除")
     
     def save_log(self):
@@ -826,9 +852,33 @@ class ModernDesignInstaller:
         if index < len(self.apps_config['apps']):
             self.current_app = self.apps_config['apps'][index]
             self.log(f"📱 已选择: {self.current_app['name']}")
-            self.show_app_info()
             self.update_control_center()
             self.load_version_list()
+            # 延迟选择第一个版本，等待版本列表加载完成
+            self.root.after(500, self.select_first_version)
+    
+    def select_first_version(self):
+        """选择第一个版本并显示详情"""
+        if not hasattr(self, 'version_tree'):
+            return
+            
+        # 获取版本树中的所有项目
+        children = self.version_tree.get_children()
+        if children:
+            # 选择第一个版本
+            first_item = children[0]
+            self.version_tree.selection_set(first_item)
+            self.version_tree.see(first_item)
+            
+            # 获取版本信息并显示
+            version_values = self.version_tree.item(first_item, 'values')
+            if version_values:
+                version = version_values[0]  # 第一列是版本号
+                self.log(f"🎯 默认选择版本: {version}")
+                self.show_version_info(version)
+        else:
+            # 如果没有版本，显示应用基本信息
+            self.show_app_info()
     
     def show_app_info(self):
         """显示应用信息"""
@@ -845,30 +895,30 @@ class ModernDesignInstaller:
         self.app_info_text.insert(1.0, info)
     
     def show_version_info(self, version):
-        """Display version-specific info"""
+        """显示版本特定信息"""
         if not self.current_app or not version:
-            self.show_app_info()  # Fallback to app info
+            self.show_app_info()  # 回退到应用信息
             return
         
-        # Get version info
+        # 获取版本信息
         version_info = self.get_version_info(version)
         if not version_info:
-            self.show_app_info()  # Fallback to app info
+            self.show_app_info()  # 回退到应用信息
             return
         
-        # Build version-specific info
-        info = f"Application Name: {self.current_app['name']}\n"
-        info += f"Package Name: {self.current_app['bundle_name']}\n"
-        info += f"Description: {self.current_app['description']}\n"
-        info += f"Selected Version: {version}\n"
-        info += f"Release Date: {version_info.get('release_date', 'N/A')}\n"
-        info += f"Size: {version_info.get('size', 'N/A')}\n"
-        info += f"Main Ability: {self.current_app['main_ability']}\n"
+        # 构建版本特定信息
+        info = f"📱 应用名称: {self.current_app['name']}\n"
+        info += f"🆔 包名: {self.current_app.get('bundle_name', self.current_app.get('id', 'N/A'))}\n"
+        info += f"📝 描述: {self.current_app['description']}\n"
+        info += f"🏷️ 选中版本: {version}\n"
+        info += f"📅 发布日期: {version_info.get('release_date', 'N/A')}\n"
+        info += f"📏 文件大小: {version_info.get('size', 'N/A')}\n"
+        info += f"⚡ 主能力: {self.current_app['main_ability']}\n"
         
-        # Add file info if available
+        # 添加文件信息（如果可用）
         files = version_info.get('files', {})
         if isinstance(files, dict):
-            info += f"\nFiles:\n"
+            info += f"\n📁 文件信息:\n"
             info += f"  HAP: {files.get('hap', 'N/A')}\n"
             info += f"  HSP: {files.get('hsp', 'N/A')}\n"
         
@@ -937,11 +987,10 @@ class ModernDesignInstaller:
                     version = version_info.get('version', '')
                     description = version_info.get('description', '')
                     release_date = version_info.get('release_date', '')
-                    size = version_info.get('size', '~10MB')
                     status = '🚀'  # 可以根据版本状态显示不同图标
                     
                     self.version_tree.insert('', 'end', text=description,
-                                           values=(version, release_date, size, status),
+                                           values=(version, release_date, status),
                                            tags=(version,))
                 
                 self.log(f"📦 已从服务器加载 {len(versions)} 个版本")
@@ -959,66 +1008,101 @@ class ModernDesignInstaller:
     
     def detect_hdc_tool(self):
         """检测HDC工具"""
-        self.log("检测HDC工具...")
-        
-        system = platform.system()
-        arch = platform.machine()
-        
-        # Get application root directory (use sys._MEIPASS for packaged app)
-        if getattr(sys, 'frozen', False):
-            # Packaged application
-            base_path = sys._MEIPASS
-            self.log(f"运行在打包模式，基础路径: {base_path}")
-        else:
-            # Development environment
-            base_path = os.path.dirname(os.path.abspath(__file__))
-            self.log(f"运行在开发模式，基础路径: {base_path}")
-        
-        self.log(f"系统: {system}, 架构: {arch}")
-        
-        # List available HDC directories for debugging
-        hdc_dirs = ['hdc_win', 'hdc_arm', 'hdc_x86']
-        for hdc_dir in hdc_dirs:
-            hdc_full_path = os.path.join(base_path, hdc_dir)
-            if os.path.exists(hdc_full_path):
-                self.log(f"找到HDC目录: {hdc_full_path}")
-                files = os.listdir(hdc_full_path)
-                self.log(f"  {hdc_dir}目录中的文件: {files}")
+        try:
+            # 更新状态为检测中
+            if hasattr(self, 'status_text'):
+                self.status_text.config(text="HDC检测中...", fg=self.colors['text_secondary'])
+            if hasattr(self, 'status_indicator'):
+                self.update_status_indicator('warning')
+            
+            self.log("🔍 检测HDC工具...")
+            
+            system = platform.system()
+            arch = platform.machine()
+            
+            # Get application root directory (use sys._MEIPASS for packaged app)
+            if getattr(sys, 'frozen', False):
+                # Packaged application
+                base_path = sys._MEIPASS
+                self.log(f"📦 运行在打包模式，基础路径: {base_path}")
             else:
-                self.log(f"HDC目录未找到: {hdc_full_path}")
-        
-        if system == "Darwin":
-            if arch == "arm64":
-                self.hdc_path = os.path.join(base_path, "hdc_arm", "hdc")
+                # Development environment
+                base_path = os.path.dirname(os.path.abspath(__file__))
+                self.log(f"🛠️ 运行在开发模式，基础路径: {base_path}")
+            
+            self.log(f"💻 系统: {system}, 架构: {arch}")
+            
+            # 确定HDC路径
+            hdc_path = None
+            if system == "Darwin":
+                if arch == "arm64":
+                    hdc_path = os.path.join(base_path, "hdc_arm", "hdc")
+                else:
+                    hdc_path = os.path.join(base_path, "hdc_x86", "hdc_x86")
+            elif system == "Windows":
+                hdc_path = os.path.join(base_path, "hdc_win", "hdc_w.exe")
+            elif system == "Linux":
+                if arch == "aarch64":
+                    hdc_path = os.path.join(base_path, "hdc_arm", "hdc")
+                else:
+                    hdc_path = os.path.join(base_path, "hdc_x86", "hdc_x86")
+            
+            self.hdc_path = hdc_path
+            self.log(f"🎯 预期HDC路径: {self.hdc_path}")
+            
+            # 检查文件是否存在
+            if self.hdc_path and os.path.exists(self.hdc_path):
+                self.log(f"✅ HDC工具找到: {self.hdc_path}")
+                
+                # 测试HDC工具是否可用
+                try:
+                    result = subprocess.run([self.hdc_path, "--version"], 
+                                          capture_output=True, text=True, timeout=5)
+                    if result.returncode == 0:
+                        self.log(f"✅ HDC工具可用: {result.stdout.strip()}")
+                        if hasattr(self, 'status_text'):
+                            self.status_text.config(text="HDC已连接", fg=self.colors['bg_success'])
+                        if hasattr(self, 'status_indicator'):
+                            self.update_status_indicator('success')
+                        self.install_button.config(state='normal')
+                        self.uninstall_button.config(state='normal')
+                        self.get_udid_button.config(state='normal')
+                    else:
+                        raise Exception(f"HDC版本检查失败: {result.stderr}")
+                except subprocess.TimeoutExpired:
+                    self.log("⚠️ HDC工具响应超时，但文件存在")
+                    if hasattr(self, 'status_text'):
+                        self.status_text.config(text="HDC连接超时", fg=self.colors['bg_warning'])
+                    if hasattr(self, 'status_indicator'):
+                        self.update_status_indicator('warning')
+                    self.install_button.config(state='normal')
+                    self.uninstall_button.config(state='normal')
+                    self.get_udid_button.config(state='normal')
+                except Exception as e:
+                    self.log(f"❌ HDC工具测试失败: {str(e)}")
+                    if hasattr(self, 'status_text'):
+                        self.status_text.config(text="HDC不可用", fg=self.colors['bg_danger'])
+                    if hasattr(self, 'status_indicator'):
+                        self.update_status_indicator('danger')
+                    self.install_button.config(state='disabled')
+                    self.uninstall_button.config(state='disabled')
+                    self.get_udid_button.config(state='disabled')
             else:
-                self.hdc_path = os.path.join(base_path, "hdc_x86", "hdc_x86")
-        elif system == "Windows":
-            self.hdc_path = os.path.join(base_path, "hdc_win", "hdc_w.exe")
-        elif system == "Linux":
-            if arch == "aarch64":
-                self.hdc_path = os.path.join(base_path, "hdc_arm", "hdc")
-            else:
-                self.hdc_path = os.path.join(base_path, "hdc_x86", "hdc_x86")
-        else:
-            self.hdc_path = None
-        
-        self.log(f"预期HDC路径: {self.hdc_path}")
-        self.log(f"HDC文件存在: {os.path.exists(self.hdc_path) if self.hdc_path else '未设置路径'}")
-        
-        if self.hdc_path and os.path.exists(self.hdc_path):
-            self.status_text.config(text="HDC已连接", fg=self.colors['bg_success'])
-            self.update_status_indicator('success')
-            self.log(f"HDC工具就绪: {self.hdc_path}")
-            self.install_button.config(state='normal')
-            self.uninstall_button.config(state='normal')
-            self.get_udid_button.config(state='normal')
-        else:
-            self.status_text.config(text="HDC未连接", fg=self.colors['bg_danger'])
-            self.update_status_indicator('danger')
-            self.log(f"HDC工具未找到: {self.hdc_path}")
-            self.install_button.config(state='disabled')
-            self.uninstall_button.config(state='disabled')
-            self.get_udid_button.config(state='disabled')
+                self.log(f"❌ HDC工具未找到: {self.hdc_path}")
+                if hasattr(self, 'status_text'):
+                    self.status_text.config(text="HDC未连接", fg=self.colors['bg_danger'])
+                if hasattr(self, 'status_indicator'):
+                    self.update_status_indicator('danger')
+                self.install_button.config(state='disabled')
+                self.uninstall_button.config(state='disabled')
+                self.get_udid_button.config(state='disabled')
+                
+        except Exception as e:
+            self.log(f"❌ HDC检测异常: {str(e)}")
+            if hasattr(self, 'status_text'):
+                self.status_text.config(text="HDC检测失败", fg=self.colors['bg_danger'])
+            if hasattr(self, 'status_indicator'):
+                self.update_status_indicator('danger')
     
     def run_hdc_command(self, command, show_output=True):
         """执行HDC命令"""
@@ -1642,17 +1726,32 @@ class ModernDesignInstaller:
         if config_saved[0]:
             self.load_apps_config()
     
+
 def main():
+    # Create window with immediate dark theme
     root = tk.Tk()
-    app = ModernDesignInstaller(root)
+    root.title("HarmonyOS App Installer")
+    root.geometry("1400x900")
+    root.resizable(True, True)
     
-    # 设置窗口居中
+    # Set dark background immediately to prevent white flash
+    root.configure(bg='#0F1419')
+    
+    # Force update to ensure dark background is applied
     root.update_idletasks()
+    
+    # Center window on screen
     width = root.winfo_width()
     height = root.winfo_height()
     x = (root.winfo_screenwidth() // 2) - (width // 2)
     y = (root.winfo_screenheight() // 2) - (height // 2)
     root.geometry(f'{width}x{height}+{x}+{y}')
+    
+    # Create app (window is already dark)
+    app = ModernDesignInstaller(root)
+    
+    # Mark window as visible for log function
+    root._window_visible = True
     
     root.mainloop()
 

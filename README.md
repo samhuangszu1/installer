@@ -1,257 +1,236 @@
-# 鸿蒙应用多版本图形化安装工具
+# HarmonyOS App Installer - Modern GUI Tool
 
-这是一个为华为鸿蒙系统应用安装而设计的多版本图形化工具，解决了原始shell脚本在Windows系统上不便使用的问题，并支持多个应用和版本的管理。
+A modern graphical installer for Huawei HarmonyOS applications with multi-version support, server-based management, and Chinese localization.
 
-## 特性
+## Features
 
-- **多应用支持**: 支持管理多个鸿蒙应用
-- **版本管理**: 每个应用支持多个版本，可选择安装
-- **跨平台支持**: 支持Windows、macOS、Linux系统
-- **图形化界面**: 用户友好的GUI界面，一键操作
-- **自动检测**: 自动检测并选择合适的HDC工具
-- **实时日志**: 显示详细的操作过程和错误信息
-- **配置管理**: 支持编辑应用和版本配置
-- **多种功能**: 安装、卸载、获取设备UDID等
+- **Modern GUI Interface**: Beautiful and intuitive user interface with dark theme
+- **Multi-Application Support**: Manage multiple HarmonyOS applications
+- **Version Management**: Each application supports multiple versions with selection
+- **Server-Based Architecture**: Centralized server for application and version management
+- **Cross-Platform Support**: Windows, macOS, Linux compatibility
+- **Chinese Localization**: Full Chinese interface and messages
+- **Automatic HDC Detection**: Automatically detects and selects appropriate HDC tools
+- **Real-time Logging**: Detailed operation process and error information
+- **One-Click Installation**: Automated installation process with error handling
+- **Web Admin Panel**: Browser-based administration interface
 
-## 功能说明
+## Architecture
 
-### 主要功能
-1. **应用管理**: 管理多个鸿蒙应用，显示应用列表和详细信息
-2. **版本选择**: 每个应用显示可用版本列表，支持选择安装特定版本
-3. **安装应用**: 一键安装选定版本的鸿蒙应用到设备
-4. **卸载应用**: 安全卸载已安装的应用
-5. **获取UDID**: 获取连接设备的唯一标识符
-6. **状态检测**: 实时显示HDC工具状态
-7. **配置管理**: 编辑应用配置和版本信息
+### Client-Server Structure
+- **Client**: `harmony_ultra_modern.py` - Modern GUI application
+- **Server**: `server/` directory - Flask-based REST API server
+- **Admin Panel**: `server/admin.html` - Web-based management interface
 
-### 界面布局
-- **左侧**: 应用列表，显示所有可用的应用
-- **中间**: 版本列表，显示选中应用的所有可用版本
-- **右侧**: 控制面板，显示应用信息和操作按钮
-- **底部**: 操作日志，显示详细的操作过程和错误信息
+### Key Components
 
-### 自动化流程
-安装过程包含以下步骤：
-- 停止现有应用
-- 卸载旧版本
-- 清理部署路径
-- 上传HAP和HSP文件
-- 安装应用
-- 启动应用
+#### Client Features
+- Modern Tkinter GUI with dark theme
+- Application list and version selection
+- Real-time installation progress
+- Device status monitoring
+- Chinese localized interface
 
-## 使用方法
+#### Server Features
+- RESTful API for application management
+- File upload and version management
+- SQLite database for metadata
+- Web-based admin panel
+- File serving for client downloads
 
-### 方法一：直接运行Python脚本
+## Installation
+
+### Prerequisites
+- Python 3.7+
+- HDC tools (included in project)
+- Modern web browser for admin panel
+
+### Setup Server
 ```bash
-# Windows
-python harmony_multi_installer.py
-
-# macOS/Linux
-python3 harmony_multi_installer.py
+cd server
+pip install -r requirements.txt
+python app.py
 ```
 
-### 方法二：使用启动脚本
-```bash
-# Windows
-双击运行 run_multi_installer.bat
+The server will start on `http://localhost:5000`
 
-# macOS/Linux
-chmod +x run_multi_installer.sh
-./run_multi_installer.sh
+### Setup Client
+
+#### Method 1: Run Python Script
+```bash
+python harmony_ultra_modern.py
 ```
 
-### 方法三：打包成可执行文件（推荐）
+#### Method 2: Build Executable (Recommended)
 ```bash
-# 安装PyInstaller
 pip install pyinstaller
-
-# 打包成单个可执行文件
-pyinstaller --onefile --windowed --name="鸿蒙应用多版本安装工具" harmony_multi_installer.py
-
-# 打包完成后，在dist目录下找到可执行文件
+pyinstaller harmony_app_installer.spec
 ```
 
-## 配置文件结构
+The executable will be in `dist/HarmonyOSInstaller.exe`
 
-### 应用配置 (config/apps.json)
-```json
-{
-  "apps": [
-    {
-      "id": "com.ytzq.hmos",
-      "name": "天通智联网络应用",
-      "description": "天通智联网络鸿蒙应用",
-      "versions_dir": "versions/com_ytzq_hmos",
-      "current_version": "1.0.0",
-      "bundle_name": "com.ytzq.hmos",
-      "main_ability": "EntryAbility"
-    }
-  ]
-}
-```
+## Usage
 
-### 版本配置 (versions/{app_id}/{version}/version_info.json)
-```json
-{
-  "version": "1.0.0",
-  "release_date": "2024-04-03",
-  "description": "初始版本发布",
-  "files": {
-    "hap": "debug.hap",
-    "hsp": "tztzfnetwork-signed.hsp"
-  },
-  "requirements": "鸿蒙系统 3.0+",
-  "changelog": ["初始版本发布"],
-  "deploy_path": "data/local/tmp/test123"
-}
-```
+### Using the GUI Client
+1. **Start the Client**: Run `HarmonyOSInstaller.exe` or Python script
+2. **Configure Server**: Set server URL in configuration
+3. **Connect Device**: Connect HarmonyOS device via USB with developer mode
+4. **Select Application**: Choose from application list
+5. **Select Version**: Choose specific version to install
+6. **Install**: Click "Install Selected Version" button
+7. **Monitor Progress**: Watch real-time installation logs
 
-## 系统要求
+### Using the Web Admin Panel
+1. **Access Admin Panel**: Open `http://localhost:5000/admin.html`
+2. **Manage Applications**: Add/edit applications
+3. **Upload Versions**: Upload HAP/HSP files
+4. **Configure Settings**: Manage server configuration
 
-- Python 3.6 或更高版本
-- tkinter模块（通常随Python一起安装）
-- HDC工具（已包含在项目中）
-
-## 文件结构
+## Project Structure
 
 ```
 harmony_test_pkg/
-├── harmony_multi_installer.py    # 主程序文件
-├── run_multi_installer.bat      # Windows启动脚本
-├── run_multi_installer.sh       # macOS/Linux启动脚本
-├── requirements.txt              # 依赖文件
-├── config/                      # 配置文件目录
-│   └── apps.json               # 应用配置文件
-├── versions/                    # 版本文件目录
-│   ├── com_ytzq_hmos/         # 应用版本目录
-│   │   ├── 1.0.0/             # 版本1.0.0
-│   │   │   ├── version_info.json
-│   │   │   ├── debug.hap
-│   │   │   └── tztzfnetwork-signed.hsp
-│   │   └── 1.1.0/             # 版本1.1.0
-│   │       └── version_info.json
-│   ├── com_example_demo/       # 另一个应用
-│   │   └── 1.0.0/
-│   │       └── version_info.json
-│   └── com_test_app/           # 第三个应用
-│       └── 1.0.0/
-│           └── version_info.json
-├── install.sh                   # 原始shell脚本
-├── debug.hap                    # 原始HAP文件
-├── tztzfnetwork-signed.hsp     # 原始HSP文件
-├── hdc_arm/                     # ARM架构HDC工具
-├── hdc_win/                     # Windows HDC工具
-└── hdc_x86/                     # x86架构HDC工具
+|   harmony_ultra_modern.py      # Main GUI client
+|   HarmonyOSInstaller.exe      # Compiled executable
+|   harmony_app_installer.spec   # PyInstaller specification
+|   README.md                    # This file
+|   .gitignore                   # Git ignore file
+|   
++---server/                      # Server directory
+|   |   app.py                   # Flask server application
+|   |   admin.html               # Web admin panel
+|   |   requirements.txt         # Server dependencies
+|   |   .gitignore               # Server git ignore
+|   |   README.md                # Server documentation
+|   |   
+|   +---api/                     # API endpoints
+|   |   |   apps.py               # Application management API
+|   |   |   files.py              # File upload/download API
+|   |   |   versions.py           # Version management API
+|   |   |   __init__.py           # API initialization
+|   |   
+|   +---database/                # Database components
+|   |   |   models.py             # Database models
+|   |   |   __init__.py           # Database initialization
+|   |   
+|   +---files/                   # File storage
+|   +---uploads/                  # Upload directory
+|   +---versions/                # Version files storage
+|   
++---hdc_arm/                     # ARM architecture HDC tools
++---hdc_win/                     # Windows HDC tools  
++---hdc_x86/                     # x86 architecture HDC tools
++---build/                       # PyInstaller build files
++---dist/                        # Distribution directory
 ```
 
-## 使用说明
+## API Endpoints
 
-1. **确保设备连接**: 使用USB连接鸿蒙设备，并开启开发者模式
-2. **启动工具**: 运行多版本安装工具
-3. **检查状态**: 确认HDC工具状态显示为"已找到"
-4. **选择应用**: 在左侧应用列表中选择要安装的应用
-5. **选择版本**: 在中间版本列表中选择要安装的版本
-6. **点击安装**: 点击"安装选中版本"按钮开始安装
-7. **查看日志**: 在底部日志区域查看详细安装过程
+### Application Management
+- `GET /api/apps` - List all applications
+- `POST /api/apps` - Create new application
+- `PUT /api/apps/{id}` - Update application
+- `DELETE /api/apps/{id}` - Delete application
 
-## 添加新应用
+### Version Management
+- `GET /api/apps/{id}/versions` - List application versions
+- `POST /api/apps/{id}/versions` - Create new version
+- `PUT /api/apps/{id}/versions/{version}` - Update version
+- `DELETE /api/apps/{id}/versions/{version}` - Delete version
 
-### 1. 编辑应用配置
-打开 `config/apps.json`，添加新的应用信息：
+### File Management
+- `GET /api/files/download/{app_id}/{version}/{filename}` - Download file
+- `POST /api/files/upload` - Upload files
 
-```json
-{
-  "id": "com.newapp.example",
-  "name": "新应用名称",
-  "description": "新应用描述",
-  "versions_dir": "versions/com_newapp_example",
-  "current_version": "1.0.0",
-  "bundle_name": "com.newapp.example",
-  "main_ability": "EntryAbility"
-}
-```
+## Installation Process
 
-### 2. 创建版本目录和文件
-```bash
-# 创建版本目录
-mkdir -p versions/com_newapp_example/1.0.0
+The automated installation process includes:
+1. **Stop Application**: `shell aa force-stop {bundle_name}`
+2. **Uninstall Old Version**: `shell bm uninstall -n {bundle_name} -k`
+3. **Upload HSP**: `file send {hsp_file} {deploy_path}`
+4. **Upload HAP**: `file send {hap_file} {deploy_path}`
+5. **Install HSP**: `shell bm install -p {deploy_path}/{hsp_file}`
+6. **Install HAP**: `shell bm install -p {deploy_path}/{hap_file}`
+7. **Start Application**: `shell aa start -a {main_ability} -b {bundle_name} -m entry`
 
-# 复制HAP和HSP文件
-cp your_app.hap versions/com_newapp_example/1.0.0/
-cp your_shared.hsp versions/com_newapp_example/1.0.0/
+## Configuration
 
-# 创建版本信息文件
-```
+### Client Configuration
+- Server URL configuration
+- Download directory settings
+- HDC tool path detection
+- Language settings (Chinese/English)
 
-### 3. 创建版本信息文件
-在 `versions/com_newapp_example/1.0.0/version_info.json` 中添加：
+### Server Configuration
+- Database settings
+- File storage paths
+- Upload limits
+- API endpoints
 
-```json
-{
-  "version": "1.0.0",
-  "release_date": "2024-04-03",
-  "description": "新应用初始版本",
-  "files": {
-    "hap": "your_app.hap",
-    "hsp": "your_shared.hsp"
-  },
-  "requirements": "鸿蒙系统 3.0+",
-  "changelog": ["新应用发布"],
-  "deploy_path": "data/local/tmp/newapp"
-}
-```
+## Troubleshooting
 
-## 故障排除
+### HDC Tool Issues
+- Ensure HDC tools are in correct directories
+- Check device connection and USB debugging
+- Verify developer mode is enabled
 
-### HDC工具未找到
-- 确保在包含HDC工具的目录中运行此工具
-- 检查hdc_arm、hdc_win、hdc_x86目录是否存在
+### Server Issues
+- Check Flask server is running
+- Verify database permissions
+- Ensure file directories exist
 
-### 设备连接问题
-- 确保USB线缆连接正常
-- 检查设备是否开启开发者模式和USB调试
-- 尝试重新连接设备
+### Installation Issues
+- Check device storage space
+- Verify HAP/HSP file integrity
+- Review error logs in client
 
-### 安装失败
-- 查看日志区域的错误信息
-- 确保debug.hap和tztzfnetwork-signed.hsp文件存在
-- 检查设备存储空间是否充足
+## Recent Updates
 
-## 技术细节
+### v3.0 (Latest)
+- **Modern GUI**: Complete interface redesign with dark theme
+- **Chinese Localization**: Full Chinese interface support
+- **Server Architecture**: Client-server architecture with REST API
+- **Web Admin Panel**: Browser-based management interface
+- **Version Selection**: Dynamic version information display
+- **Error Handling**: Improved error handling and user feedback
+- **Installation Optimization**: Fixed installation order and path issues
 
-### HDC工具选择逻辑
-- **macOS ARM64**: 使用hdc_arm/hdc
-- **macOS x86**: 使用hdc_x86/hdc_x86
-- **Windows**: 使用hdc_win/hdc_w.exe
-- **Linux ARM64**: 使用hdc_arm/hdc
-- **Linux x86**: 使用hdc_x86/hdc_x86
+### v2.0
+- Multi-application support
+- Version management features
+- Improved interface layout
+- Configuration file management
 
-### 应用配置
-- **包名**: com.ytzq.hmos
-- **主能力**: EntryAbility
-- **部署路径**: data/local/tmp/test123
+### v1.0
+- Initial GUI release
+- Cross-platform HDC detection
+- Real-time logging
+- Basic installation features
 
-## 更新日志
+## Requirements
 
-### v2.0 (2024-04-03)
-- 新增多应用支持
-- 新增版本管理功能
-- 重新设计界面布局
-- 添加配置文件管理
-- 支持应用列表和版本列表显示
-- 改进用户体验
+### System Requirements
+- Python 3.7+
+- 4GB+ RAM
+- 100MB+ disk space
+- USB connection for device
 
-### v1.0 (2024-04-03)
-- 初始版本发布
-- 支持图形化安装
-- 跨平台HDC工具检测
-- 实时日志显示
-- 错误处理机制
+### Dependencies
+- **Client**: tkinter, requests, subprocess
+- **Server**: Flask, SQLite3, Werkzeug
 
-## 许可证
+## License
 
-本工具基于MIT许可证开源，可自由使用和修改。
+MIT License - Free to use and modify
 
-## 联系方式
+## Support
 
-如有问题或建议，请联系开发团队。
+For issues and support:
+1. Check troubleshooting section
+2. Review error logs
+3. Verify server connection
+4. Check device compatibility
+
+---
+
+**Note**: This tool is designed specifically for Huawei HarmonyOS application development and testing. Ensure proper development environment setup before use.
