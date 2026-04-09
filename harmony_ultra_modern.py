@@ -26,18 +26,18 @@ class ModernDesignInstaller:
         
         # 现代化颜色方案
         self.colors = {
-            'bg_primary': '#0F1419',      # 深色背景
-            'bg_secondary': '#192734',    # 次要背景
-            'bg_card': '#1C2938',        # 卡片背景
-            'bg_accent': '#1DA1F2',      # 主色调 - 蓝色
-            'bg_success': '#17BF63',     # 成功色 - 绿色
-            'bg_warning': '#FFAD1E',     # 警告色 - 黄色
-            'bg_danger': '#E0245E',      # 危险色 - 红色
+            'bg_primary': '#0B0F13',     # 更深邃的主背景
+            'bg_secondary': '#15191C',   # 导航栏背景
+            'bg_card': '#1C2126',        # 卡片背景
+            'bg_accent': '#1DA1F2',      # 品牌蓝
+            'bg_success': '#00BA7C',     # 成功绿 (更清爽)
+            'bg_warning': '#F7931A',     # 警告橙
+            'bg_danger': '#F4212E',      # 错误红 (高饱和)
             'text_primary': '#E7E9EA',   # 主要文字
-            'text_secondary': '#8B98A5', # 次要文字
+            'text_secondary': '#71767B', # 次要文字
             'text_muted': '#536471',     # 静音文字
             'border': '#2F3336',         # 边框色
-            'hover': '#1A8CD8',         # 悬停色
+            'hover': '#1A8CD8',          # 悬停色
             'shadow': '#000000'          # 阴影色
         }
         
@@ -139,6 +139,50 @@ class ModernDesignInstaller:
                            borderwidth=0,
                            lightcolor=self.colors['bg_accent'],
                            darkcolor=self.colors['bg_accent'])
+        
+        # Treeview 样式优化
+        self.style.configure('Modern.Treeview',
+                           background=self.colors['bg_card'],
+                           foreground=self.colors['text_primary'],
+                           fieldbackground=self.colors['bg_card'],
+                           rowheight=35,
+                           font=self.fonts['body'],
+                           borderwidth=0,
+                           relief='flat')
+        self.style.map('Modern.Treeview',
+                      background=[('selected', self.colors['bg_accent'])],
+                      foreground=[('selected', 'white')])
+        
+        self.style.configure('Modern.Treeview.Heading',
+                           background=self.colors['bg_secondary'],
+                           foreground=self.colors['text_primary'],
+                           font=self.fonts['heading'],
+                           padding=(10, 8),
+                           borderwidth=0,
+                           relief='flat')
+
+        # 进一步降低原生边框/分隔线存在感
+        self.style.configure('Modern.Treeview',
+                           bordercolor=self.colors['bg_card'],
+                           lightcolor=self.colors['bg_card'],
+                           darkcolor=self.colors['bg_card'])
+        self.style.map('Modern.Treeview.Heading',
+                      background=[('active', self.colors['bg_secondary'])],
+                      foreground=[('active', self.colors['text_primary'])])
+        
+        # 滚动条样式
+        self.style.configure('Modern.Vertical.TScrollbar',
+                           background=self.colors['border'],
+                           troughcolor=self.colors['bg_card'],
+                           bordercolor=self.colors['bg_card'],
+                           lightcolor=self.colors['border'],
+                           darkcolor=self.colors['border'],
+                           arrowcolor=self.colors['text_secondary'],
+                           borderwidth=0,
+                           arrowsize=12)
+        self.style.map('Modern.Vertical.TScrollbar',
+                      background=[('active', self.colors['border']), ('pressed', self.colors['border'])],
+                      arrowcolor=[('active', self.colors['text_secondary']), ('pressed', self.colors['text_secondary'])])
     
     def create_modern_interface(self):
         """创建现代化界面"""
@@ -151,7 +195,7 @@ class ModernDesignInstaller:
         
         # 创建主要内容区域
         content_container = tk.Frame(self.main_frame, bg=self.colors['bg_primary'])
-        content_container.pack(fill=tk.BOTH, expand=True, padx=20, pady=(0, 20))
+        content_container.pack(fill=tk.BOTH, expand=True, padx=20, pady=(20, 20))
         
         # 创建工作区域
         self.create_workspace(content_container)
@@ -324,9 +368,9 @@ class ModernDesignInstaller:
         grid_container.pack(fill=tk.BOTH, expand=True)
         
         # 配置网格权重
-        grid_container.grid_columnconfigure(0, weight=1)
-        grid_container.grid_columnconfigure(1, weight=1)
-        grid_container.grid_columnconfigure(2, weight=1)
+        grid_container.grid_columnconfigure(0, weight=10)
+        grid_container.grid_columnconfigure(1, weight=21)
+        grid_container.grid_columnconfigure(2, weight=10)
         grid_container.grid_rowconfigure(0, weight=1)
         grid_container.grid_rowconfigure(1, weight=1)
         
@@ -343,11 +387,11 @@ class ModernDesignInstaller:
         
         # 面板头部
         header = self.create_panel_header(panel, "📱 应用列表", self.colors['bg_accent'])
-        header.pack(fill=tk.X, padx=(15, 15), pady=(15, 0))
+        header.pack(fill=tk.X, padx=(15, 15), pady=(15, 10))
         
         # 应用列表容器
         list_container = tk.Frame(panel, bg=self.colors['bg_card'])
-        list_container.pack(fill=tk.BOTH, expand=True, padx=15, pady=(10, 15))
+        list_container.pack(fill=tk.BOTH, expand=True, padx=15, pady=(0, 15))
         
         # 创建现代化列表框
         self.app_listbox = self.create_modern_listbox(list_container)
@@ -363,11 +407,11 @@ class ModernDesignInstaller:
         
         # 面板头部
         header = self.create_panel_header(panel, "📦 版本管理", self.colors['bg_success'])
-        header.pack(fill=tk.X, padx=(15, 15), pady=(15, 0))
+        header.pack(fill=tk.X, padx=(15, 15), pady=(15, 10))
         
         # 版本列表容器
         list_container = tk.Frame(panel, bg=self.colors['bg_card'])
-        list_container.pack(fill=tk.BOTH, expand=True, padx=15, pady=(10, 15))
+        list_container.pack(fill=tk.BOTH, expand=True, padx=15, pady=(0, 15))
         
         # 创建现代化树形视图
         self.version_tree = self.create_modern_treeview(list_container)
@@ -383,11 +427,11 @@ class ModernDesignInstaller:
         
         # 面板头部
         header = self.create_panel_header(panel, "⚙️ 控制中心", self.colors['bg_warning'])
-        header.pack(fill=tk.X, padx=(15, 15), pady=(15, 0))
+        header.pack(fill=tk.X, padx=(15, 15), pady=(15, 10))
         
         # 控制面板内容
         content = tk.Frame(panel, bg=self.colors['bg_card'])
-        content.pack(fill=tk.BOTH, expand=True, padx=15, pady=(10, 15))
+        content.pack(fill=tk.BOTH, expand=True, padx=15, pady=(0, 15))
         
         # 应用信息区域
         self.create_app_info_section(content)
@@ -400,16 +444,20 @@ class ModernDesignInstaller:
     
     def create_console_panel(self, parent, row, column, columnspan=3):
         """创建控制台面板"""
-        # 面板容器
-        panel = self.create_card_panel(parent, row, column, columnspan)
+        # 面板容器 - 控制台跨越3列，不需要右侧padx，因为列2已经没有右侧padx了
+        panel = tk.Frame(parent, bg=self.colors['bg_card'], relief='flat')
+        panel.grid(row=row, column=column, columnspan=columnspan, sticky='nsew', 
+                 padx=(0, 0), pady=(0, 10))
+        
+        panel.configure(highlightbackground='#2F3336', highlightthickness=1)
         
         # 面板头部
         header = self.create_panel_header(panel, "💻 控制台输出", self.colors['bg_danger'])
-        header.pack(fill=tk.X, padx=(15, 15), pady=(15, 0))
+        header.pack(fill=tk.X, padx=(15, 15), pady=(15, 10))
         
-        # 控制台内容
+        # 控制台内容 - 统一内边距
         console_container = tk.Frame(panel, bg=self.colors['bg_card'])
-        console_container.pack(fill=tk.BOTH, expand=True, padx=15, pady=(10, 15))
+        console_container.pack(fill=tk.BOTH, expand=True, padx=15, pady=(0, 15))
         
         # 创建现代化控制台
         self.create_modern_console(console_container)
@@ -420,29 +468,31 @@ class ModernDesignInstaller:
         panel.grid(row=row, column=column, columnspan=columnspan, sticky='nsew', 
                  padx=(0, 10) if column < 2 else (0, 0), pady=(0, 10))
         
-        # 添加边框效果
-        panel.configure(relief='solid', borderwidth=1)
+        # 优化边框：使用更微妙的颜色和更薄的边框
+        panel.configure(highlightbackground='#2F3336', highlightthickness=1)
         
         return panel
     
     def create_panel_header(self, parent, title, accent_color):
         """创建面板头部"""
-        header = tk.Frame(parent, bg=accent_color, height=45)
+        header = tk.Frame(parent, bg=self.colors['bg_card'])
         header.pack(fill=tk.X)
-        header.pack_propagate(False)
-        
-        # 添加渐变效果
-        gradient_frame = tk.Frame(header, bg=accent_color)
-        gradient_frame.pack(fill=tk.BOTH, expand=True)
-        
-        # 标题文字
-        title_label = tk.Label(gradient_frame,
+
+        accent_bar = tk.Frame(header, bg=accent_color, height=4)
+        accent_bar.pack(fill=tk.X)
+        accent_bar.pack_propagate(False)
+
+        title_row = tk.Frame(header, bg=self.colors['bg_card'], height=40)
+        title_row.pack(fill=tk.X)
+        title_row.pack_propagate(False)
+
+        title_label = tk.Label(title_row,
                               text=title,
-                              bg=accent_color,
-                              fg='white',
+                              bg=self.colors['bg_card'],
+                              fg=self.colors['text_primary'],
                               font=self.fonts['heading'])
-        title_label.pack(pady=12)
-        
+        title_label.pack(side=tk.LEFT, padx=14)
+
         return header
     
     def create_modern_listbox(self, parent):
@@ -453,7 +503,7 @@ class ModernDesignInstaller:
         
         # 创建列表框
         listbox = tk.Listbox(listbox_frame,
-                            bg='#0F1419',
+                            bg=self.colors['bg_primary'],
                             fg=self.colors['text_primary'],
                             font=self.fonts['body'],
                             selectbackground=self.colors['bg_accent'],
@@ -477,22 +527,30 @@ class ModernDesignInstaller:
         tree_frame.pack(fill=tk.BOTH, expand=True)
         
         # 创建树形视图
-        columns = ('version', 'date', 'action')
+        columns = ('version', 'sep1', 'date', 'sep2', 'action')
         tree = ttk.Treeview(tree_frame, columns=columns, show='tree headings', height=12)
         
         # 配置列
-        tree.heading('#0', text='描述')
-        tree.heading('version', text='版本')
-        tree.heading('date', text='发布日期')
-        tree.heading('action', text='操作')
+        tree.heading('#0', text='描述', anchor='w')
+        tree.heading('version', text='版本', anchor='center')
+        tree.heading('sep1', text='', anchor='center')
+        tree.heading('date', text='发布日期', anchor='center')
+        tree.heading('sep2', text='', anchor='center')
+        tree.heading('action', text='操作', anchor='center')
         
-        tree.column('#0', width=180)
-        tree.column('version', width=100)
-        tree.column('date', width=120)
-        tree.column('action', width=80)
+        tree.column('#0', width=220, anchor='w')
+        tree.column('version', width=110, anchor='center')
+        tree.column('sep1', width=22, anchor='center', stretch=False)
+        tree.column('date', width=140, anchor='center')
+        tree.column('sep2', width=22, anchor='center', stretch=False)
+        tree.column('action', width=80, anchor='center')
         
         # 设置样式
         tree.configure(style='Modern.Treeview')
+
+        # 斑马纹：增强行与字段的视觉区分
+        tree.tag_configure('odd', background=self.colors['bg_card'])
+        tree.tag_configure('even', background=self.colors['bg_secondary'])
         
         tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         
@@ -525,7 +583,7 @@ class ModernDesignInstaller:
         
         # 信息文本区域
         self.app_info_text = self.create_modern_text(info_frame, height=6)
-        self.app_info_text.pack(fill=tk.X, padx=10, pady=10)
+        self.app_info_text._container.pack(fill=tk.X, padx=10, pady=10)
     
     def create_action_buttons(self, parent):
         """创建操作按钮区域"""
@@ -616,7 +674,7 @@ class ModernDesignInstaller:
         
         # 控制台文本区域
         self.log_text = self.create_modern_text(console_frame, height=10)
-        self.log_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        self.log_text._container.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         
         # 控制台按钮
         button_frame = tk.Frame(console_frame, bg=self.colors['bg_card'])
@@ -641,20 +699,27 @@ class ModernDesignInstaller:
         save_btn.pack()
     
     def create_modern_text(self, parent, height=10):
-        """创建现代化文本框"""
-        text_widget = scrolledtext.ScrolledText(parent,
-                                               height=height,
-                                               bg='#0F1419',
-                                               fg='#00FF88',
-                                               font=self.fonts['mono'],
-                                               relief='flat',
-                                               borderwidth=0,
-                                               wrap=tk.WORD)
+        """创建现代化文本区域"""
+        text_frame = tk.Frame(parent, bg=self.colors['bg_primary'])
         
-        # 配置滚动条样式
-        text_widget.configure(insertbackground=self.colors['text_primary'])
+        text = tk.Text(text_frame,
+                      bg='#0F1419',
+                      fg=self.colors['text_primary'],
+                      font=self.fonts['mono'],
+                      width=1,
+                      relief='flat',
+                      borderwidth=0,
+                      highlightthickness=0,
+                      padx=10,
+                      pady=10,
+                      height=height)
+        text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         
-        return text_widget
+        self.create_modern_scrollbar(text_frame, text).pack(side=tk.RIGHT, fill=tk.Y)
+
+        text._container = text_frame
+        
+        return text
     
     def create_status_bar(self):
         """创建状态栏"""
@@ -1018,15 +1083,16 @@ class ModernDesignInstaller:
                 # 按版本号排序
                 versions.sort(key=lambda x: x.get('version', ''), reverse=True)
                 
-                for version_info in versions:
+                for idx, version_info in enumerate(versions):
                     version = version_info.get('version', '')
                     description = version_info.get('description', '')
                     release_date = version_info.get('release_date', '')
                     status = '🚀'  # 可以根据版本状态显示不同图标
+                    row_tag = 'even' if idx % 2 == 0 else 'odd'
                     
                     self.version_tree.insert('', 'end', text=description,
-                                           values=(version, release_date, status),
-                                           tags=(version,))
+                                           values=(version, '│', release_date, '│', status),
+                                           tags=(row_tag,))
                 
                 self.log(f"📦 已从服务器加载 {len(versions)} 个版本")
                 
@@ -1189,8 +1255,8 @@ class ModernDesignInstaller:
             messagebox.showerror("错误", f"获取UDID失败: {output}")
     
     def show_udid_dialog(self, udid):
-        """Show UDID dialog with copy button"""
-        # Create dialog first
+        """显示带有复制按钮的 UDID 对话框"""
+        # 先创建对话框
         dialog = tk.Toplevel(self.root)
         dialog.title("设备 UDID")
         dialog.geometry("400x150")
@@ -1240,19 +1306,19 @@ class ModernDesignInstaller:
         dialog.focus_set()
     
     def copy_udid(self, udid):
-        """Copy UDID to clipboard, show toast, and close dialog"""
+        """将 UDID 复制到剪贴板，显示提示并关闭对话框"""
         try:
             self.root.clipboard_clear()
             self.root.clipboard_append(udid)
             self.show_toast("UDID 复制成功!")
             # Find and close the dialog
             for widget in self.root.winfo_children():
-                if isinstance(widget, tk.Toplevel) and widget.title() == "Device UDID":
+                if isinstance(widget, tk.Toplevel) and widget.title() == "设备 UDID":
                     widget.destroy()
                     break
         except Exception as e:
-            self.log(f"Failed to copy UDID: {str(e)}")
-            self.show_toast(f"Failed to copy UDID: {str(e)}")
+            self.log(f"复制 UDID 失败: {str(e)}")
+            self.show_toast(f"复制 UDID 失败: {str(e)}")
     
     def show_toast(self, message):
         """显示提示"""
