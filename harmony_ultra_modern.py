@@ -198,17 +198,70 @@ class ModernDesignInstaller:
         right_section = tk.Frame(header, bg=self.colors['bg_secondary'])
         right_section.pack(side=tk.RIGHT, fill=tk.Y, padx=20)
         
-        # 服务器配置按钮
-        server_btn = tk.Button(right_section, text="服务器",
-                           command=self.configure_server,
-                           font=self.fonts['small'],
-                           bg=self.colors['bg_card'],
+        # Create segmented control container with right alignment
+        segment_container = tk.Frame(right_section, bg=self.colors['bg_secondary'])
+        segment_container.pack(side=tk.RIGHT, padx=(0, 20))
+        
+        # Create rounded segment background using Canvas
+        segment_canvas = tk.Canvas(segment_container, bg=self.colors['bg_secondary'], 
+                                   highlightthickness=0, width=240, height=32)
+        segment_canvas.pack()
+        
+        # Draw rounded rectangle background using arcs and rectangle
+        segment_canvas.create_arc(2, 2, 14, 14, start=90, extent=90, fill='#2F3336', outline='')
+        segment_canvas.create_arc(226, 2, 238, 14, start=0, extent=90, fill='#2F3336', outline='')
+        segment_canvas.create_arc(2, 18, 14, 30, start=180, extent=90, fill='#2F3336', outline='')
+        segment_canvas.create_arc(226, 18, 238, 30, start=270, extent=90, fill='#2F3336', outline='')
+        segment_canvas.create_rectangle(8, 2, 232, 30, fill='#2F3336', outline='')
+        
+        # Create inner frame for buttons
+        segment_bg = tk.Frame(segment_canvas, bg='#2F3336', relief='flat', bd=0)
+        segment_bg.place(x=2, y=2, width=236, height=28)
+        
+        # 1. UDID button - first segment (leftmost) - preserve rounded corner
+        udid_btn = tk.Button(segment_bg, text=" 设备ID",
+                           command=self.get_device_udid,
+                           font=('Segoe UI', 9, 'bold'),
+                           bg='#2F3336',
                            fg=self.colors['text_primary'],
                            relief='flat',
                            bd=0,
-                           padx=10,
-                           pady=5)
-        server_btn.pack(side=tk.RIGHT, padx=(0, 15))
+                           padx=0,
+                           pady=6,
+                           cursor='hand2',
+                           activebackground='#3A3F44',
+                           activeforeground=self.colors['bg_accent'])
+        udid_btn.place(x=6, y=0, width=76, height=28)
+        
+        # 2. Refresh button - middle segment - evenly distributed
+        refresh_btn = tk.Button(segment_bg, text=" 刷新",
+                           command=self.refresh_all,
+                           font=('Segoe UI', 9, 'bold'),
+                           bg='#2F3336',
+                           fg=self.colors['text_primary'],
+                           relief='flat',
+                           bd=0,
+                           padx=0,
+                           pady=6,
+                           cursor='hand2',
+                           activebackground='#17BF63',
+                           activeforeground='white')
+        refresh_btn.place(x=82, y=0, width=72, height=28)
+        
+        # 3. Server button - last segment (rightmost) - preserve rounded corner
+        server_btn = tk.Button(segment_bg, text=" 服务器",
+                           command=self.configure_server,
+                           font=('Segoe UI', 9, 'bold'),
+                           bg='#2F3336',
+                           fg=self.colors['text_primary'],
+                           relief='flat',
+                           bd=0,
+                           padx=0,
+                           pady=6,
+                           cursor='hand2',
+                           activebackground='#3A3F44',
+                           activeforeground=self.colors['bg_accent'])
+        server_btn.place(x=154, y=0, width=76, height=28)
         
         # HDC状态指示器
         status_container = tk.Frame(right_section, bg=self.colors['bg_secondary'])
@@ -502,27 +555,9 @@ class ModernDesignInstaller:
         )
         self.uninstall_button.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 4))
         
-        self.get_udid_button = self.create_modern_button(
-            secondary_row,
-            "📱 UDID",
-            self.get_device_udid,
-            self.colors['bg_accent'],
-            self.colors['hover']
-        )
-        self.get_udid_button.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(4, 0))
-        
         # 工具按钮行
         tool_row = tk.Frame(button_frame, bg=self.colors['bg_card'])
         tool_row.pack(fill=tk.X)
-        
-        self.refresh_button = self.create_modern_button(
-            tool_row,
-            "🔄 刷新",
-            self.refresh_all,
-            self.colors['text_muted'],
-            self.colors['text_secondary']
-        )
-        self.refresh_button.pack(side=tk.LEFT, fill=tk.X, expand=True)
     
     def create_modern_button(self, parent, text, command, bg_color, hover_color):
         """创建现代化按钮"""
@@ -718,10 +753,10 @@ class ModernDesignInstaller:
                 with open(filename, 'w', encoding='utf-8') as f:
                     f.write(self.log_text.get(1.0, tk.END))
                 self.log(f" Log saved: {filename}")
-                messagebox.showinfo("Success", "Log saved successfully")
+                messagebox.showinfo("成功", "日志保存成功")
         except Exception as e:
             self.log(f" Save failed: {str(e)}")
-            messagebox.showerror("Error", f"Failed to save log: {str(e)}")
+            messagebox.showerror("错误", f"日志保存失败: {str(e)}")
 
 
         response = requests.get(apps_url, timeout=10)
@@ -1066,7 +1101,7 @@ class ModernDesignInstaller:
                             self.update_status_indicator('success')
                         self.install_button.config(state='normal')
                         self.uninstall_button.config(state='normal')
-                        self.get_udid_button.config(state='normal')
+                        # UDID button moved to header bar
                     else:
                         raise Exception(f"HDC版本检查失败: {result.stderr}")
                 except subprocess.TimeoutExpired:
@@ -1077,7 +1112,7 @@ class ModernDesignInstaller:
                         self.update_status_indicator('warning')
                     self.install_button.config(state='normal')
                     self.uninstall_button.config(state='normal')
-                    self.get_udid_button.config(state='normal')
+                    # UDID button moved to header bar
                 except Exception as e:
                     self.log(f"❌ HDC工具测试失败: {str(e)}")
                     if hasattr(self, 'status_text'):
@@ -1086,7 +1121,7 @@ class ModernDesignInstaller:
                         self.update_status_indicator('danger')
                     self.install_button.config(state='disabled')
                     self.uninstall_button.config(state='disabled')
-                    self.get_udid_button.config(state='disabled')
+                    # UDID button moved to header bar
             else:
                 self.log(f"❌ HDC工具未找到: {self.hdc_path}")
                 if hasattr(self, 'status_text'):
@@ -1095,7 +1130,7 @@ class ModernDesignInstaller:
                     self.update_status_indicator('danger')
                 self.install_button.config(state='disabled')
                 self.uninstall_button.config(state='disabled')
-                self.get_udid_button.config(state='disabled')
+                # UDID button moved to header bar
                 
         except Exception as e:
             self.log(f"❌ HDC检测异常: {str(e)}")
@@ -1163,7 +1198,7 @@ class ModernDesignInstaller:
         dialog.transient(self.root)
         
         # Create widgets first
-        udid_label = tk.Label(dialog, text=f"Device UDID:", font=('Segoe UI', 12, 'bold'))
+        udid_label = tk.Label(dialog, text=f"设备UDID:", font=('Segoe UI', 12, 'bold'))
         udid_label.pack(pady=(10, 5))
         
         udid_text = tk.Text(dialog, height=2, width=40, font=('Consolas', 10))
