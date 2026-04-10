@@ -29,7 +29,8 @@ class ModernDesignInstaller:
             'bg_primary': '#0B0F13',     # 更深邃的主背景
             'bg_secondary': '#15191C',   # 导航栏背景
             'bg_card': '#1C2126',        # 卡片背景
-            'bg_accent': '#1DA1F2',      # 品牌蓝
+            'bg_accent': '#3A86B8',      # 统一强调/选中蓝（更偏灰、更低饱和）
+            'bg_selection': '#2A2F33',   # 选中背景（中性浅灰，统一全客户端选中态）
             'bg_success': '#00BA7C',     # 成功绿 (更清爽)
             'bg_warning': '#F7931A',     # 警告橙
             'bg_danger': '#F4212E',      # 错误红 (高饱和)
@@ -37,7 +38,7 @@ class ModernDesignInstaller:
             'text_secondary': '#71767B', # 次要文字
             'text_muted': '#536471',     # 静音文字
             'border': '#2F3336',         # 边框色
-            'hover': '#1A8CD8',          # 悬停色
+            'hover': '#2F6F98',          # 悬停色（与蓝灰主色匹配）
             'shadow': '#000000'          # 阴影色
         }
         
@@ -145,19 +146,19 @@ class ModernDesignInstaller:
                            background=self.colors['bg_card'],
                            foreground=self.colors['text_primary'],
                            fieldbackground=self.colors['bg_card'],
-                           rowheight=35,
+                           rowheight=40,
                            font=self.fonts['body'],
                            borderwidth=0,
                            relief='flat')
         self.style.map('Modern.Treeview',
-                      background=[('selected', self.colors['bg_accent'])],
-                      foreground=[('selected', 'white')])
+                      background=[('selected', self.colors['bg_selection'])],
+                      foreground=[('selected', self.colors['text_primary'])])
         
         self.style.configure('Modern.Treeview.Heading',
                            background=self.colors['bg_secondary'],
                            foreground=self.colors['text_primary'],
                            font=self.fonts['heading'],
-                           padding=(10, 8),
+                           padding=(6, 8),
                            borderwidth=0,
                            relief='flat')
 
@@ -393,12 +394,12 @@ class ModernDesignInstaller:
         list_container = tk.Frame(panel, bg=self.colors['bg_card'])
         list_container.pack(fill=tk.BOTH, expand=True, padx=15, pady=(0, 15))
         
-        # 创建现代化列表框
-        self.app_listbox = self.create_modern_listbox(list_container)
-        self.app_listbox.pack(fill=tk.BOTH, expand=True)
+        # 创建应用列表（使用 Treeview 以精确控制行高，与版本列表一致）
+        self.app_tree = self.create_modern_app_treeview(list_container)
+        self.app_tree.pack(fill=tk.BOTH, expand=True)
         
         # 绑定选择事件
-        self.app_listbox.bind('<<ListboxSelect>>', self.on_app_select)
+        self.app_tree.bind('<<TreeviewSelect>>', self.on_app_select)
     
     def create_version_panel(self, parent, row, column, columnspan=1):
         """创建版本面板"""
@@ -506,8 +507,8 @@ class ModernDesignInstaller:
                             bg=self.colors['bg_primary'],
                             fg=self.colors['text_primary'],
                             font=self.fonts['body'],
-                            selectbackground=self.colors['bg_accent'],
-                            selectforeground='white',
+                            selectbackground=self.colors['bg_selection'],
+                            selectforeground=self.colors['text_primary'],
                             relief='flat',
                             borderwidth=0,
                             highlightthickness=0,
@@ -519,6 +520,26 @@ class ModernDesignInstaller:
         scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
         
         return listbox
+
+    def create_modern_app_treeview(self, parent):
+        """创建应用列表 Treeview（单列，无表头，行高与版本列表一致）"""
+        tree_frame = tk.Frame(parent, bg=self.colors['bg_card'])
+        tree_frame.pack(fill=tk.BOTH, expand=True)
+
+        tree = ttk.Treeview(tree_frame, columns=(), show='tree', selectmode='browse', height=12)
+        tree.configure(style='Modern.Treeview')
+
+        tree.column('#0', width=220, anchor='w')
+
+        tree.tag_configure('odd', background=self.colors['bg_card'])
+        tree.tag_configure('even', background=self.colors['bg_secondary'])
+
+        tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+
+        scrollbar = self.create_modern_scrollbar(tree_frame, tree)
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+
+        return tree
     
     def create_modern_treeview(self, parent):
         """创建现代化树形视图"""
@@ -527,23 +548,19 @@ class ModernDesignInstaller:
         tree_frame.pack(fill=tk.BOTH, expand=True)
         
         # 创建树形视图
-        columns = ('version', 'sep1', 'date', 'sep2', 'action')
+        columns = ('version', 'date', 'action')
         tree = ttk.Treeview(tree_frame, columns=columns, show='tree headings', height=12)
         
         # 配置列
         tree.heading('#0', text='描述', anchor='w')
         tree.heading('version', text='版本', anchor='center')
-        tree.heading('sep1', text='', anchor='center')
         tree.heading('date', text='发布日期', anchor='center')
-        tree.heading('sep2', text='', anchor='center')
         tree.heading('action', text='操作', anchor='center')
         
-        tree.column('#0', width=220, anchor='w')
-        tree.column('version', width=110, anchor='center')
-        tree.column('sep1', width=22, anchor='center', stretch=False)
-        tree.column('date', width=140, anchor='center')
-        tree.column('sep2', width=22, anchor='center', stretch=False)
-        tree.column('action', width=80, anchor='center')
+        tree.column('#0', width=240, anchor='w')
+        tree.column('version', width=120, anchor='center')
+        tree.column('date', width=160, anchor='center')
+        tree.column('action', width=90, anchor='center')
         
         # 设置样式
         tree.configure(style='Modern.Treeview')
@@ -551,12 +568,88 @@ class ModernDesignInstaller:
         # 斑马纹：增强行与字段的视觉区分
         tree.tag_configure('odd', background=self.colors['bg_card'])
         tree.tag_configure('even', background=self.colors['bg_secondary'])
+
+        def forward_mouse_event_to_tree(event, sequence):
+            try:
+                x = tree.winfo_pointerx() - tree.winfo_rootx()
+                y = tree.winfo_pointery() - tree.winfo_rooty()
+                tree.event_generate(sequence, x=x, y=y)
+            except Exception:
+                pass
+
+        def update_column_separators(*_):
+            if not tree.winfo_ismapped():
+                tree.after(50, update_column_separators)
+                return
+
+            separators = getattr(tree, '_col_separators', None)
+            if not separators:
+                separators = []
+                tree._col_separators = separators
+
+            if not hasattr(tree, '_separator_color'):
+                tree._separator_color = self.colors['border']
+
+            sep_color = tree._separator_color
+
+            needed = 3
+            while len(separators) < needed:
+                # 分隔线挂在 tree_frame 上（覆盖层），避免 Treeview 选中重绘影响竖线观感
+                sep = tk.Frame(tree_frame, bg=sep_color, width=1)
+                sep.bind('<ButtonPress-1>', lambda e: forward_mouse_event_to_tree(e, '<ButtonPress-1>'), add=True)
+                sep.bind('<B1-Motion>', lambda e: forward_mouse_event_to_tree(e, '<B1-Motion>'), add=True)
+                sep.bind('<ButtonRelease-1>', lambda e: forward_mouse_event_to_tree(e, '<ButtonRelease-1>'), add=True)
+                sep.bind('<MouseWheel>', lambda e: forward_mouse_event_to_tree(e, '<MouseWheel>'), add=True)
+                sep.place_forget()
+                separators.append(sep)
+
+            for sep in separators:
+                if str(sep.cget('bg')) != str(sep_color):
+                    sep.configure(bg=sep_color)
+
+            # 列边界（不包含最后一列）
+            x_positions = []
+            try:
+                base_x = tree.winfo_x()
+                x = base_x + int(tree.column('#0', 'width'))
+                x_positions.append(x)
+
+                x += int(tree.column('version', 'width'))
+                x_positions.append(x)
+
+                x += int(tree.column('date', 'width'))
+                x_positions.append(x)
+            except Exception:
+                return
+
+            height = tree.winfo_height()
+            if height <= 1:
+                tree.after(50, update_column_separators)
+                return
+
+            for i, x in enumerate(x_positions):
+                separators[i].place(x=x, y=tree.winfo_y(), width=1, height=height)
+                separators[i].lift()
+
+            for sep in separators:
+                sep.lift()
+
+        # 初次显示/布局后绘制分隔线
+        tree.bind('<Map>', lambda e: tree.after(0, update_column_separators), add=True)
+        tree.bind('<Configure>', update_column_separators, add=True)
+        # 拖拽列宽结束后重绘（Treeview 原生列拖拽触发在鼠标释放时更稳定）
+        tree.bind('<ButtonRelease-1>', update_column_separators, add=True)
+        # 选中行时 Treeview 会重绘，强制刷新分隔线层级与颜色
+        tree.bind('<<TreeviewSelect>>', update_column_separators, add=True)
+        tree.after(0, update_column_separators)
         
         tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         
         # 创建滚动条
         scrollbar = self.create_modern_scrollbar(tree_frame, tree)
         scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+
+        tree.after(0, update_column_separators)
         
         return tree
     
@@ -934,21 +1027,36 @@ class ModernDesignInstaller:
         """填充应用列表"""
         if not self.apps_config:
             return
-        
-        self.app_listbox.delete(0, tk.END)
-        for app in self.apps_config['apps']:
+
+        if not hasattr(self, 'app_tree'):
+            return
+
+        for item in self.app_tree.get_children():
+            self.app_tree.delete(item)
+
+        for idx, app in enumerate(self.apps_config['apps']):
             display_text = f"📱 {app['name']}"
-            self.app_listbox.insert(tk.END, display_text)
+            row_tag = 'even' if idx % 2 == 0 else 'odd'
+            self.app_tree.insert('', 'end', iid=str(idx), text=display_text, tags=(row_tag,))
         
         self.log("📋 应用列表已更新")
     
     def on_app_select(self, event):
         """应用选择事件"""
-        selection = self.app_listbox.curselection()
-        if not selection:
-            return
-        
-        index = selection[0]
+        if hasattr(self, 'app_tree'):
+            selection = self.app_tree.selection()
+            if not selection:
+                return
+            try:
+                index = int(selection[0])
+            except Exception:
+                return
+        else:
+            selection = self.app_listbox.curselection()
+            if not selection:
+                return
+            index = selection[0]
+
         if index < len(self.apps_config['apps']):
             self.current_app = self.apps_config['apps'][index]
             self.log(f"📱 已选择: {self.current_app['name']}")
@@ -1091,7 +1199,7 @@ class ModernDesignInstaller:
                     row_tag = 'even' if idx % 2 == 0 else 'odd'
                     
                     self.version_tree.insert('', 'end', text=description,
-                                           values=(version, '│', release_date, '│', status),
+                                           values=(version, release_date, status),
                                            tags=(row_tag,))
                 
                 self.log(f"📦 已从服务器加载 {len(versions)} 个版本")
@@ -1277,7 +1385,8 @@ class ModernDesignInstaller:
         button_frame.pack(pady=10)
         
         copy_btn = tk.Button(button_frame, text="复制 UDID", command=lambda: self.copy_udid(udid),
-                           bg='#1DA1F2', fg='white', font=('Segoe UI', 10, 'bold'))
+                           bg=self.colors['bg_accent'], fg='white', font=('Segoe UI', 10, 'bold'),
+                           activebackground=self.colors['hover'], activeforeground='white')
         copy_btn.pack(side='left', padx=5)
         
         cancel_btn = tk.Button(button_frame, text="取消", command=dialog.destroy,
