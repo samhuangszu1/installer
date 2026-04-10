@@ -2154,27 +2154,42 @@ def main():
     # Create window with immediate dark theme
     root = tk.Tk()
     root.title("HarmonyOS App Installer")
+    root.withdraw()
     root.geometry("1400x900")
     root.resizable(True, True)
     
     # Set dark background immediately to prevent white flash
     root.configure(bg='#0F1419')
     
-    # Force update to ensure dark background is applied
-    root.update_idletasks()
-    
-    # Center window on screen
-    width = root.winfo_width()
-    height = root.winfo_height()
+    # Center window on screen (use fixed target size to avoid size thrash)
+    width = 1400
+    height = 900
     x = (root.winfo_screenwidth() // 2) - (width // 2)
     y = (root.winfo_screenheight() // 2) - (height // 2)
     root.geometry(f'{width}x{height}+{x}+{y}')
     
     # Create app (window is already dark)
     app = ModernDesignInstaller(root)
-    
-    # Mark window as visible for log function
-    root._window_visible = True
+
+    # Avoid UI flashing during first layout; enable after we have a stable first frame
+    root._window_visible = False
+
+    def _finalize_first_frame(_evt=None):
+        root.unbind('<Map>', map_bind_id)
+        try:
+            root.update_idletasks()
+        except Exception:
+            pass
+        try:
+            if hasattr(app, 'align_header_segment'):
+                app.align_header_segment()
+        except Exception:
+            pass
+        root._window_visible = True
+
+    # Make window visible only after UI is built and geometry is final
+    map_bind_id = root.bind('<Map>', _finalize_first_frame, add=True)
+    root.deiconify()
     
     root.mainloop()
 
