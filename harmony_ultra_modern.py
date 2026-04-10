@@ -1380,16 +1380,43 @@ class ModernDesignInstaller:
                 
                 # 测试HDC工具是否可用
                 try:
-                    result = subprocess.run([self.hdc_path, "--version"], 
-                                          capture_output=True, text=True, timeout=5)
+                    _run_kwargs = {}
+                    try:
+                        if platform.system() == 'Windows':
+                            _run_kwargs['creationflags'] = getattr(subprocess, 'CREATE_NO_WINDOW', 0)
+                            si = subprocess.STARTUPINFO()
+                            si.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+                            _run_kwargs['startupinfo'] = si
+                    except Exception:
+                        _run_kwargs = {}
+
+                    result = subprocess.run([self.hdc_path, "--version"],
+                                            capture_output=True, text=True, timeout=5, **_run_kwargs)
                     if result.returncode == 0:
                         self.log(f"✅ HDC工具可用: {result.stdout.strip()}")
-                        if hasattr(self, 'status_text'):
-                            self.status_text.config(text="HDC已连接", fg=self.colors['bg_success'])
-                        if hasattr(self, 'status_indicator'):
-                            self.update_status_indicator('success')
-                        self.install_button.config(state='normal')
-                        self.uninstall_button.config(state='normal')
+                        device_ok = False
+                        try:
+                            device_ok, device_out = self.run_hdc_command("list targets", show_output=False)
+                            if device_ok:
+                                lines = [ln.strip() for ln in (device_out or '').splitlines() if ln.strip()]
+                                device_ok = len(lines) > 0
+                        except Exception:
+                            device_ok = False
+
+                        if device_ok:
+                            if hasattr(self, 'status_text'):
+                                self.status_text.config(text="HDC已连接", fg=self.colors['bg_success'])
+                            if hasattr(self, 'status_indicator'):
+                                self.update_status_indicator('success')
+                            self.install_button.config(state='normal')
+                            self.uninstall_button.config(state='normal')
+                        else:
+                            if hasattr(self, 'status_text'):
+                                self.status_text.config(text="设备未连接", fg=self.colors['bg_warning'])
+                            if hasattr(self, 'status_indicator'):
+                                self.update_status_indicator('warning')
+                            self.install_button.config(state='disabled')
+                            self.uninstall_button.config(state='disabled')
                         # UDID button moved to header bar
                     else:
                         raise Exception(f"HDC版本检查失败: {result.stderr}")
@@ -1434,22 +1461,67 @@ class ModernDesignInstaller:
             return False, "HDC工具不可用"
         
         try:
-            full_command = f"{self.hdc_path} {command}"
             self.log(f"⚡ 执行: {command}")
-            self.log(f"&#x1d4cb; &#x5b8c;&#x6574;&#x547d;&#x4ee4;: {full_command}")
             self.log(f"&#x1d4cb; HDC&#x8def;&#x5f84;: {self.hdc_path}")
             self.log(f"&#x1d4cb; HDC&#x5b58;&#x5728;: {os.path.exists(self.hdc_path)}")
+
+            try:
+                import shlex
+                args = [self.hdc_path] + shlex.split(command, posix=(platform.system() != 'Windows'))
+            except Exception:
+                args = [self.hdc_path] + command.split()
+
+            _run_kwargs = {}
+            try:
+                if platform.system() == 'Windows':
+                    _run_kwargs['creationflags'] = getattr(subprocess, 'CREATE_NO_WINDOW', 0)
+                    si = subprocess.STARTUPINFO()
+                    si.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+                    _run_kwargs['startupinfo'] = si
+            except Exception:
+                _run_kwargs = {}
             
-            result = subprocess.run(full_command, shell=True,
-                                  capture_output=True, text=True,
-                                  timeout=30)
+            result = subprocess.run(args,
+                                    capture_output=True, text=True,
+                                    timeout=30, **_run_kwargs)
+
+            stdout_text = result.stdout or ''
+            stderr_text = result.stderr or ''
+            combined = (stdout_text + "\n" + stderr_text).lower()
+
+            no_device_markers = (
+                'no device',
+                'device not found',
+                'not connected',
+                'no targets',
+                'offline',
+                'unauthorized',
+                'fail to connect',
+                'failed to connect',
+                'connection refused',
+                'timeout',
+            )
+
+            if any(m in combined for m in no_device_markers):
+                return False, (stderr_text.strip() or stdout_text.strip() or '设备未连接')
+
+            hdc_fail_markers = (
+                '[fail]',
+                'need connect-key',
+                'need connect key',
+                'executecommand need connect-key',
+                'executecommand need connect key',
+            )
+
+            if any(m in combined for m in hdc_fail_markers):
+                return False, (stderr_text.strip() or stdout_text.strip() or 'HDC执行失败')
             
             if result.returncode == 0:
                 if show_output:
                     self.log("✅ 命令执行成功")
-                return True, result.stdout
+                return True, stdout_text
             else:
-                error_msg = result.stderr.strip() if result.stderr else "未知错误"
+                error_msg = stderr_text.strip() if stderr_text else "未知错误"
                 self.log(f"❌ 执行失败: {error_msg}")
                 return False, error_msg
                 
@@ -1459,6 +1531,24 @@ class ModernDesignInstaller:
         except Exception as e:
             self.log(f"❌ 执行异常: {str(e)}")
             return False, str(e)
+
+    def format_hdc_error(self, raw_text):
+        text = (raw_text or '').strip()
+        low = text.lower()
+
+        if 'need connect-key' in low or 'need connect key' in low:
+            return "未检测到已授权的设备连接。\n\n请按以下步骤操作：\n1) 使用 USB 连接设备\n2) 在设备上确认 HDC 授权/连接提示\n3) 返回电脑端点击“刷新”后重试"
+
+        if 'no device' in low or 'device not found' in low or 'not connected' in low or 'no targets' in low:
+            return "未检测到设备连接。\n\n请使用 USB 连接鸿蒙设备并确保设备已开启调试模式，然后点击“刷新”重试。"
+
+        if '[fail]' in low:
+            cleaned = text.replace('[Fail]', '').replace('[FAIL]', '').strip()
+            if cleaned:
+                return f"HDC 执行失败：{cleaned}"
+            return "HDC 执行失败，请确认设备连接与授权后重试。"
+
+        return text if text else "HDC 执行失败，请确认设备连接与授权后重试。"
     
     def get_device_udid(self):
         """获取设备UDID"""
@@ -1473,19 +1563,24 @@ class ModernDesignInstaller:
                 self.show_udid_dialog(udid)
             else:
                 self.log("⚠️ 未获取到UDID")
-                messagebox.showwarning("警告", "未获取到设备UDID")
+                messagebox.showwarning("警告", "未获取到设备UDID。\n\n请确认设备已连接并完成 HDC 授权，然后点击“刷新”重试。")
         else:
-            messagebox.showerror("错误", f"获取UDID失败: {output}")
+            messagebox.showerror("错误", f"获取UDID失败:\n{self.format_hdc_error(output)}")
     
     def show_udid_dialog(self, udid):
         """显示带有复制按钮的 UDID 对话框"""
         # 先创建对话框
         dialog = tk.Toplevel(self.root)
+        dialog.withdraw()
         dialog.title("设备 UDID")
-        dialog.geometry("460x240")
         dialog.resizable(False, False)
         dialog.transient(self.root)
         dialog.configure(bg=self.colors['bg_secondary'])
+
+        try:
+            dialog.attributes('-alpha', 0.0)
+        except Exception:
+            pass
 
         content = tk.Frame(dialog, bg=self.colors['bg_secondary'])
         content.pack(fill=tk.BOTH, expand=True, padx=20, pady=18)
@@ -1582,6 +1677,23 @@ class ModernDesignInstaller:
         
         # Set position
         dialog.geometry(f"{dialog_width}x{dialog_height}+{x}+{y}")
+
+        try:
+            dialog.update_idletasks()
+        except Exception:
+            pass
+
+        try:
+            dialog.deiconify()
+            dialog.lift()
+            dialog.focus_force()
+        except Exception:
+            pass
+
+        try:
+            dialog.attributes('-alpha', 1.0)
+        except Exception:
+            pass
         
         # Make modal
         dialog.grab_set()
@@ -1604,6 +1716,10 @@ class ModernDesignInstaller:
     
     def show_toast(self, message):
         """显示提示"""
+        toast = getattr(self, '_toast_window', None)
+        toast_label = getattr(self, '_toast_label', None)
+        toast_after_id = getattr(self, '_toast_after_id', None)
+
         # Calculate position before creating window
         main_x = self.root.winfo_x()
         main_y = self.root.winfo_y()
@@ -1614,24 +1730,82 @@ class ModernDesignInstaller:
         toast_height = 40
         x = main_x + (main_width // 2) - (toast_width // 2)
         y = main_y + main_height - toast_height - 50  # 50px margin from bottom
-        
-        # Create toast with initial position
-        toast = tk.Toplevel(self.root)
-        toast.overrideredirect(True)
-        toast.configure(bg='#2F3336')
-        toast.geometry(f"{toast_width}x{toast_height}+{x}+{y}")
-        toast.withdraw()  # Hide initially
-        
-        # Message label
-        label = tk.Label(toast, text=message, bg='#2F3336', fg='#E7E9EA', 
-                        font=('Segoe UI', 10))
-        label.pack(fill='both', expand=True, padx=10, pady=10)
-        
-        # Show toast after all widgets are created
-        toast.deiconify()
-        
-        # Auto-close after 2 seconds
-        toast.after(2000, toast.destroy)
+
+        try:
+            if toast is None or not toast.winfo_exists():
+                toast = tk.Toplevel(self.root)
+                toast.overrideredirect(True)
+                toast.configure(bg='#2F3336')
+                toast.withdraw()
+                try:
+                    toast.attributes('-alpha', 0.0)
+                except Exception:
+                    pass
+
+                toast_label = tk.Label(toast, text='', bg='#2F3336', fg='#E7E9EA',
+                                       font=('Segoe UI', 10))
+                toast_label.pack(fill='both', expand=True, padx=10, pady=10)
+
+                self._toast_window = toast
+                self._toast_label = toast_label
+                self._toast_after_id = None
+        except Exception:
+            return
+
+        try:
+            toast.geometry(f"{toast_width}x{toast_height}+{x}+{y}")
+        except Exception:
+            pass
+
+        try:
+            if toast_label is not None:
+                toast_label.configure(text=message)
+        except Exception:
+            pass
+
+        try:
+            if toast_after_id is not None:
+                toast.after_cancel(toast_after_id)
+        except Exception:
+            pass
+
+        try:
+            toast.update_idletasks()
+        except Exception:
+            pass
+
+        try:
+            toast.deiconify()
+            toast.lift()
+        except Exception:
+            pass
+
+        try:
+            toast.attributes('-alpha', 1.0)
+        except Exception:
+            pass
+
+        def _hide_toast():
+            try:
+                if toast is None or not toast.winfo_exists():
+                    return
+            except Exception:
+                return
+
+            try:
+                toast.attributes('-alpha', 0.0)
+            except Exception:
+                pass
+            try:
+                toast.withdraw()
+            except Exception:
+                pass
+            self._toast_after_id = None
+
+        try:
+            self._toast_after_id = toast.after(2000, _hide_toast)
+        except Exception:
+            pass
     
     def install_selected_version(self):
         """安装选中版本"""
@@ -1660,6 +1834,16 @@ class ModernDesignInstaller:
             self.install_button.config(state='disabled')
             
             self.log(f"🚀 开始安装版本 {version}")
+
+            try:
+                dev_ok, dev_out = self.run_hdc_command("list targets", show_output=False)
+                lines = [ln.strip() for ln in (dev_out or '').splitlines() if ln.strip()]
+                if not dev_ok or len(lines) == 0:
+                    messagebox.showerror("错误", "未检测到已连接设备，请通过 USB 连接鸿蒙设备后重试。")
+                    return
+            except Exception:
+                messagebox.showerror("错误", "设备检测失败，请通过 USB 连接鸿蒙设备后重试。")
+                return
             
             # 获取版本信息
             version_info = self.get_version_info(version)
@@ -1734,7 +1918,7 @@ class ModernDesignInstaller:
                         continue
                     else:
                         # &#x5173;&#x952e;&#x6b65;&#x9aa4;&#x5931;&#x8d25;&#xff0c;&#x505c;&#x6b62;&#x5b89;&#x88c5;
-                        messagebox.showerror("错误", f"{step_name}失败:\n{output.strip()}")
+                        messagebox.showerror("错误", f"{step_name}失败:\n{self.format_hdc_error(output)}")
                         return
             
             # &#x9a8c;&#x8bc1;&#x5e94;&#x7528;&#x662f;&#x5426;&#x771f;&#x6b63;&#x5b89;&#x88c5;&#x6210;&# Verify if app is truly installed successfully
@@ -1750,10 +1934,12 @@ class ModernDesignInstaller:
             list_success, list_output = self.run_hdc_command("shell bm dump -a", show_output=False)
             
             app_installed = False
-            if verify_success and verify_output and "error:" not in verify_output.lower():
+            verify_low = (verify_output or '').lower()
+            list_low = (list_output or '').lower()
+            if verify_success and verify_output and "error:" not in verify_low and "[fail]" not in verify_low and "need connect-key" not in verify_low:
                 app_installed = True
                 self.log("App installation verification successful (bm dump)")
-            elif list_success and list_output and self.current_app['bundle_name'] in list_output:
+            elif list_success and list_output and "[fail]" not in list_low and "need connect-key" not in list_low and self.current_app['bundle_name'] in list_output:
                 app_installed = True
                 self.log("App installation verification successful (bm dump -a)")
             
@@ -1915,9 +2101,19 @@ class ModernDesignInstaller:
             return False
     
     def uninstall_current_app(self):
-        """卸载应用"""
+        """卸载当前应用"""
         if not self.current_app:
-            messagebox.showwarning("警告", "请选择应用")
+            messagebox.showwarning("警告", "请先选择要卸载的应用")
+            return
+
+        try:
+            dev_ok, dev_out = self.run_hdc_command("list targets", show_output=False)
+            lines = [ln.strip() for ln in (dev_out or '').splitlines() if ln.strip()]
+            if not dev_ok or len(lines) == 0:
+                messagebox.showerror("卸载失败", "未检测到已连接设备，请通过 USB 连接鸿蒙设备并完成 HDC 授权后重试。")
+                return
+        except Exception:
+            messagebox.showerror("卸载失败", "设备检测失败，请通过 USB 连接鸿蒙设备并完成 HDC 授权后重试。")
             return
         
         self.log(f"🗑️ 卸载应用: {self.current_app['name']}")
@@ -1928,7 +2124,7 @@ class ModernDesignInstaller:
             messagebox.showinfo("卸载成功", "应用卸载成功")
         else:
             self.log(f"❌ 卸载失败: {output}")
-            messagebox.showerror("卸载失败", f"应用卸载失败：\n{output}")
+            messagebox.showerror("卸载失败", f"应用卸载失败：\n{self.format_hdc_error(output)}")
     
     def refresh_all(self):
         """刷新所有信息"""
@@ -2173,8 +2369,51 @@ class ModernDesignInstaller:
     
 
 def main():
-    # Create window with immediate dark theme
+    try:
+        import ctypes
+        try:
+            ctypes.windll.user32.SetProcessDpiAwarenessContext(ctypes.c_void_p(-4))
+        except Exception:
+            try:
+                ctypes.windll.shcore.SetProcessDpiAwareness(2)
+            except Exception:
+                try:
+                    ctypes.windll.user32.SetProcessDPIAware()
+                except Exception:
+                    pass
+    except Exception:
+        ctypes = None
+
+    def _win_force_foreground(hwnd):
+        try:
+            if ctypes is None:
+                return False
+            user32 = ctypes.windll.user32
+            kernel32 = ctypes.windll.kernel32
+
+            fg = user32.GetForegroundWindow()
+            if fg == hwnd:
+                user32.SetForegroundWindow(hwnd)
+                user32.SetFocus(hwnd)
+                return True
+
+            fg_tid = user32.GetWindowThreadProcessId(fg, None)
+            cur_tid = kernel32.GetCurrentThreadId()
+            try:
+                user32.AttachThreadInput(cur_tid, fg_tid, True)
+                user32.SetForegroundWindow(hwnd)
+                user32.SetFocus(hwnd)
+            finally:
+                try:
+                    user32.AttachThreadInput(cur_tid, fg_tid, False)
+                except Exception:
+                    pass
+            return user32.GetForegroundWindow() == hwnd
+        except Exception:
+            return False
+
     root = tk.Tk()
+    import time
     try:
         root.attributes('-alpha', 0.0)
     except Exception:
@@ -2195,6 +2434,7 @@ def main():
     root.geometry(f'{width}x{height}+{x}+{y}')
 
     splash = None
+    splash_shown_t0 = None
     try:
         splash = tk.Toplevel(root)
         splash.overrideredirect(True)
@@ -2211,6 +2451,11 @@ def main():
         tk.Label(splash_frame, text='正在启动...', fg='#71767B', bg='#0F1419',
                  font=('Segoe UI', 11)).pack()
         splash.update_idletasks()
+        try:
+            splash.update()
+        except Exception:
+            pass
+        splash_shown_t0 = time.monotonic()
     except Exception:
         splash = None
     
@@ -2220,39 +2465,22 @@ def main():
     # Avoid UI flashing during first layout; enable after we have a stable first frame
     root._window_visible = False
 
-    _startup_log_enabled = False
-    try:
-        import os
-        _startup_log_enabled = os.environ.get('HARMONY_STARTUP_LOG', '').strip() in ('1', 'true', 'TRUE', 'yes', 'YES')
-    except Exception:
-        _startup_log_enabled = False
+    _post_show_finalized = False
 
-    def _startup_log(msg):
-        if not _startup_log_enabled:
+    def _post_show_finalize():
+        nonlocal _post_show_finalized
+        if _post_show_finalized:
             return
+
         try:
-            import time
-            ts = time.strftime('%H:%M:%S')
-            print(f"[startup {ts}] {msg}")
+            if not root.winfo_ismapped():
+                root.after(30, _post_show_finalize)
+                return
         except Exception:
             pass
 
-    def _bind_window_trace(win, name):
-        if win is None:
-            return
-        try:
-            win.bind('<Map>', lambda e: _startup_log(f"{name} <Map> id={getattr(win, 'winfo_id', lambda: '?')() if hasattr(win, 'winfo_id') else '?'}"), add=True)
-            win.bind('<Unmap>', lambda e: _startup_log(f"{name} <Unmap>"), add=True)
-            win.bind('<Destroy>', lambda e: _startup_log(f"{name} <Destroy>"), add=True)
-        except Exception:
-            pass
+        _post_show_finalized = True
 
-    _bind_window_trace(root, 'root')
-    _bind_window_trace(splash, 'splash')
-
-    def _finalize_first_frame(_evt=None):
-        root.unbind('<Map>', map_bind_id)
-        _startup_log('root finalize_first_frame enter')
         try:
             root.update_idletasks()
         except Exception:
@@ -2262,56 +2490,70 @@ def main():
                 app.align_header_segment()
         except Exception:
             pass
+
         try:
             root.attributes('-alpha', 1.0)
         except Exception:
             pass
-        root._window_visible = True
-        _startup_log('root finalize_first_frame exit')
 
-    # Make window visible only after UI is built and geometry is final
-    map_bind_id = root.bind('<Map>', _finalize_first_frame, add=True)
+        _fg_ok = False
+        try:
+            _fg_ok = _win_force_foreground(root.winfo_id())
+        except Exception:
+            _fg_ok = False
 
-    def _hide_splash_now_then_destroy_later():
-        try:
-            if splash is None or not splash.winfo_exists():
-                return
-        except Exception:
-            return
-
-        _startup_log('hide splash (pre-deiconify)')
-        try:
-            splash.attributes('-topmost', False)
-        except Exception:
-            pass
-        try:
-            splash.attributes('-alpha', 0.0)
-        except Exception:
-            pass
-        try:
-            splash.withdraw()
-        except Exception:
-            pass
-
-        def _destroy_splash_later():
+        def _force_foreground_retry_once():
             try:
-                if splash is None or not splash.winfo_exists():
-                    return
-            except Exception:
-                return
-            _startup_log('destroy splash (delayed)')
-            try:
-                splash.destroy()
+                _win_force_foreground(root.winfo_id())
             except Exception:
                 pass
 
-        # Destroy in background long after it's hidden to avoid WM flash.
-        root.after(2000, _destroy_splash_later)
+        if not _fg_ok:
+            root.after(250, _force_foreground_retry_once)
+
+        try:
+            if splash is not None and splash.winfo_exists():
+                try:
+                    splash.attributes('-topmost', False)
+                except Exception:
+                    pass
+                try:
+                    splash.attributes('-alpha', 0.0)
+                except Exception:
+                    pass
+                try:
+                    splash.withdraw()
+                except Exception:
+                    pass
+        except Exception:
+            pass
+
+        root._window_visible = True
+
+    _show_root_after_id = None
+
+    def _do_show_root():
+        nonlocal _show_root_after_id
+        _show_root_after_id = None
+        root.deiconify()
+        root.after(0, _post_show_finalize)
+        root.after(30, _post_show_finalize)
 
     def _show_root():
-        # Requirement: splash should disappear BEFORE the main window is shown.
-        _hide_splash_now_then_destroy_later()
-        root.deiconify()
+        nonlocal _show_root_after_id
+        if _show_root_after_id is not None:
+            return
+        try:
+            if splash_shown_t0 is not None:
+                min_ms = 250
+                elapsed_ms = int((time.monotonic() - splash_shown_t0) * 1000)
+                remain_ms = min_ms - elapsed_ms
+                if remain_ms > 0:
+                    _show_root_after_id = root.after(remain_ms, _do_show_root)
+                    return
+        except Exception:
+            pass
+        _do_show_root()
 
     root.after(0, _show_root)
     
