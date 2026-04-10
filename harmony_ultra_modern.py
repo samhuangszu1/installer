@@ -2403,21 +2403,16 @@ def main():
                 user32.AttachThreadInput(cur_tid, fg_tid, True)
                 user32.SetForegroundWindow(hwnd)
                 user32.SetFocus(hwnd)
+                return True
             finally:
                 try:
                     user32.AttachThreadInput(cur_tid, fg_tid, False)
                 except Exception:
                     pass
-            return user32.GetForegroundWindow() == hwnd
         except Exception:
             return False
 
     root = tk.Tk()
-    import time
-    try:
-        root.attributes('-alpha', 0.0)
-    except Exception:
-        pass
     root.title("HarmonyOS App Installer")
     root.withdraw()
     root.geometry("1400x900")
@@ -2426,11 +2421,37 @@ def main():
     # Set dark background immediately to prevent white flash
     root.configure(bg='#0F1419')
     
+    def _get_center_xy(target_w, target_h):
+        try:
+            if platform.system() == 'Windows':
+                import ctypes
+
+                class _RECT(ctypes.Structure):
+                    _fields_ = [('left', ctypes.c_long), ('top', ctypes.c_long), ('right', ctypes.c_long), ('bottom', ctypes.c_long)]
+
+                SPI_GETWORKAREA = 0x0030
+                rect = _RECT()
+                ok = ctypes.windll.user32.SystemParametersInfoW(SPI_GETWORKAREA, 0, ctypes.byref(rect), 0)
+                if ok:
+                    wa_w = int(rect.right - rect.left)
+                    wa_h = int(rect.bottom - rect.top)
+                    x = int(rect.left + (wa_w - target_w) / 2)
+                    y = int(rect.top + (wa_h - target_h) / 2)
+                    return x, y
+        except Exception:
+            pass
+
+        try:
+            x = int((root.winfo_screenwidth() // 2) - (target_w // 2))
+            y = int((root.winfo_screenheight() // 2) - (target_h // 2))
+            return x, y
+        except Exception:
+            return 0, 0
+
     # Center window on screen (use fixed target size to avoid size thrash)
     width = 1400
     height = 900
-    x = (root.winfo_screenwidth() // 2) - (width // 2)
-    y = (root.winfo_screenheight() // 2) - (height // 2)
+    x, y = _get_center_xy(width, height)
     root.geometry(f'{width}x{height}+{x}+{y}')
 
     splash = None
@@ -2440,8 +2461,7 @@ def main():
         splash.overrideredirect(True)
         splash.configure(bg='#0F1419')
         sw, sh = 420, 220
-        sx = (root.winfo_screenwidth() // 2) - (sw // 2)
-        sy = (root.winfo_screenheight() // 2) - (sh // 2)
+        sx, sy = _get_center_xy(sw, sh)
         splash.geometry(f'{sw}x{sh}+{sx}+{sy}')
         splash.attributes('-topmost', True)
         splash_frame = tk.Frame(splash, bg='#0F1419', highlightthickness=1, highlightbackground='#2F3336')
