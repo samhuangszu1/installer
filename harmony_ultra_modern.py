@@ -1942,10 +1942,15 @@ class ModernDesignInstaller:
     def configure_server(self):
         """配置服务器地址和下载目录"""
         dialog = tk.Toplevel(self.root)
+        dialog.withdraw()
         dialog.title("配置设置")
-        dialog.geometry("620x520")
         dialog.configure(bg=self.colors['bg_secondary'])
         dialog.resizable(False, False)
+
+        try:
+            dialog.attributes('-alpha', 0.0)
+        except Exception:
+            pass
         
         # 设为模态对话框
         dialog.transient(self.root)
@@ -2141,6 +2146,23 @@ class ModernDesignInstaller:
             secondary=False
         )
         save_btn.pack(side='right', padx=(0, 10))
+
+        try:
+            dialog.update_idletasks()
+        except Exception:
+            pass
+
+        try:
+            dialog.deiconify()
+            dialog.lift()
+            dialog.focus_force()
+        except Exception:
+            pass
+
+        try:
+            dialog.attributes('-alpha', 1.0)
+        except Exception:
+            pass
         
         # 等待对话框关闭
         self.root.wait_window(dialog)
@@ -2153,6 +2175,10 @@ class ModernDesignInstaller:
 def main():
     # Create window with immediate dark theme
     root = tk.Tk()
+    try:
+        root.attributes('-alpha', 0.0)
+    except Exception:
+        pass
     root.title("HarmonyOS App Installer")
     root.withdraw()
     root.geometry("1400x900")
@@ -2167,6 +2193,26 @@ def main():
     x = (root.winfo_screenwidth() // 2) - (width // 2)
     y = (root.winfo_screenheight() // 2) - (height // 2)
     root.geometry(f'{width}x{height}+{x}+{y}')
+
+    splash = None
+    try:
+        splash = tk.Toplevel(root)
+        splash.overrideredirect(True)
+        splash.configure(bg='#0F1419')
+        sw, sh = 420, 220
+        sx = (root.winfo_screenwidth() // 2) - (sw // 2)
+        sy = (root.winfo_screenheight() // 2) - (sh // 2)
+        splash.geometry(f'{sw}x{sh}+{sx}+{sy}')
+        splash.attributes('-topmost', True)
+        splash_frame = tk.Frame(splash, bg='#0F1419', highlightthickness=1, highlightbackground='#2F3336')
+        splash_frame.pack(fill=tk.BOTH, expand=True)
+        tk.Label(splash_frame, text='鸿蒙应用安装工具', fg='#E7E9EA', bg='#0F1419',
+                 font=('Segoe UI', 18, 'bold')).pack(pady=(54, 10))
+        tk.Label(splash_frame, text='正在启动...', fg='#71767B', bg='#0F1419',
+                 font=('Segoe UI', 11)).pack()
+        splash.update_idletasks()
+    except Exception:
+        splash = None
     
     # Create app (window is already dark)
     app = ModernDesignInstaller(root)
@@ -2174,8 +2220,39 @@ def main():
     # Avoid UI flashing during first layout; enable after we have a stable first frame
     root._window_visible = False
 
+    _startup_log_enabled = False
+    try:
+        import os
+        _startup_log_enabled = os.environ.get('HARMONY_STARTUP_LOG', '').strip() in ('1', 'true', 'TRUE', 'yes', 'YES')
+    except Exception:
+        _startup_log_enabled = False
+
+    def _startup_log(msg):
+        if not _startup_log_enabled:
+            return
+        try:
+            import time
+            ts = time.strftime('%H:%M:%S')
+            print(f"[startup {ts}] {msg}")
+        except Exception:
+            pass
+
+    def _bind_window_trace(win, name):
+        if win is None:
+            return
+        try:
+            win.bind('<Map>', lambda e: _startup_log(f"{name} <Map> id={getattr(win, 'winfo_id', lambda: '?')() if hasattr(win, 'winfo_id') else '?'}"), add=True)
+            win.bind('<Unmap>', lambda e: _startup_log(f"{name} <Unmap>"), add=True)
+            win.bind('<Destroy>', lambda e: _startup_log(f"{name} <Destroy>"), add=True)
+        except Exception:
+            pass
+
+    _bind_window_trace(root, 'root')
+    _bind_window_trace(splash, 'splash')
+
     def _finalize_first_frame(_evt=None):
         root.unbind('<Map>', map_bind_id)
+        _startup_log('root finalize_first_frame enter')
         try:
             root.update_idletasks()
         except Exception:
@@ -2185,11 +2262,58 @@ def main():
                 app.align_header_segment()
         except Exception:
             pass
+        try:
+            root.attributes('-alpha', 1.0)
+        except Exception:
+            pass
         root._window_visible = True
+        _startup_log('root finalize_first_frame exit')
 
     # Make window visible only after UI is built and geometry is final
     map_bind_id = root.bind('<Map>', _finalize_first_frame, add=True)
-    root.deiconify()
+
+    def _hide_splash_now_then_destroy_later():
+        try:
+            if splash is None or not splash.winfo_exists():
+                return
+        except Exception:
+            return
+
+        _startup_log('hide splash (pre-deiconify)')
+        try:
+            splash.attributes('-topmost', False)
+        except Exception:
+            pass
+        try:
+            splash.attributes('-alpha', 0.0)
+        except Exception:
+            pass
+        try:
+            splash.withdraw()
+        except Exception:
+            pass
+
+        def _destroy_splash_later():
+            try:
+                if splash is None or not splash.winfo_exists():
+                    return
+            except Exception:
+                return
+            _startup_log('destroy splash (delayed)')
+            try:
+                splash.destroy()
+            except Exception:
+                pass
+
+        # Destroy in background long after it's hidden to avoid WM flash.
+        root.after(2000, _destroy_splash_later)
+
+    def _show_root():
+        # Requirement: splash should disappear BEFORE the main window is shown.
+        _hide_splash_now_then_destroy_later()
+        root.deiconify()
+
+    root.after(0, _show_root)
     
     root.mainloop()
 
