@@ -1482,31 +1482,89 @@ class ModernDesignInstaller:
         # 先创建对话框
         dialog = tk.Toplevel(self.root)
         dialog.title("设备 UDID")
-        dialog.geometry("400x150")
+        dialog.geometry("460x240")
         dialog.resizable(False, False)
         dialog.transient(self.root)
-        
-        # Create widgets first
-        udid_label = tk.Label(dialog, text=f"设备UDID:", font=('Segoe UI', 12, 'bold'))
-        udid_label.pack(pady=(10, 5))
-        
-        udid_text = tk.Text(dialog, height=2, width=40, font=('Consolas', 10))
-        udid_text.pack(pady=5)
-        udid_text.insert('1.0', udid)
-        udid_text.config(state='disabled')
+        dialog.configure(bg=self.colors['bg_secondary'])
+
+        content = tk.Frame(dialog, bg=self.colors['bg_secondary'])
+        content.pack(fill=tk.BOTH, expand=True, padx=20, pady=18)
+
+        udid_label = tk.Label(content, text="设备UDID:",
+                              font=('Segoe UI', 12, 'bold'),
+                              bg=self.colors['bg_secondary'], fg=self.colors['text_primary'])
+        udid_label.pack(anchor='w', pady=(0, 10))
+
+        udid_card = tk.Frame(content, bg=self.colors['bg_card'], highlightthickness=1,
+                             highlightbackground=self.colors['border'])
+        udid_card.pack(fill=tk.X)
+
+        udid_value = tk.Label(
+            udid_card,
+            text=str(udid),
+            font=('Consolas', 11),
+            bg=self.colors['bg_card'],
+            fg=self.colors['text_primary'],
+            justify='left',
+            anchor='w',
+            wraplength=400
+        )
+        udid_value.pack(fill=tk.X, padx=12, pady=12)
         
         # Button frame
-        button_frame = tk.Frame(dialog)
-        button_frame.pack(pady=10)
-        
-        copy_btn = tk.Button(button_frame, text="复制 UDID", command=lambda: self.copy_udid(udid),
-                           bg=self.colors['bg_accent'], fg='white', font=('Segoe UI', 10, 'bold'),
-                           activebackground=self.colors['hover'], activeforeground='white')
-        copy_btn.pack(side='left', padx=5)
-        
-        cancel_btn = tk.Button(button_frame, text="取消", command=dialog.destroy,
-                              font=('Segoe UI', 10))
-        cancel_btn.pack(side='left', padx=5)
+        button_frame = tk.Frame(content, bg=self.colors['bg_secondary'])
+        button_frame.pack(fill=tk.X, pady=(16, 0))
+
+        def _style_dialog_btn(btn, *, bg, fg, active_bg, active_fg, bold=False, secondary=False):
+            btn.configure(
+                font=('Segoe UI', 10, 'bold' if bold else 'normal'),
+                bg=bg,
+                fg=fg,
+                activebackground=active_bg,
+                activeforeground=active_fg,
+                relief='flat',
+                bd=0,
+                borderwidth=0,
+                highlightthickness=1 if secondary else 0,
+                highlightbackground=self.colors['border'] if secondary else bg,
+                highlightcolor=self.colors['border'] if secondary else bg,
+                padx=14,
+                pady=7,
+                cursor='hand2'
+            )
+
+            def _on_enter(_e):
+                btn.configure(bg=active_bg)
+
+            def _on_leave(_e):
+                btn.configure(bg=bg)
+
+            btn.bind('<Enter>', _on_enter)
+            btn.bind('<Leave>', _on_leave)
+
+        cancel_btn = tk.Button(button_frame, text="取消", command=dialog.destroy)
+        _style_dialog_btn(
+            cancel_btn,
+            bg=self.colors['bg_selection'],
+            fg=self.colors['text_primary'],
+            active_bg='#343A3F',
+            active_fg=self.colors['text_primary'],
+            bold=False,
+            secondary=True
+        )
+        cancel_btn.pack(side='right')
+
+        copy_btn = tk.Button(button_frame, text="复制 UDID", command=lambda: self.copy_udid(udid))
+        _style_dialog_btn(
+            copy_btn,
+            bg=self.colors['bg_accent'],
+            fg='white',
+            active_bg=self.colors['hover'],
+            active_fg='white',
+            bold=True,
+            secondary=False
+        )
+        copy_btn.pack(side='right', padx=(0, 10))
         
         # Update window to ensure it's ready
         dialog.update_idletasks()
@@ -1517,8 +1575,8 @@ class ModernDesignInstaller:
         main_width = self.root.winfo_width()
         main_height = self.root.winfo_height()
         
-        dialog_width = 400
-        dialog_height = 150
+        dialog_width = 460
+        dialog_height = 240
         x = main_x + (main_width // 2) - (dialog_width // 2)
         y = main_y + (main_height // 2) - (dialog_height // 2)
         
@@ -1885,8 +1943,8 @@ class ModernDesignInstaller:
         """配置服务器地址和下载目录"""
         dialog = tk.Toplevel(self.root)
         dialog.title("配置设置")
-        dialog.geometry("600x450")
-        dialog.configure(bg=self.colors['bg_primary'])
+        dialog.geometry("620x520")
+        dialog.configure(bg=self.colors['bg_secondary'])
         dialog.resizable(False, False)
         
         # 设为模态对话框
@@ -1895,55 +1953,92 @@ class ModernDesignInstaller:
         
         # 居中显示
         dialog.update_idletasks()
-        x = (dialog.winfo_screenwidth() // 2) - (600 // 2)
-        y = (dialog.winfo_screenheight() // 2) - (450 // 2)
-        dialog.geometry(f'600x450+{x}+{y}')
+        x = (dialog.winfo_screenwidth() // 2) - (620 // 2)
+        y = (dialog.winfo_screenheight() // 2) - (520 // 2)
+        dialog.geometry(f'620x520+{x}+{y}')
         
         # 变量来跟踪用户选择
         config_saved = [False]
         
-        # 标题
-        title_label = tk.Label(dialog, text="⚙️ 配置设置", 
-                          font=self.fonts['title'],
-                          fg=self.colors['text_primary'],
-                          bg=self.colors['bg_primary'])
-        title_label.pack(pady=20)
-        
-        # 配置区域
-        config_frame = tk.Frame(dialog, bg=self.colors['bg_primary'])
-        config_frame.pack(pady=10, padx=40, fill='x')
+        content = tk.Frame(dialog, bg=self.colors['bg_secondary'])
+        content.pack(fill=tk.BOTH, expand=True, padx=24, pady=20)
+
+        title_label = tk.Label(content, text="⚙️ 配置设置",
+                               font=self.fonts['title'],
+                               fg=self.colors['text_primary'],
+                               bg=self.colors['bg_secondary'])
+        title_label.pack(pady=(0, 16))
+
+        form_card = tk.Frame(content, bg=self.colors['bg_card'], highlightthickness=1,
+                             highlightbackground=self.colors['border'])
+        form_card.pack(fill='x')
+
+        config_frame = tk.Frame(form_card, bg=self.colors['bg_card'])
+        config_frame.pack(padx=18, pady=16, fill='x')
+
+        def _style_entry(entry):
+            entry.configure(
+                font=self.fonts['body'],
+                bg=self.colors['bg_primary'],
+                fg=self.colors['text_primary'],
+                insertbackground=self.colors['text_primary'],
+                relief='flat',
+                bd=0,
+                highlightthickness=1,
+                highlightbackground=self.colors['border'],
+                highlightcolor=self.colors['border']
+            )
+
+        def _style_dialog_btn(btn, *, bg, fg, active_bg, active_fg, bold=False, secondary=False):
+            btn.configure(
+                font=('Segoe UI', 10, 'bold' if bold else 'normal'),
+                bg=bg,
+                fg=fg,
+                activebackground=active_bg,
+                activeforeground=active_fg,
+                relief='flat',
+                bd=0,
+                borderwidth=0,
+                highlightthickness=1 if secondary else 0,
+                highlightbackground=self.colors['border'] if secondary else bg,
+                highlightcolor=self.colors['border'] if secondary else bg,
+                padx=14,
+                pady=7,
+                cursor='hand2'
+            )
+
+            def _on_enter(_e):
+                btn.configure(bg=active_bg)
+
+            def _on_leave(_e):
+                btn.configure(bg=bg)
+
+            btn.bind('<Enter>', _on_enter)
+            btn.bind('<Leave>', _on_leave)
         
         # 服务器地址输入
-        tk.Label(config_frame, text="🌐 服务器地址:", 
-                font=self.fonts['body'],
-                fg=self.colors['text_secondary'],
-                bg=self.colors['bg_primary']).pack(anchor='w', pady=(10, 5))
-        
-        url_entry = tk.Entry(config_frame, font=self.fonts['body'],
-                          bg=self.colors['bg_card'],
-                          fg=self.colors['text_primary'],
-                          insertbackground=self.colors['text_primary'],
-                          relief='flat',
-                          bd=5)
-        url_entry.pack(fill='x', pady=(0, 15))
+        tk.Label(config_frame, text="🌐 服务器地址:",
+                 font=self.fonts['body'],
+                 fg=self.colors['text_secondary'],
+                 bg=self.colors['bg_card']).pack(anchor='w', pady=(0, 6))
+
+        url_entry = tk.Entry(config_frame)
+        _style_entry(url_entry)
+        url_entry.pack(fill='x', ipady=6, pady=(0, 14))
         url_entry.insert(0, self.server_base_url)
         
         # 下载目录输入
-        tk.Label(config_frame, text="📁 下载目录:", 
-                font=self.fonts['body'],
-                fg=self.colors['text_secondary'],
-                bg=self.colors['bg_primary']).pack(anchor='w', pady=(0, 5))
-        
-        download_frame = tk.Frame(config_frame, bg=self.colors['bg_primary'])
-        download_frame.pack(fill='x', pady=(0, 15))
-        
-        download_entry = tk.Entry(download_frame, font=self.fonts['body'],
-                              bg=self.colors['bg_card'],
-                              fg=self.colors['text_primary'],
-                              insertbackground=self.colors['text_primary'],
-                              relief='flat',
-                              bd=5)
-        download_entry.pack(side='left', fill='x', expand=True)
+        tk.Label(config_frame, text="📁 下载目录:",
+                 font=self.fonts['body'],
+                 fg=self.colors['text_secondary'],
+                 bg=self.colors['bg_card']).pack(anchor='w', pady=(0, 6))
+
+        download_frame = tk.Frame(config_frame, bg=self.colors['bg_card'])
+        download_frame.pack(fill='x', pady=(0, 4))
+
+        download_entry = tk.Entry(download_frame)
+        _style_entry(download_entry)
+        download_entry.pack(side='left', fill='x', expand=True, ipady=6)
         download_entry.insert(0, self.download_dir)
         
         def browse_directory():
@@ -1958,15 +2053,15 @@ class ModernDesignInstaller:
                 download_entry.insert(0, directory)
                 download_entry.focus_set()
         
-        browse_btn = tk.Button(download_frame, text="浏览", 
-                           command=browse_directory,
-                           font=self.fonts['small'],
-                           bg=self.colors['bg_secondary'],
-                           fg=self.colors['text_primary'],
-                           relief='flat',
-                           bd=0,
-                           padx=10,
-                           pady=5)
+        browse_btn = tk.Button(download_frame, text="浏览", command=browse_directory)
+        _style_dialog_btn(
+            browse_btn,
+            bg=self.colors['bg_selection'],
+            fg=self.colors['text_primary'],
+            active_bg='#343A3F',
+            active_fg=self.colors['text_primary'],
+            secondary=True
+        )
         browse_btn.pack(side='right', padx=(10, 0))
         
         # 说明文本
@@ -1976,16 +2071,19 @@ class ModernDesignInstaller:
 • 配置会自动保存，下次启动时加载
 • 必须确保服务器地址正确且可访问"""
         
-        info_label = tk.Label(dialog, text=info_text,
-                          font=self.fonts['small'],
-                          fg=self.colors['text_muted'],
-                          bg=self.colors['bg_primary'],
-                          justify='left')
-        info_label.pack(pady=15, padx=40)
-        
-        # 按钮区域
-        button_frame = tk.Frame(dialog, bg=self.colors['bg_primary'])
-        button_frame.pack(pady=20)
+        info_card = tk.Frame(content, bg=self.colors['bg_card'], highlightthickness=1,
+                             highlightbackground=self.colors['border'])
+        info_card.pack(fill='x', pady=(14, 0))
+
+        info_label = tk.Label(info_card, text=info_text,
+                              font=self.fonts['small'],
+                              fg=self.colors['text_muted'],
+                              bg=self.colors['bg_card'],
+                              justify='left')
+        info_label.pack(anchor='w', padx=18, pady=14)
+
+        button_frame = tk.Frame(content, bg=self.colors['bg_secondary'])
+        button_frame.pack(fill=tk.X, pady=(18, 0))
         
         def save_config():
             new_url = url_entry.get().strip()
@@ -2020,29 +2118,29 @@ class ModernDesignInstaller:
             # 直接关闭配置窗口
             dialog.destroy()
         
-        # 保存按钮
-        save_btn = tk.Button(button_frame, text="保存", 
-                         command=save_config,
-                         font=self.fonts['button'],
-                         bg=self.colors['bg_success'],
-                         fg='white',
-                         relief='flat',
-                         bd=0,
-                         padx=25,
-                         pady=8)
-        save_btn.pack(side='left', padx=5)
-        
-        # 取消按钮
-        cancel_btn = tk.Button(button_frame, text="取消", 
-                           command=cancel_config,
-                           font=self.fonts['button'],
-                           bg=self.colors['bg_secondary'],
-                           fg=self.colors['text_primary'],
-                           relief='flat',
-                           bd=0,
-                           padx=25,
-                           pady=8)
-        cancel_btn.pack(side='left', padx=5)
+        cancel_btn = tk.Button(button_frame, text="取消", command=cancel_config)
+        _style_dialog_btn(
+            cancel_btn,
+            bg=self.colors['bg_selection'],
+            fg=self.colors['text_primary'],
+            active_bg='#343A3F',
+            active_fg=self.colors['text_primary'],
+            bold=False,
+            secondary=True
+        )
+        cancel_btn.pack(side='right')
+
+        save_btn = tk.Button(button_frame, text="保存", command=save_config)
+        _style_dialog_btn(
+            save_btn,
+            bg=self.colors['bg_accent'],
+            fg='white',
+            active_bg=self.colors['hover'],
+            active_fg='white',
+            bold=True,
+            secondary=False
+        )
+        save_btn.pack(side='right', padx=(0, 10))
         
         # 等待对话框关闭
         self.root.wait_window(dialog)
