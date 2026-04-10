@@ -64,6 +64,16 @@
         .form-group {
             margin-bottom: 15px;
         }
+
+        .inline-row {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .inline-row input {
+            flex: 1;
+        }
         
         label {
             display: block;
@@ -227,7 +237,10 @@
         <div class="card">
             <div class="form-group">
                 <label for="api-key-input">API Key (for upload)</label>
-                <input type="password" id="api-key-input" placeholder="Set X-API-Key for uploads">
+                <div class="inline-row">
+                    <input type="password" id="api-key-input" placeholder="Set X-API-Key for uploads">
+                    <button class="btn" type="button" onclick="saveApiKey()">Save</button>
+                </div>
             </div>
         </div>
         
@@ -372,6 +385,66 @@
             </form>
         </div>
     </div>
+
+    <!-- Edit Version Modal -->
+    <div id="edit-version-modal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal('edit-version-modal')">&times;</span>
+            <h2>Edit Version</h2>
+            <form id="edit-version-form">
+                <div class="form-group">
+                    <label for="edit-version-number">Version:</label>
+                    <input type="text" id="edit-version-number" required>
+                </div>
+                <div class="form-group">
+                    <label for="edit-version-description">Description:</label>
+                    <textarea id="edit-version-description"></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="edit-version-release-date">Release Date:</label>
+                    <input type="date" id="edit-version-release-date">
+                </div>
+                <div class="form-group">
+                    <label for="edit-version-deploy-path">Deploy Path:</label>
+                    <input type="text" id="edit-version-deploy-path" value="/data/local/tmp">
+                </div>
+                <button type="submit" class="btn">Save</button>
+                <button type="button" class="btn" onclick="closeModal('edit-version-modal')">Cancel</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Edit App Modal -->
+    <div id="edit-app-modal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal('edit-app-modal')">&times;</span>
+            <h2>Edit Application</h2>
+            <form id="edit-app-form">
+                <div class="form-group">
+                    <label for="edit-app-name">Name:</label>
+                    <input type="text" id="edit-app-name" required>
+                </div>
+                <div class="form-group">
+                    <label for="edit-app-description">Description:</label>
+                    <textarea id="edit-app-description"></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="edit-app-bundle-name">Bundle Name:</label>
+                    <input type="text" id="edit-app-bundle-name" required>
+                </div>
+                <div class="form-group">
+                    <label for="edit-app-main-ability">Main Ability:</label>
+                    <input type="text" id="edit-app-main-ability" required>
+                </div>
+                <div class="form-group">
+                    <label for="edit-app-current-version">Current Version:</label>
+                    <input type="text" id="edit-app-current-version">
+                </div>
+                <button type="submit" class="btn">Save</button>
+                <button type="button" class="btn" onclick="closeModal('edit-app-modal')">Cancel</button>
+            </form>
+        </div>
+    </div>
     
     <!-- Create Version Modal -->
     <div id="create-version-modal" class="modal">
@@ -411,6 +484,10 @@
     <script>
         const API_BASE = '/api';
         let currentAppId = null;
+        let appsById = {};
+        let versionsById = {};
+        let editingAppId = null;
+        let editingVersionId = null;
 
         function getApiKey() {
             try {
@@ -420,11 +497,52 @@
             }
         }
 
+        function editApp(appId) {
+            const app = appsById[appId];
+            if (!app) {
+                showStatus('App not found', 'error');
+                return;
+            }
+
+            editingAppId = appId;
+            document.getElementById('edit-app-name').value = app.name || '';
+            document.getElementById('edit-app-description').value = app.description || '';
+            document.getElementById('edit-app-bundle-name').value = app.bundle_name || '';
+            document.getElementById('edit-app-main-ability').value = app.main_ability || '';
+            document.getElementById('edit-app-current-version').value = app.current_version || '';
+            document.getElementById('edit-app-modal').style.display = 'block';
+        }
+
+        function editVersion(versionId) {
+            const version = versionsById[versionId];
+            if (!version) {
+                showStatus('Version not found', 'error');
+                return;
+            }
+
+            editingVersionId = versionId;
+            document.getElementById('edit-version-number').value = version.version || '';
+            document.getElementById('edit-version-description').value = version.description || '';
+            document.getElementById('edit-version-release-date').value = version.release_date || '';
+            document.getElementById('edit-version-deploy-path').value = version.deploy_path || '/data/local/tmp';
+            document.getElementById('edit-version-modal').style.display = 'block';
+        }
+
         function setApiKey(value) {
             try {
                 localStorage.setItem('ADMIN_API_KEY', value || '');
             } catch (e) {
             }
+        }
+
+        function saveApiKey() {
+            const apiKeyInput = document.getElementById('api-key-input');
+            if (!apiKeyInput) {
+                return;
+            }
+
+            setApiKey(apiKeyInput.value);
+            showToast('API Key saved', 'success');
         }
         
         // Initialize
@@ -432,13 +550,92 @@
             const apiKeyInput = document.getElementById('api-key-input');
             if (apiKeyInput) {
                 apiKeyInput.value = getApiKey();
-                apiKeyInput.addEventListener('input', function() {
-                    setApiKey(this.value);
-                });
             }
             loadStats();
             loadApps();
             loadAppSelect();
+        });
+
+        document.getElementById('edit-app-form').addEventListener('submit', async function(e) {
+            e.preventDefault();
+
+            if (!editingAppId) {
+                showStatus('No app selected for editing', 'error');
+                return;
+            }
+
+            const formData = {
+                name: document.getElementById('edit-app-name').value,
+                description: document.getElementById('edit-app-description').value,
+                bundle_name: document.getElementById('edit-app-bundle-name').value,
+                main_ability: document.getElementById('edit-app-main-ability').value,
+                current_version: document.getElementById('edit-app-current-version').value
+            };
+
+            try {
+                const response = await fetch(`${API_BASE}/apps/${editingAppId}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        ...(getApiKey() ? { 'X-API-Key': getApiKey() } : {})
+                    },
+                    body: JSON.stringify(formData)
+                });
+
+                if (response.ok) {
+                    showToast('Application updated successfully', 'success');
+                    closeModal('edit-app-modal');
+                    editingAppId = null;
+                    loadApps();
+                    loadAppSelect();
+                    loadStats();
+                } else {
+                    const error = await response.json();
+                    showStatus('Error updating app: ' + error.error, 'error');
+                }
+            } catch (error) {
+                showStatus('Error updating app: ' + error.message, 'error');
+            }
+        });
+
+        document.getElementById('edit-version-form').addEventListener('submit', async function(e) {
+            e.preventDefault();
+
+            if (!editingVersionId) {
+                showStatus('No version selected for editing', 'error');
+                return;
+            }
+
+            const formData = {
+                version: document.getElementById('edit-version-number').value,
+                description: document.getElementById('edit-version-description').value,
+                release_date: document.getElementById('edit-version-release-date').value,
+                deploy_path: document.getElementById('edit-version-deploy-path').value
+            };
+
+            try {
+                const response = await fetch(`${API_BASE}/versions/${editingVersionId}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        ...(getApiKey() ? { 'X-API-Key': getApiKey() } : {})
+                    },
+                    body: JSON.stringify(formData)
+                });
+
+                if (response.ok) {
+                    showToast('Version updated successfully', 'success');
+                    closeModal('edit-version-modal');
+                    editingVersionId = null;
+                    loadVersions();
+                    loadStats();
+                } else {
+                    const error = await response.json();
+                    showStatus('Error updating version: ' + error.error, 'error');
+                }
+            } catch (error) {
+                showStatus('Error updating version: ' + error.message, 'error');
+            }
         });
         
         // Tab management
@@ -475,6 +672,13 @@
             try {
                 const response = await fetch(`${API_BASE}/apps`);
                 const data = await response.json();
+
+                appsById = {};
+                if (data.apps) {
+                    data.apps.forEach(a => {
+                        appsById[a.id] = a;
+                    });
+                }
                 
                 const tbody = document.querySelector('#apps-table tbody');
                 tbody.innerHTML = '';
@@ -633,6 +837,13 @@
             try {
                 const response = await fetch(`${API_BASE}/apps/${appId}/versions`);
                 const data = await response.json();
+
+                versionsById = {};
+                if (data.versions) {
+                    data.versions.forEach(v => {
+                        versionsById[v.id] = v;
+                    });
+                }
                 
                 const tbody = document.querySelector('#versions-table tbody');
                 tbody.innerHTML = '';
@@ -868,60 +1079,7 @@
         
         // Utility functions
         function showStatus(message, type) {
-            // Create toast element
-            const toast = document.createElement('div');
-            toast.className = `toast toast-${type}`;
-            toast.textContent = message;
-            
-            // Add styles
-            toast.style.cssText = `
-                position: fixed;
-                top: 20px;
-                right: 20px;
-                padding: 15px 20px;
-                border-radius: 8px;
-                color: white;
-                font-weight: 500;
-                z-index: 10000;
-                opacity: 0;
-                transform: translateX(100%);
-                transition: all 0.3s ease;
-                max-width: 300px;
-                word-wrap: break-word;
-                box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-            `;
-            
-            // Set background color based on type
-            if (type === 'success') {
-                toast.style.backgroundColor = '#28a745';
-            } else if (type === 'error') {
-                toast.style.backgroundColor = '#dc3545';
-            } else if (type === 'warning') {
-                toast.style.backgroundColor = '#ffc107';
-                toast.style.color = '#212529';
-            } else {
-                toast.style.backgroundColor = '#17a2b8';
-            }
-            
-            // Add to body
-            document.body.appendChild(toast);
-            
-            // Animate in
-            setTimeout(() => {
-                toast.style.opacity = '1';
-                toast.style.transform = 'translateX(0)';
-            }, 10);
-            
-            // Remove after delay
-            setTimeout(() => {
-                toast.style.opacity = '0';
-                toast.style.transform = 'translateX(100%)';
-                setTimeout(() => {
-                    if (toast.parentNode) {
-                        toast.parentNode.removeChild(toast);
-                    }
-                }, 300);
-            }, 3000);
+            showToast(message, type);
         }
         
         // Toast notification function for important messages
@@ -941,14 +1099,14 @@
             toast.style.cssText = `
                 position: fixed;
                 top: 20px;
-                right: 20px;
+                left: 50%;
+                transform: translate(-50%, -20px);
                 padding: 15px 20px;
                 border-radius: 8px;
                 color: white;
                 font-weight: 500;
                 z-index: 10000;
                 opacity: 0;
-                transform: translateX(100%);
                 transition: all 0.3s ease;
                 max-width: 300px;
                 word-wrap: break-word;
@@ -973,13 +1131,13 @@
             // Animate in
             setTimeout(() => {
                 toast.style.opacity = '1';
-                toast.style.transform = 'translateX(0)';
+                toast.style.transform = 'translate(-50%, 0)';
             }, 10);
             
             // Remove after delay
             setTimeout(() => {
                 toast.style.opacity = '0';
-                toast.style.transform = 'translateX(100%)';
+                toast.style.transform = 'translate(-50%, -20px)';
                 setTimeout(() => {
                     if (toast.parentNode) {
                         toast.parentNode.removeChild(toast);

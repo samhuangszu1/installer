@@ -58,6 +58,8 @@ python app.py
 - 如果启动 server 时设置了环境变量 `ADMIN_API_KEY`，则以下接口必须带请求头 `X-API-Key: <ADMIN_API_KEY>` 才能访问：
   - `POST /api/versions/create-with-files`
   - `POST /api/upload`
+  - `PUT /api/apps/{id}`
+  - `PUT /api/versions/{id}`
 
 表单字段（form fields）：
 - `app_id`（必填，int）

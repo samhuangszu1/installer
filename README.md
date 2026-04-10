@@ -156,6 +156,8 @@ Security:
 - If the server is started with environment variable `ADMIN_API_KEY`, these upload endpoints require header `X-API-Key: <ADMIN_API_KEY>`:
   - `POST /api/versions/create-with-files`
   - `POST /api/upload`
+  - `PUT /api/apps/{id}`
+  - `PUT /api/versions/{id}`
 
 Form fields:
 - `app_id` (required, int)

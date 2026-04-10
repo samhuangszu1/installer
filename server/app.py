@@ -19,10 +19,14 @@ def create_app():
 
     @app.before_request
     def _require_api_key_for_upload_endpoints():
-        if request.method != 'POST':
-            return None
+        protected = False
 
-        if request.path not in ('/api/versions/create-with-files', '/api/upload'):
+        if request.method == 'POST' and request.path in ('/api/versions/create-with-files', '/api/upload'):
+            protected = True
+        elif request.method == 'PUT' and (request.path.startswith('/api/apps/') or request.path.startswith('/api/versions/')):
+            protected = True
+
+        if not protected:
             return None
 
         if not admin_api_key:
