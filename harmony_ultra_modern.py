@@ -58,6 +58,13 @@ class ModernDesignInstaller:
         self.apps_config = None
         self.current_app = None
         self.current_version = None
+
+        self.control_panel_content = None
+        self.header_segment_container = None
+        self.header_frame = None
+        self.header_status_container = None
+        self.header_left_section = None
+        self._header_align_after_id = None
         
         # 服务器配置
         self.server_base_url = ""  # 服务器地址
@@ -209,10 +216,13 @@ class ModernDesignInstaller:
         header = tk.Frame(self.main_frame, bg=self.colors['bg_secondary'], height=70)
         header.pack(fill=tk.X)
         header.pack_propagate(False)
+
+        self.header_frame = header
         
         # 左侧标题区域
         left_section = tk.Frame(header, bg=self.colors['bg_secondary'])
         left_section.pack(side=tk.LEFT, fill=tk.Y, padx=20)
+        self.header_left_section = left_section
         
         # 应用图标和标题
         title_container = tk.Frame(left_section, bg=self.colors['bg_secondary'])
@@ -239,78 +249,102 @@ class ModernDesignInstaller:
                                 font=self.fonts['small'])
         subtitle_text.pack(anchor=tk.W)
         
-        # 右侧状态区域
-        right_section = tk.Frame(header, bg=self.colors['bg_secondary'])
-        right_section.pack(side=tk.RIGHT, fill=tk.Y, padx=20)
-        
-        # Create segmented control container with right alignment
-        segment_container = tk.Frame(right_section, bg=self.colors['bg_secondary'])
-        segment_container.pack(side=tk.RIGHT, padx=(0, 20))
+        segment_container = tk.Frame(header, bg=self.colors['bg_secondary'])
+        segment_container.place(x=0, y=19)
+        self.header_segment_container = segment_container
         
         # Create rounded segment background using Canvas
         segment_canvas = tk.Canvas(segment_container, bg=self.colors['bg_secondary'], 
                                    highlightthickness=0, width=240, height=32)
         segment_canvas.pack()
+
+        segment_bg_color = self.colors['bg_selection']
+        segment_border = self.colors['border']
+        segment_active_bg = self.colors['hover']
+        segment_active_fg = self.colors['bg_accent']
+        segment_sep = '#4B5258'
         
         # Draw rounded rectangle background using arcs and rectangle
-        segment_canvas.create_arc(2, 2, 14, 14, start=90, extent=90, fill='#2F3336', outline='')
-        segment_canvas.create_arc(226, 2, 238, 14, start=0, extent=90, fill='#2F3336', outline='')
-        segment_canvas.create_arc(2, 18, 14, 30, start=180, extent=90, fill='#2F3336', outline='')
-        segment_canvas.create_arc(226, 18, 238, 30, start=270, extent=90, fill='#2F3336', outline='')
-        segment_canvas.create_rectangle(8, 2, 232, 30, fill='#2F3336', outline='')
+        # 关键：不留左右边距，否则会露出 Canvas 背景（表现为左右黑块）
+        bg_y0 = 0
+        bg_y1 = 32
+        bg_r = 12
+        segment_canvas.create_oval(0, bg_y0, bg_r * 2, bg_y1, fill=segment_bg_color, outline='')
+        segment_canvas.create_oval(240 - bg_r * 2, bg_y0, 240, bg_y1, fill=segment_bg_color, outline='')
+        segment_canvas.create_rectangle(bg_r, bg_y0, 240 - bg_r, bg_y1, fill=segment_bg_color, outline='')
         
-        # Create inner frame for buttons
-        segment_bg = tk.Frame(segment_canvas, bg='#2F3336', relief='flat', bd=0)
-        segment_bg.place(x=2, y=2, width=236, height=28)
+        seg_total_w = 240
+        seg_h = 32
+        seg_w1 = seg_total_w // 3
+        seg_w2 = seg_total_w // 3
+        seg_w3 = seg_total_w - seg_w1 - seg_w2
+        seg_x0 = 0
+        seg_y0 = 0
+        seg_x1 = seg_x0 + seg_w1
+        seg_x2 = seg_x1 + seg_w2
+        seg_x3 = seg_x0 + seg_total_w
+
+        def _show_hl(tag):
+            segment_canvas.itemconfigure('hl1', state='hidden')
+            segment_canvas.itemconfigure('hl2', state='hidden')
+            segment_canvas.itemconfigure('hl3', state='hidden')
+            segment_canvas.itemconfigure(tag, state='normal')
+
+        def _hide_hl():
+            segment_canvas.itemconfigure('hl1', state='hidden')
+            segment_canvas.itemconfigure('hl2', state='hidden')
+            segment_canvas.itemconfigure('hl3', state='hidden')
+
+        # left highlight (rounded left corners) - 必须严格限制在第 1 段
+        hl_r = seg_h // 2
+        segment_canvas.create_oval(seg_x0, seg_y0, seg_x0 + hl_r * 2, seg_y0 + seg_h,
+                                   fill=segment_active_bg, outline='', tags=('hl1',))
+        segment_canvas.create_rectangle(seg_x0 + hl_r, seg_y0, seg_x1, seg_y0 + seg_h,
+                                        fill=segment_active_bg, outline='', tags=('hl1',))
+
+        # middle highlight (rectangle)
+        segment_canvas.create_rectangle(seg_x1, seg_y0, seg_x2, seg_y0 + seg_h,
+                                        fill=segment_active_bg, outline='', tags=('hl2',))
+
+        # right highlight (rounded right corners) - 必须严格限制在第 3 段
+        segment_canvas.create_oval(seg_x3 - hl_r * 2, seg_y0, seg_x3, seg_y0 + seg_h,
+                                   fill=segment_active_bg, outline='', tags=('hl3',))
+        segment_canvas.create_rectangle(seg_x2, seg_y0, seg_x3 - hl_r, seg_y0 + seg_h,
+                                        fill=segment_active_bg, outline='', tags=('hl3',))
+
+        _hide_hl()
+
+        # clickable areas
+        segment_canvas.create_rectangle(seg_x0, seg_y0, seg_x1, seg_y0 + seg_h, fill='', outline='', tags=('seg1',))
+        segment_canvas.create_rectangle(seg_x1, seg_y0, seg_x2, seg_y0 + seg_h, fill='', outline='', tags=('seg2',))
+        segment_canvas.create_rectangle(seg_x2, seg_y0, seg_x3, seg_y0 + seg_h, fill='', outline='', tags=('seg3',))
+
+        # text
+        segment_canvas.create_text((seg_x0 + seg_x1) / 2, seg_y0 + seg_h / 2, text='设备ID',
+                                   fill=self.colors['text_primary'], font=('Segoe UI', 9, 'bold'), tags=('seg1',))
+        segment_canvas.create_text((seg_x1 + seg_x2) / 2, seg_y0 + seg_h / 2, text='刷新',
+                                   fill=self.colors['text_primary'], font=('Segoe UI', 9, 'bold'), tags=('seg2',))
+        segment_canvas.create_text((seg_x2 + seg_x3) / 2, seg_y0 + seg_h / 2, text='服务器',
+                                   fill=self.colors['text_primary'], font=('Segoe UI', 9, 'bold'), tags=('seg3',))
+
+        # separators (increase contrast)
+        segment_canvas.create_line(seg_x1, seg_y0 + 5, seg_x1, seg_y0 + seg_h - 5, fill=segment_sep, width=1)
+        segment_canvas.create_line(seg_x2, seg_y0 + 5, seg_x2, seg_y0 + seg_h - 5, fill=segment_sep, width=1)
+
+        def _bind_segment(tag, hl_tag, command):
+            segment_canvas.tag_bind(tag, '<Enter>', lambda e: _show_hl(hl_tag))
+            segment_canvas.tag_bind(tag, '<Leave>', lambda e: _hide_hl())
+            segment_canvas.tag_bind(tag, '<Button-1>', lambda e: command())
+            segment_canvas.tag_bind(tag, '<ButtonRelease-1>', lambda e: _hide_hl())
+
+        _bind_segment('seg1', 'hl1', self.get_device_udid)
+        _bind_segment('seg2', 'hl2', self.refresh_all)
+        _bind_segment('seg3', 'hl3', self.configure_server)
         
-        # 1. UDID button - first segment (leftmost) - preserve rounded corner
-        udid_btn = tk.Button(segment_bg, text=" 设备ID",
-                           command=self.get_device_udid,
-                           font=('Segoe UI', 9, 'bold'),
-                           bg='#2F3336',
-                           fg=self.colors['text_primary'],
-                           relief='flat',
-                           bd=0,
-                           padx=0,
-                           pady=6,
-                           cursor='hand2',
-                           activebackground='#3A3F44',
-                           activeforeground=self.colors['bg_accent'])
-        udid_btn.place(x=6, y=0, width=76, height=28)
-        
-        # 2. Refresh button - middle segment - evenly distributed
-        refresh_btn = tk.Button(segment_bg, text=" 刷新",
-                           command=self.refresh_all,
-                           font=('Segoe UI', 9, 'bold'),
-                           bg='#2F3336',
-                           fg=self.colors['text_primary'],
-                           relief='flat',
-                           bd=0,
-                           padx=0,
-                           pady=6,
-                           cursor='hand2',
-                           activebackground='#17BF63',
-                           activeforeground='white')
-        refresh_btn.place(x=82, y=0, width=72, height=28)
-        
-        # 3. Server button - last segment (rightmost) - preserve rounded corner
-        server_btn = tk.Button(segment_bg, text=" 服务器",
-                           command=self.configure_server,
-                           font=('Segoe UI', 9, 'bold'),
-                           bg='#2F3336',
-                           fg=self.colors['text_primary'],
-                           relief='flat',
-                           bd=0,
-                           padx=0,
-                           pady=6,
-                           cursor='hand2',
-                           activebackground='#3A3F44',
-                           activeforeground=self.colors['bg_accent'])
-        server_btn.place(x=154, y=0, width=76, height=28)
-        
-        # HDC状态指示器
-        status_container = tk.Frame(right_section, bg=self.colors['bg_secondary'])
-        status_container.pack(expand=True)
+        # HDC状态指示器（放在按钮组左侧，不参与右对齐）
+        status_container = tk.Frame(header, bg=self.colors['bg_secondary'])
+        status_container.place(x=0, y=0)
+        self.header_status_container = status_container
         
         self.status_indicator = tk.Canvas(status_container, width=12, height=12,
                                         bg=self.colors['bg_secondary'], highlightthickness=0)
@@ -323,6 +357,83 @@ class ModernDesignInstaller:
                                    fg=self.colors['text_secondary'],
                                    font=self.fonts['body'])
         self.status_text.pack(side=tk.LEFT)
+
+        self.root.bind('<Configure>', self.schedule_header_segment_align, add=True)
+        self.schedule_header_segment_align()
+
+    def schedule_header_segment_align(self, *_):
+        if self._header_align_after_id is not None:
+            try:
+                self.root.after_cancel(self._header_align_after_id)
+            except Exception:
+                pass
+        self._header_align_after_id = self.root.after(30, self.align_header_segment)
+
+    def align_header_segment(self):
+        self._header_align_after_id = None
+        if self.header_frame is None or self.header_segment_container is None or self.control_panel_content is None or self.header_status_container is None:
+            return
+        if not self.header_frame.winfo_ismapped() or not self.control_panel_content.winfo_ismapped():
+            self.schedule_header_segment_align()
+            return
+
+        try:
+            self.header_frame.update_idletasks()
+            self.header_segment_container.update_idletasks()
+            self.control_panel_content.update_idletasks()
+            self.header_status_container.update_idletasks()
+
+            # 对齐基准：优先使用控制中心卡片面板外框，避免内容区 padx 造成视觉偏移
+            control_ref = getattr(self, 'control_panel_frame', None) or self.control_panel_content
+            if control_ref is not None:
+                control_ref.update_idletasks()
+            control_right = control_ref.winfo_rootx() + control_ref.winfo_width()
+            header_left = self.header_frame.winfo_rootx()
+
+            seg_w = self.header_segment_container.winfo_width()
+            if seg_w <= 1:
+                seg_w = self.header_segment_container.winfo_reqwidth()
+
+            status_w = self.header_status_container.winfo_width()
+            if status_w <= 1:
+                status_w = self.header_status_container.winfo_reqwidth()
+
+            header_h = self.header_frame.winfo_height()
+            seg_h = self.header_segment_container.winfo_height() or self.header_segment_container.winfo_reqheight()
+            status_h = self.header_status_container.winfo_height() or self.header_status_container.winfo_reqheight()
+            seg_y = max(0, int((header_h - seg_h) / 2))
+            status_y = max(0, int((header_h - status_h) / 2))
+
+            # 视觉补偿：segment Canvas 圆角背景左右各内缩约 2px，补偿后视觉右边缘更贴齐
+            visual_right_offset = 2
+            x = int(control_right - header_left - seg_w + visual_right_offset)
+            if x < 0:
+                x = 0
+
+            gap = 14
+
+            # status 放在 segment 左侧
+            status_x = x - gap - status_w
+
+            # 防止覆盖左侧标题
+            left_limit = 0
+            if self.header_left_section is not None and self.header_left_section.winfo_ismapped():
+                left_limit = (self.header_left_section.winfo_rootx() + self.header_left_section.winfo_width()) - header_left + 12
+
+            if status_x < left_limit:
+                status_x = left_limit
+
+            # 如果 status 太宽导致和 segment 重叠，则让 status 靠左极限，segment 仍保持右对齐
+            if status_x + status_w + gap > x:
+                status_x = max(left_limit, x - gap - status_w)
+
+            self.header_segment_container.place_configure(x=x, y=seg_y)
+            self.header_status_container.place_configure(x=status_x, y=status_y)
+
+            self.header_segment_container.lift()
+            self.header_status_container.lift()
+        except Exception:
+            self.schedule_header_segment_align()
     
     def draw_modern_icon(self, canvas):
         """绘制现代化图标"""
@@ -425,6 +536,7 @@ class ModernDesignInstaller:
         """创建控制面板"""
         # 面板容器
         panel = self.create_card_panel(parent, row, column, columnspan)
+        self.control_panel_frame = panel
         
         # 面板头部
         header = self.create_panel_header(panel, "⚙️ 控制中心", self.colors['bg_warning'])
@@ -433,6 +545,9 @@ class ModernDesignInstaller:
         # 控制面板内容
         content = tk.Frame(panel, bg=self.colors['bg_card'])
         content.pack(fill=tk.BOTH, expand=True, padx=15, pady=(0, 15))
+
+        self.control_panel_content = content
+        self.schedule_header_segment_align()
         
         # 应用信息区域
         self.create_app_info_section(content)
