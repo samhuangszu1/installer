@@ -20,6 +20,13 @@ pip install -r requirements.txt
 python app.py
 ```
 
+如果需要使用 API Key 鉴权（保护上传接口），推荐通过 `.env` 配置：
+1. 复制 `server/.env.example` 为 `server/.env`
+2. 修改 `ADMIN_API_KEY=...`
+3. 重启服务器
+
+注意：不要提交真实的 `server/.env` 到仓库。
+
 ### 2. 访问管理界面
 打开浏览器访问：`http://localhost:5000/admin`
 
@@ -47,6 +54,11 @@ python app.py
 - **Method/URL**: `POST /api/versions/create-with-files`
 - **Content-Type**: `multipart/form-data`
 
+安全（API Key）：
+- 如果启动 server 时设置了环境变量 `ADMIN_API_KEY`，则以下接口必须带请求头 `X-API-Key: <ADMIN_API_KEY>` 才能访问：
+  - `POST /api/versions/create-with-files`
+  - `POST /api/upload`
+
 表单字段（form fields）：
 - `app_id`（必填，int）
 - `version`（必填，string）
@@ -66,6 +78,7 @@ python app.py
 示例（Windows PowerShell curl）：
 ```powershell
 curl -X POST "http://127.0.0.1:5000/api/versions/create-with-files" `
+  -H "X-API-Key: YOUR_ADMIN_API_KEY" `
   -F "app_id=1" `
   -F "version=1.0.2" `
   -F "description=second release" `

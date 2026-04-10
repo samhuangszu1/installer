@@ -1,13 +1,37 @@
-from flask import Flask, jsonify, send_from_directory
+from flask import Flask, jsonify, send_from_directory, request
 from database.database import db
 from api.apps import init_apps_routes
 from api.versions import init_versions_routes
 from api.files import init_files_routes
 import os
 
+try:
+    from dotenv import load_dotenv
+
+    load_dotenv()
+except Exception:
+    pass
+
 def create_app():
     app = Flask(__name__)
-    
+
+    admin_api_key = os.environ.get('ADMIN_API_KEY')
+
+    @app.before_request
+    def _require_api_key_for_upload_endpoints():
+        if request.method != 'POST':
+            return None
+
+        if request.path not in ('/api/versions/create-with-files', '/api/upload'):
+            return None
+
+        if not admin_api_key:
+            return None
+
+        provided = request.headers.get('X-API-Key')
+        if not provided or provided != admin_api_key:
+            return jsonify({'error': 'Unauthorized'}), 401
+
     # Initialize database
     db.ensure_database_exists()
     

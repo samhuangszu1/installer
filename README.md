@@ -52,6 +52,13 @@ pip install -r requirements.txt
 python app.py
 ```
 
+Optional (recommended for upload security):
+- Copy `server/.env.example` to `server/.env`
+- Set `ADMIN_API_KEY=...`
+- Restart the server
+
+Do not commit the real `server/.env` file.
+
 The server will start on `http://localhost:5000`
 
 ### Setup Client
@@ -145,6 +152,11 @@ Create (or overwrite) an app version and upload both HAP/HSP files in a single r
 - **Method/URL**: `POST /api/versions/create-with-files`
 - **Content-Type**: `multipart/form-data`
 
+Security:
+- If the server is started with environment variable `ADMIN_API_KEY`, these upload endpoints require header `X-API-Key: <ADMIN_API_KEY>`:
+  - `POST /api/versions/create-with-files`
+  - `POST /api/upload`
+
 Form fields:
 - `app_id` (required, int)
 - `version` (required, string)
@@ -164,6 +176,7 @@ Overwrite rule:
 Example (Windows PowerShell curl):
 ```powershell
 curl -X POST "http://127.0.0.1:5000/api/versions/create-with-files" `
+  -H "X-API-Key: YOUR_ADMIN_API_KEY" `
   -F "app_id=1" `
   -F "version=1.0.2" `
   -F "description=second release" `

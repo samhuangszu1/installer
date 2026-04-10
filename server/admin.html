@@ -223,6 +223,13 @@
             <h1>HarmonyOS Installer - Admin Panel</h1>
             <p>Manage applications and versions</p>
         </div>
+
+        <div class="card">
+            <div class="form-group">
+                <label for="api-key-input">API Key (for upload)</label>
+                <input type="password" id="api-key-input" placeholder="Set X-API-Key for uploads">
+            </div>
+        </div>
         
         <div class="stats" id="stats">
             <div class="stat-card">
@@ -404,9 +411,31 @@
     <script>
         const API_BASE = '/api';
         let currentAppId = null;
+
+        function getApiKey() {
+            try {
+                return localStorage.getItem('ADMIN_API_KEY') || '';
+            } catch (e) {
+                return '';
+            }
+        }
+
+        function setApiKey(value) {
+            try {
+                localStorage.setItem('ADMIN_API_KEY', value || '');
+            } catch (e) {
+            }
+        }
         
         // Initialize
         document.addEventListener('DOMContentLoaded', function() {
+            const apiKeyInput = document.getElementById('api-key-input');
+            if (apiKeyInput) {
+                apiKeyInput.value = getApiKey();
+                apiKeyInput.addEventListener('input', function() {
+                    setApiKey(this.value);
+                });
+            }
             loadStats();
             loadApps();
             loadAppSelect();
@@ -788,6 +817,10 @@
                 
                 fetch(`${API_BASE}/upload`, {
                     method: 'POST',
+                    headers: (() => {
+                        const k = getApiKey();
+                        return k ? { 'X-API-Key': k } : {};
+                    })(),
                     body: formData
                 })
                 .then(response => response.json())
