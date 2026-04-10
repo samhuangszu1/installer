@@ -1,6 +1,8 @@
 from flask import request, jsonify
 from database.database import db
+from werkzeug.utils import secure_filename
 import os
+import uuid
 
 def init_versions_routes(app):
     
@@ -39,6 +41,181 @@ def init_versions_routes(app):
                 
                 return jsonify({'versions': versions})
                 
+        except Exception as e:
+            return jsonify({'error': str(e)}), 500
+
+    @app.route('/api/versions/create-with-files', methods=['POST'])
+    def create_version_with_files():
+        try:
+            app_id = request.form.get('app_id')
+            version_number = request.form.get('version')
+            description = request.form.get('description', '')
+            release_date = request.form.get('release_date')
+            deploy_path = request.form.get('deploy_path', '/data/local/tmp')
+            set_as_current_raw = request.form.get('set_as_current', 'false')
+
+            hap_file = request.files.get('hap_file')
+            hsp_file = request.files.get('hsp_file')
+
+            if not app_id:
+                return jsonify({'error': 'Missing required field: app_id'}), 400
+            try:
+                app_id_int = int(app_id)
+            except ValueError:
+                return jsonify({'error': 'Invalid app_id'}), 400
+
+            if not version_number:
+                return jsonify({'error': 'Missing required field: version'}), 400
+
+            if hap_file is None or hsp_file is None:
+                return jsonify({'error': 'Missing required files: hap_file and hsp_file are required'}), 400
+
+            if not hap_file.filename or not hsp_file.filename:
+                return jsonify({'error': 'No file selected'}), 400
+
+            hap_name = secure_filename(hap_file.filename)
+            hsp_name = secure_filename(hsp_file.filename)
+
+            if not hap_name.lower().endswith('.hap'):
+                return jsonify({'error': 'Invalid hap_file extension. Must be .hap'}), 400
+            if not hsp_name.lower().endswith('.hsp'):
+                return jsonify({'error': 'Invalid hsp_file extension. Must be .hsp'}), 400
+
+            set_as_current = str(set_as_current_raw).strip().lower() in ('1', 'true', 'yes', 'on')
+
+            tmp_root = os.path.join('uploads', 'tmp')
+            os.makedirs(tmp_root, exist_ok=True)
+
+            hap_tmp_path = os.path.join(tmp_root, f"{uuid.uuid4().hex}_{hap_name}")
+            hsp_tmp_path = os.path.join(tmp_root, f"{uuid.uuid4().hex}_{hsp_name}")
+
+            created_tmp_paths = []
+            created_final_paths = []
+            cleanup_old_paths = []
+            with db.get_connection() as conn:
+                try:
+                    cursor = conn.execute("SELECT 1 FROM apps WHERE id = ?", (app_id_int,))
+                    if not cursor.fetchone():
+                        return jsonify({'error': 'App not found'}), 404
+
+                    cursor = conn.execute(
+                        "SELECT id FROM versions WHERE app_id = ? AND version = ?",
+                        (app_id_int, version_number),
+                    )
+                    existing = cursor.fetchone()
+
+                    if existing:
+                        version_id = int(existing['id'])
+                        conn.execute(
+                            """
+                            UPDATE versions
+                            SET description = ?, release_date = ?, deploy_path = ?
+                            WHERE id = ?
+                            """,
+                            (description, release_date, deploy_path, version_id),
+                        )
+                    else:
+                        cursor = conn.execute(
+                            """
+                            INSERT INTO versions (app_id, version, description, release_date, deploy_path)
+                            VALUES (?, ?, ?, ?, ?)
+                            """,
+                            (app_id_int, version_number, description, release_date, deploy_path),
+                        )
+                        version_id = int(cursor.lastrowid)
+
+                    if set_as_current:
+                        conn.execute(
+                            "UPDATE apps SET current_version = ? WHERE id = ?",
+                            (version_number, app_id_int),
+                        )
+
+                    hap_file.save(hap_tmp_path)
+                    created_tmp_paths.append(hap_tmp_path)
+                    hsp_file.save(hsp_tmp_path)
+                    created_tmp_paths.append(hsp_tmp_path)
+
+                    for file_type in ('hap', 'hsp'):
+                        cursor = conn.execute(
+                            "SELECT id, file_path FROM files WHERE version_id = ? AND file_type = ?",
+                            (version_id, file_type),
+                        )
+                        old = cursor.fetchone()
+                        if old and old['file_path']:
+                            cleanup_old_paths.append(old['file_path'])
+                        if old:
+                            conn.execute("DELETE FROM files WHERE id = ?", (int(old['id']),))
+
+                    upload_dir = os.path.join('uploads', 'apps', str(app_id_int), str(version_id))
+                    os.makedirs(upload_dir, exist_ok=True)
+
+                    hap_final_path = os.path.join(upload_dir, hap_name)
+                    hsp_final_path = os.path.join(upload_dir, hsp_name)
+
+                    os.replace(hap_tmp_path, hap_final_path)
+                    created_final_paths.append(hap_final_path)
+                    created_tmp_paths.remove(hap_tmp_path)
+
+                    os.replace(hsp_tmp_path, hsp_final_path)
+                    created_final_paths.append(hsp_final_path)
+                    created_tmp_paths.remove(hsp_tmp_path)
+
+                    hap_size = os.path.getsize(hap_final_path)
+                    hsp_size = os.path.getsize(hsp_final_path)
+
+                    conn.execute(
+                        """
+                        INSERT INTO files (version_id, file_type, filename, file_path, file_size)
+                        VALUES (?, 'hap', ?, ?, ?)
+                        """,
+                        (version_id, hap_name, hap_final_path, hap_size),
+                    )
+                    conn.execute(
+                        """
+                        INSERT INTO files (version_id, file_type, filename, file_path, file_size)
+                        VALUES (?, 'hsp', ?, ?, ?)
+                        """,
+                        (version_id, hsp_name, hsp_final_path, hsp_size),
+                    )
+
+                    conn.commit()
+
+                    for old_path in cleanup_old_paths:
+                        try:
+                            if old_path in (hap_final_path, hsp_final_path):
+                                continue
+                            if old_path and os.path.exists(old_path):
+                                os.remove(old_path)
+                        except Exception:
+                            pass
+
+                    cursor = conn.execute("SELECT * FROM versions WHERE id = ?", (version_id,))
+                    version_row = cursor.fetchone()
+                    version_data = dict(version_row) if version_row else {'id': version_id}
+                    version_data['files'] = {'hap': hap_name, 'hsp': hsp_name}
+                    return jsonify(version_data), 201
+                except Exception as e:
+                    try:
+                        conn.rollback()
+                    except Exception:
+                        pass
+
+                    for p in list(created_final_paths):
+                        try:
+                            if p and os.path.exists(p):
+                                os.remove(p)
+                        except Exception:
+                            pass
+
+                    for p in list(created_tmp_paths):
+                        try:
+                            if p and os.path.exists(p):
+                                os.remove(p)
+                        except Exception:
+                            pass
+
+                    return jsonify({'error': str(e)}), 500
+
         except Exception as e:
             return jsonify({'error': str(e)}), 500
     

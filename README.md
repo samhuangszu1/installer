@@ -81,7 +81,7 @@ The executable will be in `dist/HarmonyOSInstaller.exe`
 7. **Monitor Progress**: Watch real-time installation logs
 
 ### Using the Web Admin Panel
-1. **Access Admin Panel**: Open `http://localhost:5000/admin.html`
+1. **Access Admin Panel**: Open `http://localhost:5000/admin`
 2. **Manage Applications**: Add/edit applications
 3. **Upload Versions**: Upload HAP/HSP files
 4. **Configure Settings**: Manage server configuration
@@ -113,9 +113,7 @@ harmony_test_pkg/
 |   |   |   models.py             # Database models
 |   |   |   __init__.py           # Database initialization
 |   |   
-|   +---files/                   # File storage
-|   +---uploads/                  # Upload directory
-|   +---versions/                # Version files storage
+|   +---uploads/                  # Upload directory (uploads/apps/<app_id>/<version_id>/...)
 |   
 +---hdc_arm/                     # ARM architecture HDC tools
 +---hdc_win/                     # Windows HDC tools  
@@ -133,14 +131,84 @@ harmony_test_pkg/
 - `DELETE /api/apps/{id}` - Delete application
 
 ### Version Management
-- `GET /api/apps/{id}/versions` - List application versions
-- `POST /api/apps/{id}/versions` - Create new version
-- `PUT /api/apps/{id}/versions/{version}` - Update version
-- `DELETE /api/apps/{id}/versions/{version}` - Delete version
+- `GET /api/apps/{app_id}/versions` - List application versions
+- `POST /api/apps/{app_id}/versions` - Create new version
+- `PUT /api/versions/{id}` - Update version
+- `DELETE /api/versions/{id}` - Delete version
+- `GET /api/versions/{id}/info` - Get version info (compat format)
+- `DELETE /api/versions/{version_id}/files/{file_type}` - Delete a specific file type (hap/hsp)
+
+#### Create Version with Upload (Fields + Files)
+
+Create (or overwrite) an app version and upload both HAP/HSP files in a single request.
+
+- **Method/URL**: `POST /api/versions/create-with-files`
+- **Content-Type**: `multipart/form-data`
+
+Form fields:
+- `app_id` (required, int)
+- `version` (required, string)
+- `description` (optional)
+- `release_date` (optional, e.g. `2026-04-10`)
+- `deploy_path` (optional, default: `/data/local/tmp`)
+- `set_as_current` (optional, `true/false` or `1/0`)
+
+Files:
+- `hap_file` (required, `.hap`)
+- `hsp_file` (required, `.hsp`)
+
+Overwrite rule:
+- A version is considered duplicate by `(app_id, version)`.
+- If it already exists, the server overwrites the existing version's `hap/hsp` records (only one file per type is kept).
+
+Example (Windows PowerShell curl):
+```powershell
+curl -X POST "http://127.0.0.1:5000/api/versions/create-with-files" `
+  -F "app_id=1" `
+  -F "version=1.0.2" `
+  -F "description=second release" `
+  -F "release_date=2026-04-10" `
+  -F "deploy_path=/data/local/tmp" `
+  -F "set_as_current=true" `
+  -F "hap_file=@C:\path\to\debug1.hap" `
+  -F "hsp_file=@C:\path\to\tztzfnetwork-signed1.hsp"
+```
+
+Example (Python):
+```python
+import requests
+
+url = "http://127.0.0.1:5000/api/versions/create-with-files"
+
+data = {
+    "app_id": "1",
+    "version": "1.0.2",
+    "description": "second release",
+    "release_date": "2026-04-10",
+    "deploy_path": "/data/local/tmp",
+    "set_as_current": "true",
+}
+
+files = {
+    "hap_file": open(r"C:\path\to\debug1.hap", "rb"),
+    "hsp_file": open(r"C:\path\to\tztzfnetwork-signed1.hsp", "rb"),
+}
+
+resp = requests.post(url, data=data, files=files, timeout=300)
+print(resp.status_code)
+print(resp.text)
+```
+
+Response:
+- **Success**: HTTP `201`, returns the version object and `files` map, without an `error` field.
+- **Failure**: HTTP `400/404/500`, returns JSON `{ "error": "..." }`.
 
 ### File Management
-- `GET /api/files/download/{app_id}/{version}/{filename}` - Download file
-- `POST /api/files/upload` - Upload files
+- `POST /api/upload` - Upload a file to an existing version (multipart)
+- `GET /api/files/{id}` - Download file by file id
+- `DELETE /api/files/{id}` - Delete file by file id
+- `GET /api/versions/{version_id}/files/{file_type}/download` - Download a version's specific file (hap/hsp)
+- `GET /files/{filename}` - Download by filename (legacy/compat)
 
 ## Installation Process
 

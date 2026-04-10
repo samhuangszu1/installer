@@ -16,6 +16,7 @@
 
 ### 1. 启动服务器
 ```bash
+pip install -r requirements.txt
 python app.py
 ```
 
@@ -39,10 +40,74 @@ python app.py
 - `PUT /api/versions/{id}` - 更新版本
 - `DELETE /api/versions/{id}` - 删除版本
 
+#### 创建版本并上传文件（字段+文件一次提交）
+
+创建（或覆盖）某个应用的版本，并在同一次请求中同时上传 HAP/HSP 文件。
+
+- **Method/URL**: `POST /api/versions/create-with-files`
+- **Content-Type**: `multipart/form-data`
+
+表单字段（form fields）：
+- `app_id`（必填，int）
+- `version`（必填，string）
+- `description`（可选）
+- `release_date`（可选，例如 `2026-04-10`）
+- `deploy_path`（可选，默认 `/data/local/tmp`）
+- `set_as_current`（可选，`true/false` 或 `1/0`）
+
+文件字段（form files）：
+- `hap_file`（必填，`.hap`）
+- `hsp_file`（必填，`.hsp`）
+
+覆盖规则：
+- 以 `(app_id, version)` 判断是否为重复版本。
+- 若已存在，则覆盖该版本的 `hap/hsp` 文件记录（同类型只保留一份）。
+
+示例（Windows PowerShell curl）：
+```powershell
+curl -X POST "http://127.0.0.1:5000/api/versions/create-with-files" `
+  -F "app_id=1" `
+  -F "version=1.0.2" `
+  -F "description=second release" `
+  -F "release_date=2026-04-10" `
+  -F "deploy_path=/data/local/tmp" `
+  -F "set_as_current=true" `
+  -F "hap_file=@C:\path\to\debug1.hap" `
+  -F "hsp_file=@C:\path\to\tztzfnetwork-signed1.hsp"
+```
+
+示例（Python requests）：
+```python
+import requests
+
+url = "http://127.0.0.1:5000/api/versions/create-with-files"
+data = {
+    "app_id": "1",
+    "version": "1.0.2",
+    "description": "second release",
+    "release_date": "2026-04-10",
+    "deploy_path": "/data/local/tmp",
+    "set_as_current": "true",
+}
+files = {
+    "hap_file": open(r"C:\path\to\debug1.hap", "rb"),
+    "hsp_file": open(r"C:\path\to\tztzfnetwork-signed1.hsp", "rb"),
+}
+resp = requests.post(url, data=data, files=files, timeout=300)
+print(resp.status_code)
+print(resp.text)
+```
+
+返回：
+- 成功：HTTP `201`，返回版本对象和 `files` 字段（成功时不包含 `error` 字段）。
+- 失败：HTTP `400/404/500`，返回 `{ "error": "..." }`。
+
 ### 文件管理
 - `POST /api/upload` - 上传文件
 - `GET /api/files/{id}` - 下载文件
 - `DELETE /api/files/{id}` - 删除文件
+- `GET /api/versions/{version_id}/files/{file_type}/download` - 下载指定版本的指定文件（hap/hsp）
+- `GET /files/{filename}` - 通过文件名下载（兼容接口）
 
 ### 系统端点
 - `GET /health` - 健康检查
@@ -115,7 +180,7 @@ pip install -r requirements.txt
 默认数据库文件：`server/database/harmony_installer.db`
 
 ### 文件存储位置
-默认上传目录：`server/uploads/apps/`
+默认上传目录：`server/uploads/apps/<app_id>/<version_id>/`
 
 ## Troubleshooting
 
