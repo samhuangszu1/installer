@@ -25,6 +25,8 @@ def create_app():
             protected = True
         elif request.method == 'PUT' and (request.path.startswith('/api/apps/') or request.path.startswith('/api/versions/')):
             protected = True
+        elif request.method == 'DELETE' and request.path.startswith('/api/'):
+            protected = True
 
         if not protected:
             return None

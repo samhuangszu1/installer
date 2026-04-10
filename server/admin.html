@@ -772,7 +772,10 @@
             
             try {
                 const response = await fetch(`${API_BASE}/versions/${versionId}/files/${fileType}`, {
-                    method: 'DELETE'
+                    method: 'DELETE',
+                    headers: {
+                        ...(getApiKey() ? { 'X-API-Key': getApiKey() } : {})
+                    }
                 });
                 
                 if (response.ok) {
@@ -1055,13 +1058,42 @@
             });
         }
         
+        async function deleteApp(appId) {
+            if (!confirm('Are you sure you want to delete this application? This will also delete all its versions and files.')) return;
+            
+            try {
+                const response = await fetch(`${API_BASE}/apps/${appId}`, {
+                    method: 'DELETE',
+                    headers: (() => {
+                        const k = getApiKey();
+                        return k ? { 'X-API-Key': k } : {};
+                    })()
+                });
+                
+                if (response.ok) {
+                    showToast('Application deleted successfully', 'success');
+                    loadApps();
+                    loadAppSelect();
+                    loadStats();
+                } else {
+                    const error = await response.json();
+                    showStatus('Error deleting application: ' + error.error, 'error');
+                }
+            } catch (error) {
+                showStatus('Error deleting application: ' + error.message, 'error');
+            }
+        }
+
         // Delete functions
         async function deleteVersion(versionId) {
             if (!confirm('Are you sure you want to delete this version?')) return;
             
             try {
                 const response = await fetch(`${API_BASE}/versions/${versionId}`, {
-                    method: 'DELETE'
+                    method: 'DELETE',
+                    headers: {
+                        ...(getApiKey() ? { 'X-API-Key': getApiKey() } : {})
+                    }
                 });
                 
                 if (response.ok) {
