@@ -980,13 +980,177 @@ class ModernDesignInstaller:
     def stop_drag(self, event):
         """停止拖拽"""
         pass
+
+    def center_window(self, window, width, height):
+        window.update_idletasks()
+
+        main_x = self.root.winfo_x()
+        main_y = self.root.winfo_y()
+        main_width = self.root.winfo_width()
+        main_height = self.root.winfo_height()
+
+        x = main_x + (main_width // 2) - (width // 2)
+        y = main_y + (main_height - height) // 3 + 60
+
+        x = max(0, x)
+        y = max(0, y)
+
+        window.geometry(f"{width}x{height}+{x}+{y}")
+
+    def _show_modal_dialog(self, title, message, variant, buttons):
+        dialog = tk.Toplevel(self.root)
+        dialog.withdraw()
+        dialog.title(title)
+        dialog.resizable(False, False)
+        dialog.transient(self.root)
+        dialog.configure(bg=self.colors['bg_secondary'])
+
+        try:
+            dialog.attributes('-alpha', 0.0)
+        except Exception:
+            pass
+
+        dialog.grab_set()
+
+        icon_cfg = {
+            'error': ('❌', self.colors['bg_danger']),
+            'warning': ('⚠️', self.colors['bg_warning']),
+            'question': ('❓', self.colors['bg_accent']),
+            'info': ('ℹ️', self.colors['bg_accent']),
+        }
+        icon_text, icon_color = icon_cfg.get(variant, ('ℹ️', self.colors['bg_accent']))
+
+        content = tk.Frame(dialog, bg=self.colors['bg_secondary'])
+        content.pack(fill=tk.BOTH, expand=True, padx=20, pady=18)
+
+        top_row = tk.Frame(content, bg=self.colors['bg_secondary'])
+        top_row.pack(fill=tk.X)
+
+        icon_canvas = tk.Canvas(top_row, width=44, height=44, bg=self.colors['bg_secondary'], highlightthickness=0)
+        icon_canvas.pack(side=tk.LEFT, padx=(0, 14))
+        icon_canvas.create_oval(2, 2, 42, 42, fill=icon_color, outline='')
+        icon_canvas.create_text(22, 22, text=icon_text, fill='white', font=('Segoe UI', 18, 'bold'))
+
+        msg_container = tk.Frame(top_row, bg=self.colors['bg_secondary'])
+        msg_container.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+
+        msg_label = tk.Label(
+            msg_container,
+            text=str(message),
+            font=self.fonts['body'],
+            bg=self.colors['bg_secondary'],
+            fg=self.colors['text_primary'],
+            justify='left',
+            anchor='w',
+            wraplength=520
+        )
+        msg_label.pack(anchor='w')
+
+        btn_row = tk.Frame(content, bg=self.colors['bg_secondary'])
+        btn_row.pack(fill=tk.X, pady=(18, 0))
+
+        result = {'value': None}
+
+        def _style_btn(btn, *, bg, fg, active_bg, active_fg, secondary=False):
+            btn.configure(
+                font=('Segoe UI', 10, 'bold' if not secondary else 'normal'),
+                bg=bg,
+                fg=fg,
+                activebackground=active_bg,
+                activeforeground=active_fg,
+                relief='flat',
+                bd=0,
+                borderwidth=0,
+                highlightthickness=1 if secondary else 0,
+                highlightbackground=self.colors['border'] if secondary else bg,
+                highlightcolor=self.colors['border'] if secondary else bg,
+                padx=16,
+                pady=8,
+                cursor='hand2'
+            )
+
+            def _on_enter(_e):
+                btn.configure(bg=active_bg)
+
+            def _on_leave(_e):
+                btn.configure(bg=bg)
+
+            btn.bind('<Enter>', _on_enter)
+            btn.bind('<Leave>', _on_leave)
+
+        def _on_close(value):
+            result['value'] = value
+            try:
+                dialog.grab_release()
+            except Exception:
+                pass
+            dialog.destroy()
+
+        dialog.protocol('WM_DELETE_WINDOW', lambda: _on_close(None))
+
+        btn_specs = []
+        for b in buttons:
+            if isinstance(b, tuple) and len(b) == 2:
+                btn_specs.append(b)
+        if not btn_specs:
+            btn_specs = [('确定', True)]
+
+        for i, (label, value) in enumerate(reversed(btn_specs)):
+            is_primary = (i == 0)
+            btn = tk.Button(btn_row, text=label, command=lambda v=value: _on_close(v))
+            if is_primary:
+                _style_btn(
+                    btn,
+                    bg=self.colors['bg_accent'],
+                    fg='white',
+                    active_bg=self.colors['hover'],
+                    active_fg='white',
+                    secondary=False
+                )
+            else:
+                _style_btn(
+                    btn,
+                    bg=self.colors['bg_selection'],
+                    fg=self.colors['text_primary'],
+                    active_bg='#343A3F',
+                    active_fg=self.colors['text_primary'],
+                    secondary=True
+                )
+            btn.pack(side=tk.RIGHT, padx=(10 if i == 0 else 0, 0))
+
+        dialog.update_idletasks()
+        self.center_window(dialog, 620, 260)
+
+        try:
+            dialog.deiconify()
+            dialog.lift()
+            dialog.focus_force()
+        except Exception:
+            pass
+
+        try:
+            dialog.attributes('-alpha', 1.0)
+        except Exception:
+            pass
+
+        self.root.wait_window(dialog)
+        return result['value']
+
+    def show_error(self, title, message):
+        self._show_modal_dialog(title, message, 'error', [('确定', True)])
+
+    def show_warning(self, title, message):
+        self._show_modal_dialog(title, message, 'warning', [('确定', True)])
+
+    def ask_yesno(self, title, message):
+        val = self._show_modal_dialog(title, message, 'question', [('否', False), ('是', True)])
+        return bool(val)
     
     def show_initial_config_dialog(self):
         """Show initial configuration dialog"""
-        result = messagebox.askyesno(
+        result = self.ask_yesno(
             "配置向导",
-            "欢迎使用鸿蒙应用安装工具！\n\n检测到初始配置。\n\n是否现在打开配置界面？",
-            icon='question'
+            "欢迎使用鸿蒙应用安装工具！\n\n检测到初始配置。\n\n是否现在打开配置界面？"
         )
         
         if result:
@@ -1020,16 +1184,17 @@ class ModernDesignInstaller:
         try:
             filename = filedialog.asksaveasfilename(
                 defaultextension=".log",
-                filetypes=[("Log files", "*.log"), ("Text files", "*.txt"), ("All files", "*.*")]
+                filetypes=[("Log files", "*.log"), ("Text files", "*.txt"), ("All files", "*.*")],
+                parent=self.root
             )
             if filename:
                 with open(filename, 'w', encoding='utf-8') as f:
                     f.write(self.log_text.get(1.0, tk.END))
                 self.log(f" Log saved: {filename}")
-                messagebox.showinfo("成功", "日志保存成功")
+                self._show_modal_dialog("成功", "日志保存成功", 'info', [('确定', True)])
         except Exception as e:
             self.log(f" Save failed: {str(e)}")
-            messagebox.showerror("错误", f"日志保存失败: {str(e)}")
+            self.show_error("错误", f"日志保存失败: {str(e)}")
 
 
         response = requests.get(apps_url, timeout=10)
@@ -1044,16 +1209,17 @@ class ModernDesignInstaller:
         try:
             filename = filedialog.asksaveasfilename(
                 defaultextension=".log",
-                filetypes=[("日志文件", "*.log"), ("文本文件", "*.txt"), ("所有文件", "*.*")]
+                filetypes=[("日志文件", "*.log"), ("文本文件", "*.txt"), ("所有文件", "*.*")],
+                parent=self.root
             )
             if filename:
                 with open(filename, 'w', encoding='utf-8') as f:
                     f.write(self.log_text.get(1.0, tk.END))
                 self.log(f"💾 日志已保存: {filename}")
-                messagebox.showinfo("复制成功", "UDID已复制到剪贴板")
+                messagebox.showinfo("复制成功", "UDID已复制到剪贴板", parent=self.root)
         except Exception as e:
             self.log(f"❌ 保存失败: {str(e)}")
-            messagebox.showerror("复制失败", f"UDID复制失败：\n{str(e)}")
+            self.show_error("错误", f"日志保存失败: {str(e)}")
     
     def load_apps_config(self):
         """从服务器加载应用配置"""
@@ -1072,11 +1238,11 @@ class ModernDesignInstaller:
                 
         except requests.exceptions.RequestException as e:
             self.log(f"❌ 服务器连接失败: {str(e)}")
-            messagebox.showerror("错误", f"无法连接到服务器: {str(e)}\n\n请检查服务器地址配置或网络连接。")
+            self.show_error("错误", f"无法连接到服务器: {str(e)}\n\n请检查服务器地址配置或网络连接。")
             
         except Exception as e:
             self.log(f"❌ 配置加载失败: {str(e)}")
-            messagebox.showerror("错误", f"配置加载失败: {str(e)}")
+            self.show_error("错误", f"配置加载失败: {str(e)}")
     
     def check_initial_config(self):
         """检查初始配置"""
@@ -1324,11 +1490,11 @@ class ModernDesignInstaller:
                 
         except requests.exceptions.RequestException as e:
             self.log(f"❌ 服务器连接失败: {str(e)}")
-            messagebox.showerror("错误", f"无法连接到服务器: {str(e)}\n\n请检查服务器地址配置或网络连接。")
+            self.show_error("错误", f"无法连接到服务器: {str(e)}\n\n请检查服务器地址配置或网络连接。")
             
         except Exception as e:
             self.log(f"❌ 版本加载失败: {str(e)}")
-            messagebox.showerror("错误", f"版本加载失败: {str(e)}")
+            self.show_error("错误", f"版本加载失败: {str(e)}")
     
     def detect_hdc_tool(self):
         """检测HDC工具"""
@@ -1839,10 +2005,10 @@ class ModernDesignInstaller:
                 dev_ok, dev_out = self.run_hdc_command("list targets", show_output=False)
                 lines = [ln.strip() for ln in (dev_out or '').splitlines() if ln.strip()]
                 if not dev_ok or len(lines) == 0:
-                    messagebox.showerror("错误", "未检测到已连接设备，请通过 USB 连接鸿蒙设备后重试。")
+                    self.show_error("错误", "未检测到已连接设备，请通过 USB 连接鸿蒙设备后重试。")
                     return
             except Exception:
-                messagebox.showerror("错误", "设备检测失败，请通过 USB 连接鸿蒙设备后重试。")
+                self.show_error("错误", "设备检测失败，请通过 USB 连接鸿蒙设备后重试。")
                 return
             
             # 获取版本信息
@@ -1875,12 +2041,12 @@ class ModernDesignInstaller:
             # 检查文件是否存在
             if not os.path.exists(hap_file):
                 self.log(f"❌ HAP文件不存在: {hap_file}")
-                messagebox.showerror("错误", f"HAP文件不存在:\n{hap_file}\n\n请检查下载是否完成或文件是否被删除。")
+                self.show_error("错误", f"HAP文件不存在:\n{hap_file}\n\n请检查下载是否完成或文件是否被删除。")
                 return
             
             if not os.path.exists(hsp_file):
                 self.log(f"❌ HSP文件不存在: {hsp_file}")
-                messagebox.showerror("错误", f"HSP文件不存在:\n{hsp_file}\n\n请检查下载是否完成或文件是否被删除。")
+                self.show_error("错误", f"HSP文件不存在:\n{hsp_file}\n\n请检查下载是否完成或文件是否被删除。")
                 return
             
             self.log(f"✅ 文件检查通过: HAP={os.path.basename(hap_file)}, HSP={os.path.basename(hsp_file)}")
@@ -1918,7 +2084,7 @@ class ModernDesignInstaller:
                         continue
                     else:
                         # &#x5173;&#x952e;&#x6b65;&#x9aa4;&#x5931;&#x8d25;&#xff0c;&#x505c;&#x6b62;&#x5b89;&#x88c5;
-                        messagebox.showerror("错误", f"{step_name}失败:\n{self.format_hdc_error(output)}")
+                        self.show_error("错误", f"{step_name}失败:\n{self.format_hdc_error(output)}")
                         return
             
             # &#x9a8c;&#x8bc1;&#x5e94;&#x7528;&#x662f;&#x5426;&#x771f;&#x6b63;&#x5b89;&#x88c5;&#x6210;&# Verify if app is truly installed successfully
@@ -1988,7 +2154,7 @@ class ModernDesignInstaller:
                         files = v.get('files', {})
                         if not isinstance(files, dict):
                             self.log(f"❌ 版本文件信息格式错误: 期望字典，实际收到 {type(files)}")
-                            messagebox.showerror("错误", f"版本文件信息格式错误: {type(files)}")
+                            self.show_error("错误", f"版本文件信息格式错误: {type(files)}")
                             return None
                         version_info = v  # 使用整个版本信息
                         break
@@ -2010,7 +2176,7 @@ class ModernDesignInstaller:
             self.log(f"❌ 版本信息获取失败: {str(e)}")
             import traceback
             self.log(f"✍️ 错误详细信息: {traceback.format_exc()}")
-            messagebox.showerror("错误", f"版本信息获取失败: {str(e)}")
+            self.show_error("错误", f"版本信息获取失败: {str(e)}")
             return None
     
     def download_version_files(self, version_info, version):
@@ -2019,13 +2185,13 @@ class ModernDesignInstaller:
             # 检查version_info是否为字典类型
             if not isinstance(version_info, dict):
                 self.log(f"❌ 版本信息格式错误: 期望字典，实际收到 {type(version_info)}")
-                messagebox.showerror("错误", f"版本信息格式错误: {type(version_info)}")
+                self.show_error("错误", f"版本信息格式错误: {type(version_info)}")
                 return False
             
             files = version_info.get('files', {})
             if not isinstance(files, dict):
                 self.log(f"❌ 文件信息格式错误: 期望字典，实际收到 {type(files)}")
-                messagebox.showerror("错误", f"文件信息格式错误: {type(files)}")
+                self.show_error("错误", f"文件信息格式错误: {type(files)}")
                 return False
                 
             hap_filename = files.get('hap')
@@ -2033,7 +2199,7 @@ class ModernDesignInstaller:
             
             if not hap_filename or not hsp_filename:
                 self.log("❌ 版本信息中缺少文件信息")
-                messagebox.showerror("错误", "版本信息中缺少文件信息")
+                self.show_error("错误", "版本信息中缺少文件信息")
                 return False
             
             # 创建app_id对应的下载目录
@@ -2068,7 +2234,7 @@ class ModernDesignInstaller:
             
         except Exception as e:
             self.log(f"❌ 文件下载失败: {str(e)}")
-            messagebox.showerror("错误", f"文件下载失败: {str(e)}")
+            self.show_error("错误", f"文件下载失败: {str(e)}")
             return False
     
     def download_file(self, url, local_path):
@@ -2110,10 +2276,10 @@ class ModernDesignInstaller:
             dev_ok, dev_out = self.run_hdc_command("list targets", show_output=False)
             lines = [ln.strip() for ln in (dev_out or '').splitlines() if ln.strip()]
             if not dev_ok or len(lines) == 0:
-                messagebox.showerror("卸载失败", "未检测到已连接设备，请通过 USB 连接鸿蒙设备并完成 HDC 授权后重试。")
+                self.show_error("卸载失败", "未检测到已连接设备，请通过 USB 连接鸿蒙设备并完成 HDC 授权后重试。")
                 return
         except Exception:
-            messagebox.showerror("卸载失败", "设备检测失败，请通过 USB 连接鸿蒙设备并完成 HDC 授权后重试。")
+            self.show_error("卸载失败", "设备检测失败，请通过 USB 连接鸿蒙设备并完成 HDC 授权后重试。")
             return
         
         self.log(f"🗑️ 卸载应用: {self.current_app['name']}")
@@ -2121,10 +2287,10 @@ class ModernDesignInstaller:
         
         if success:
             self.log("✅ 卸载成功")
-            messagebox.showinfo("卸载成功", "应用卸载成功")
+            self._show_modal_dialog("卸载成功", "应用卸载成功", 'info', [('确定', True)])
         else:
             self.log(f"❌ 卸载失败: {output}")
-            messagebox.showerror("卸载失败", f"应用卸载失败：\n{self.format_hdc_error(output)}")
+            self.show_error("卸载失败", f"应用卸载失败：\n{self.format_hdc_error(output)}")
     
     def refresh_all(self):
         """刷新所有信息"""
@@ -2154,9 +2320,7 @@ class ModernDesignInstaller:
         
         # 居中显示
         dialog.update_idletasks()
-        x = (dialog.winfo_screenwidth() // 2) - (620 // 2)
-        y = (dialog.winfo_screenheight() // 2) - (520 // 2)
-        dialog.geometry(f'620x520+{x}+{y}')
+        self.center_window(dialog, 620, 520)
         
         # 变量来跟踪用户选择
         config_saved = [False]
@@ -2291,11 +2455,11 @@ class ModernDesignInstaller:
             new_download_dir = download_entry.get().strip()
             
             if not new_url:
-                messagebox.showwarning("警告", "请输入有效的服务器地址")
+                self.show_warning("警告", "请输入有效的服务器地址")
                 return
             
             if not new_download_dir:
-                messagebox.showwarning("警告", "请输入有效的下载目录")
+                self.show_warning("警告", "请输入有效的下载目录")
                 return
             
             self.server_base_url = new_url
