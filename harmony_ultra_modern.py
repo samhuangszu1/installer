@@ -21,6 +21,27 @@ class ModernDesignInstaller:
         self.root = root
         # Don't set title or configure here - it's already set in main()
         # This prevents white screen flash during UI creation
+
+        self.ui_scale = 1.0
+        try:
+            dpi = getattr(self.root, '_system_dpi', None)
+            if dpi:
+                self.ui_scale = float(dpi) / 96.0
+        except Exception:
+            self.ui_scale = 1.0
+
+        self.system_dpi = 96.0
+        try:
+            self.system_dpi = float(getattr(self.root, '_system_dpi', None) or 0) or float(self.root.winfo_fpixels('1i'))
+        except Exception:
+            self.system_dpi = 96.0
+
+        def _px(pt):
+            try:
+                px = float(pt) * (float(self.system_dpi) / 72.0)
+                return -max(9, int(round(px)))
+            except Exception:
+                return -int(pt)
         
         # 现代化颜色方案
         self.colors = {
@@ -42,13 +63,13 @@ class ModernDesignInstaller:
         
         # 字体设置
         self.fonts = {
-            'title': ('Segoe UI', 22, 'bold'),
-            'subtitle': ('Segoe UI', 16, 'bold'),
-            'heading': ('Segoe UI', 14, 'bold'),
-            'body': ('Segoe UI', 11),
-            'small': ('Segoe UI', 9),
-            'mono': ('Consolas', 10),
-            'button': ('Segoe UI', 12, 'bold')
+            'title': ('Segoe UI', _px(22), 'bold'),
+            'subtitle': ('Segoe UI', _px(16), 'bold'),
+            'heading': ('Segoe UI', _px(14), 'bold'),
+            'body': ('Segoe UI', _px(11)),
+            'small': ('Segoe UI', _px(9)),
+            'mono': ('Consolas', _px(10)),
+            'button': ('Segoe UI', _px(12), 'bold')
         }
         
         # 初始化变量
@@ -73,6 +94,15 @@ class ModernDesignInstaller:
         
         # 创建界面
         self.create_modern_interface()
+
+        try:
+            self.log(
+                f"UI: dpi={getattr(self.root, '_system_dpi', 'N/A')} "
+                f"tk_scaling={self.root.tk.call('tk', 'scaling')} "
+                f"ui_scale={getattr(self, 'ui_scale', 'N/A')}"
+            )
+        except Exception:
+            pass
         
         # 延迟检测HDC工具（确保UI完全加载）
         self.root.after(100, self.detect_hdc_tool)
@@ -258,7 +288,13 @@ class ModernDesignInstaller:
     
     def create_header_bar(self):
         """创建顶部导航栏"""
-        header = tk.Frame(self.main_frame, bg=self.colors['bg_secondary'], height=70)
+        header_h = 70
+        try:
+            header_h = int(round(70 * float(getattr(self, 'ui_scale', 1.0))))
+        except Exception:
+            header_h = 70
+
+        header = tk.Frame(self.main_frame, bg=self.colors['bg_secondary'], height=header_h)
         header.pack(fill=tk.X)
         header.pack_propagate(False)
 
@@ -272,11 +308,18 @@ class ModernDesignInstaller:
         # 应用图标和标题
         title_container = tk.Frame(left_section, bg=self.colors['bg_secondary'])
         title_container.pack(expand=True)
+        title_container.grid_columnconfigure(1, weight=1)
         
         # 创建圆形图标
-        icon_canvas = tk.Canvas(title_container, width=40, height=40, 
+        icon_sz = 40
+        try:
+            icon_sz = int(round(40 * float(getattr(self, 'ui_scale', 1.0))))
+        except Exception:
+            icon_sz = 40
+
+        icon_canvas = tk.Canvas(title_container, width=icon_sz, height=icon_sz,
                               bg=self.colors['bg_secondary'], highlightthickness=0)
-        icon_canvas.pack(side=tk.LEFT, padx=(0, 15))
+        icon_canvas.grid(row=0, column=0, padx=(0, 15), sticky='w')
         self.draw_modern_icon(icon_canvas)
         
         # 标题文字
@@ -285,15 +328,29 @@ class ModernDesignInstaller:
                             bg=self.colors['bg_secondary'],
                             fg=self.colors['text_primary'],
                             font=self.fonts['title'])
-        title_text.pack(anchor=tk.W)
+        title_text.grid(row=0, column=1, sticky='w')
         
         segment_container = tk.Frame(header, bg=self.colors['bg_secondary'])
-        segment_container.place(x=0, y=19)
         self.header_segment_container = segment_container
-        
+
         # Create rounded segment background using Canvas
-        segment_canvas = tk.Canvas(segment_container, bg=self.colors['bg_secondary'], 
-                                   highlightthickness=0, width=240, height=32)
+        try:
+            seg_total_w = int(round(240 * float(getattr(self, 'ui_scale', 1.0))))
+        except Exception:
+            seg_total_w = 240
+        try:
+            seg_h = int(round(32 * float(getattr(self, 'ui_scale', 1.0))))
+        except Exception:
+            seg_h = 32
+
+        try:
+            seg_y = max(0, int((header_h - seg_h) / 2))
+        except Exception:
+            seg_y = 19
+        segment_container.place(x=0, y=seg_y)
+
+        segment_canvas = tk.Canvas(segment_container, bg=self.colors['bg_secondary'],
+                                   highlightthickness=0, width=seg_total_w, height=seg_h)
         segment_canvas.pack()
 
         segment_bg_color = self.colors['bg_selection']
@@ -305,14 +362,12 @@ class ModernDesignInstaller:
         # Draw rounded rectangle background using arcs and rectangle
         # 关键：不留左右边距，否则会露出 Canvas 背景（表现为左右黑块）
         bg_y0 = 0
-        bg_y1 = 32
-        bg_r = 12
+        bg_y1 = seg_h
+        bg_r = max(8, int(round(12 * float(getattr(self, 'ui_scale', 1.0)))))
         segment_canvas.create_oval(0, bg_y0, bg_r * 2, bg_y1, fill=segment_bg_color, outline='')
-        segment_canvas.create_oval(240 - bg_r * 2, bg_y0, 240, bg_y1, fill=segment_bg_color, outline='')
-        segment_canvas.create_rectangle(bg_r, bg_y0, 240 - bg_r, bg_y1, fill=segment_bg_color, outline='')
+        segment_canvas.create_oval(seg_total_w - bg_r * 2, bg_y0, seg_total_w, bg_y1, fill=segment_bg_color, outline='')
+        segment_canvas.create_rectangle(bg_r, bg_y0, seg_total_w - bg_r, bg_y1, fill=segment_bg_color, outline='')
         
-        seg_total_w = 240
-        seg_h = 32
         seg_w1 = seg_total_w // 3
         seg_w2 = seg_total_w // 3
         seg_w3 = seg_total_w - seg_w1 - seg_w2
@@ -358,12 +413,20 @@ class ModernDesignInstaller:
         segment_canvas.create_rectangle(seg_x2, seg_y0, seg_x3, seg_y0 + seg_h, fill='', outline='', tags=('seg3',))
 
         # text
+        seg_font_size = 9
+        try:
+            if isinstance(getattr(self, 'fonts', None), dict) and 'small' in self.fonts:
+                seg_font_size = int(self.fonts['small'][1])
+        except Exception:
+            seg_font_size = 9
+        seg_font = ('Segoe UI', seg_font_size, 'bold')
+
         segment_canvas.create_text((seg_x0 + seg_x1) / 2, seg_y0 + seg_h / 2, text='设备ID',
-                                   fill=self.colors['text_primary'], font=('Segoe UI', 9, 'bold'), tags=('seg1',))
+                                   fill=self.colors['text_primary'], font=seg_font, tags=('seg1',))
         segment_canvas.create_text((seg_x1 + seg_x2) / 2, seg_y0 + seg_h / 2, text='刷新',
-                                   fill=self.colors['text_primary'], font=('Segoe UI', 9, 'bold'), tags=('seg2',))
+                                   fill=self.colors['text_primary'], font=seg_font, tags=('seg2',))
         segment_canvas.create_text((seg_x2 + seg_x3) / 2, seg_y0 + seg_h / 2, text='服务器',
-                                   fill=self.colors['text_primary'], font=('Segoe UI', 9, 'bold'), tags=('seg3',))
+                                   fill=self.colors['text_primary'], font=seg_font, tags=('seg3',))
 
         # separators (increase contrast)
         segment_canvas.create_line(seg_x1, seg_y0 + 5, seg_x1, seg_y0 + seg_h - 5, fill=segment_sep, width=1)
@@ -443,12 +506,18 @@ class ModernDesignInstaller:
             status_y = max(0, int((header_h - status_h) / 2))
 
             # 视觉补偿：segment Canvas 圆角背景左右各内缩约 2px，补偿后视觉右边缘更贴齐
-            visual_right_offset = 2
+            try:
+                visual_right_offset = int(round(2 * float(getattr(self, 'ui_scale', 1.0))))
+            except Exception:
+                visual_right_offset = 2
             x = int(control_right - header_left - seg_w + visual_right_offset)
             if x < 0:
                 x = 0
 
-            gap = 14
+            try:
+                gap = int(round(14 * float(getattr(self, 'ui_scale', 1.0))))
+            except Exception:
+                gap = 14
 
             # status 放在 segment 左侧
             status_x = x - gap - status_w
@@ -456,7 +525,11 @@ class ModernDesignInstaller:
             # 防止覆盖左侧标题
             left_limit = 0
             if self.header_left_section is not None and self.header_left_section.winfo_ismapped():
-                left_limit = (self.header_left_section.winfo_rootx() + self.header_left_section.winfo_width()) - header_left + 12
+                try:
+                    pad = int(round(12 * float(getattr(self, 'ui_scale', 1.0))))
+                except Exception:
+                    pad = 12
+                left_limit = (self.header_left_section.winfo_rootx() + self.header_left_section.winfo_width()) - header_left + pad
 
             if status_x < left_limit:
                 status_x = left_limit
@@ -475,11 +548,44 @@ class ModernDesignInstaller:
     
     def draw_modern_icon(self, canvas):
         """绘制现代化图标"""
+        try:
+            canvas.update_idletasks()
+        except Exception:
+            pass
+
+        try:
+            w = int(canvas.winfo_width())
+            h = int(canvas.winfo_height())
+        except Exception:
+            w, h = 40, 40
+
+        if w <= 1 or h <= 1:
+            w, h = 40, 40
+
+        size = min(w, h)
+        margin = max(2, int(round(size * 0.05)))
+        x0 = int((w - size) / 2) + margin
+        y0 = int((h - size) / 2) + margin
+        x1 = x0 + size - margin * 2
+        y1 = y0 + size - margin * 2
+
         # 绘制渐变圆形背景
-        canvas.create_oval(2, 2, 38, 38, fill=self.colors['bg_accent'], outline='')
-        
+        canvas.create_oval(x0, y0, x1, y1, fill=self.colors['bg_accent'], outline='')
+
         # 绘制鸿蒙logo简化版
-        points = [20, 8, 12, 20, 20, 32, 28, 20]
+        cx = int((x0 + x1) / 2)
+        cy = int((y0 + y1) / 2)
+        top = int(round(y0 + (y1 - y0) * 0.18))
+        bottom = int(round(y0 + (y1 - y0) * 0.82))
+        left = int(round(x0 + (x1 - x0) * 0.24))
+        right = int(round(x0 + (x1 - x0) * 0.76))
+
+        points = [
+            cx, top,
+            left, cy,
+            cx, bottom,
+            right, cy,
+        ]
         canvas.create_polygon(points, fill='white', outline='')
     
     def update_status_indicator(self, status):
@@ -631,11 +737,25 @@ class ModernDesignInstaller:
         header = tk.Frame(parent, bg=self.colors['bg_card'])
         header.pack(fill=tk.X)
 
-        accent_bar = tk.Frame(header, bg=accent_color, height=4)
+        ui_scale = 1.0
+        try:
+            ui_scale = float(getattr(self, 'ui_scale', 1.0))
+        except Exception:
+            ui_scale = 1.0
+
+        # 以本机为准：ui_scale≈1 时严格使用旧版 4/40 的视觉间距
+        if 0.97 <= ui_scale <= 1.03:
+            bar_h = 4
+            title_row_h = 40
+        else:
+            bar_h = max(1, int(round(4 * ui_scale)))
+            title_row_h = max(1, int(round(40 * ui_scale)))
+
+        accent_bar = tk.Frame(header, bg=accent_color, height=bar_h)
         accent_bar.pack(fill=tk.X)
         accent_bar.pack_propagate(False)
 
-        title_row = tk.Frame(header, bg=self.colors['bg_card'], height=40)
+        title_row = tk.Frame(header, bg=self.colors['bg_card'], height=title_row_h)
         title_row.pack(fill=tk.X)
         title_row.pack_propagate(False)
 
@@ -1045,8 +1165,13 @@ class ModernDesignInstaller:
         )
 
     def _style_dialog_button_widget(self, btn, *, bg, fg, active_bg, active_fg, bold=False, secondary=False):
+        try:
+            dpi = float(getattr(self, 'system_dpi', 96.0) or 96.0)
+            btn_fs = -max(9, int(round(10 * (dpi / 72.0))))
+        except Exception:
+            btn_fs = 10
         btn.configure(
-            font=('Segoe UI', 10, 'bold' if bold else 'normal'),
+            font=('Segoe UI', btn_fs, 'bold' if bold else 'normal'),
             bg=bg,
             fg=fg,
             activebackground=active_bg,
@@ -2359,7 +2484,7 @@ class ModernDesignInstaller:
         dialog.withdraw()
         dialog.title("配置设置")
         dialog.configure(bg=self.colors['bg_secondary'])
-        dialog.resizable(False, False)
+        dialog.resizable(True, True)
 
         try:
             dialog.attributes('-alpha', 0.0)
@@ -2526,6 +2651,19 @@ class ModernDesignInstaller:
             pass
 
         try:
+            req_w = max(620, int(dialog.winfo_reqwidth()))
+            req_h = max(520, int(dialog.winfo_reqheight()))
+            screen_h = int(dialog.winfo_screenheight())
+            max_h = max(300, int(screen_h * 0.85))
+            final_h = min(req_h, max_h)
+            self.center_window(dialog, req_w, final_h)
+        except Exception:
+            try:
+                self.center_window(dialog, 620, 520)
+            except Exception:
+                pass
+
+        try:
             dialog.deiconify()
             dialog.lift()
             dialog.focus_force()
@@ -2597,6 +2735,31 @@ def main():
     
     # Set dark background immediately to prevent white flash
     root.configure(bg='#0F1419')
+
+    try:
+        dpi = None
+        if platform.system() == 'Windows' and ctypes is not None:
+            try:
+                hwnd = int(root.winfo_id())
+                dpi = int(ctypes.windll.user32.GetDpiForWindow(hwnd))
+            except Exception:
+                try:
+                    dpi = int(ctypes.windll.user32.GetDpiForSystem())
+                except Exception:
+                    dpi = None
+
+        if not dpi:
+            try:
+                dpi = float(root.winfo_fpixels('1i'))
+            except Exception:
+                dpi = None
+
+        if dpi:
+            root._system_dpi = float(dpi)
+
+        pass
+    except Exception:
+        pass
     
     def _get_center_xy(target_w, target_h):
         try:
