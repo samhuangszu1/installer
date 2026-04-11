@@ -1216,7 +1216,7 @@ class ModernDesignInstaller:
         """Show initial configuration dialog"""
         result = self.ask_yesno(
             "配置向导",
-            "欢迎使用鸿蒙应用安装工具！\n\n检测到初始配置。\n\n是否现在打开配置界面？"
+            "欢迎使用鸿蒙应用安装工具！\n\n未检测到初始配置。\n\n是否现在打开配置界面？"
         )
         
         if result:
@@ -1284,10 +1284,18 @@ class ModernDesignInstaller:
         except Exception as e:
             self.log(f"❌ 配置加载失败: {str(e)}")
             self.show_error("错误", f"配置加载失败: {str(e)}")
+
+    def _get_settings_path(self):
+        appdata = os.environ.get('APPDATA')
+        if not appdata:
+            appdata = os.path.expanduser('~')
+
+        settings_dir = os.path.join(appdata, 'HarmonyOSInstaller')
+        return os.path.join(settings_dir, 'settings.json')
     
     def check_initial_config(self):
         """检查初始配置"""
-        settings_path = "settings.json"
+        settings_path = self._get_settings_path()
         
         # 如果设置文件存在，检查配置是否完整
         if os.path.exists(settings_path):
@@ -1312,7 +1320,7 @@ class ModernDesignInstaller:
     
     def load_local_settings(self):
         """加载本地设置"""
-        settings_path = "settings.json"
+        settings_path = self._get_settings_path()
         try:
             if os.path.exists(settings_path):
                 with open(settings_path, 'r', encoding='utf-8') as f:
@@ -1333,8 +1341,9 @@ class ModernDesignInstaller:
     
     def save_local_settings(self):
         """保存本地设置"""
-        settings_path = "settings.json"
+        settings_path = self._get_settings_path()
         try:
+            os.makedirs(os.path.dirname(settings_path), exist_ok=True)
             settings = {
                 'server_base_url': self.server_base_url,
                 'download_dir': self.download_dir
