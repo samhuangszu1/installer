@@ -1292,6 +1292,12 @@ class ModernDesignInstaller:
 
         settings_dir = os.path.join(appdata, 'HarmonyOSInstaller')
         return os.path.join(settings_dir, 'settings.json')
+
+    def _get_default_download_dir(self):
+        local_appdata = os.environ.get('LOCALAPPDATA')
+        if not local_appdata:
+            local_appdata = os.path.join(os.path.expanduser('~'), 'AppData', 'Local')
+        return os.path.join(local_appdata, 'HarmonyOSInstaller', 'downloads')
     
     def check_initial_config(self):
         """检查初始配置"""
@@ -1303,7 +1309,9 @@ class ModernDesignInstaller:
                 with open(settings_path, 'r', encoding='utf-8') as f:
                     settings = json.load(f)
                     server_url = settings.get('server_base_url', '').strip()
-                    download_dir = settings.get('download_dir', '').strip()
+                    download_dir = (settings.get('download_dir', '') or '').strip()
+                    if not download_dir:
+                        download_dir = self._get_default_download_dir()
                     
                     # 检查配置是否有效
                     if server_url and download_dir:
@@ -1327,17 +1335,19 @@ class ModernDesignInstaller:
                     settings = json.load(f)
                     self.server_base_url = settings.get('server_base_url', "")
                     self.download_dir = settings.get('download_dir', "")
+                    if not self.download_dir:
+                        self.download_dir = self._get_default_download_dir()
                     self.log(f"⚙️ 已加载本地设置")
             else:
                 # 使用空设置，强制用户配置
                 self.server_base_url = ""
-                self.download_dir = ""
+                self.download_dir = self._get_default_download_dir()
                 self.log(f"📝 首次运行，需要配置")
         except Exception as e:
             self.log(f"⚠️ 设置加载失败，需要重新配置: {str(e)}")
             # 使用空设置，强制用户配置
             self.server_base_url = ""
-            self.download_dir = ""
+            self.download_dir = self._get_default_download_dir()
     
     def save_local_settings(self):
         """保存本地设置"""
