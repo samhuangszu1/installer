@@ -1,99 +1,128 @@
-# HarmonyOS App Installer - Modern GUI Tool
+# HarmonyOS 应用安装工具（Modern GUI）
 
-A modern graphical installer for Huawei HarmonyOS applications with multi-version support, server-based management, and Chinese localization.
+一个用于华为 HarmonyOS 应用安装的现代化图形客户端，支持多应用、多版本、基于服务端的统一管理，界面中文化。
 
-## Features
+## 功能特性
 
-- **Modern GUI Interface**: Beautiful and intuitive user interface with dark theme
-- **Multi-Application Support**: Manage multiple HarmonyOS applications
-- **Version Management**: Each application supports multiple versions with selection
-- **Server-Based Architecture**: Centralized server for application and version management
-- **Cross-Platform Support**: Windows, macOS, Linux compatibility
-- **Chinese Localization**: Full Chinese interface and messages
-- **Automatic HDC Detection**: Automatically detects and selects appropriate HDC tools
-- **Real-time Logging**: Detailed operation process and error information
-- **One-Click Installation**: Automated installation process with error handling
-- **Web Admin Panel**: Browser-based administration interface
+- **现代化 GUI**：深色主题、交互友好
+- **多应用管理**：集中管理多个 HarmonyOS 应用
+- **多版本管理**：每个应用支持多版本选择与安装
+- **客户端-服务端架构**：服务端统一管理应用/版本/文件
+- **跨平台**：Windows、macOS、Linux
+- **中文界面**：完整中文界面与提示
+- **HDC 自动检测**：自动选择合适的 HDC 工具
+- **实时日志**：完整的执行过程与错误信息
+- **一键安装**：自动化安装流程与错误处理
+- **Web 管理后台**：浏览器管理应用与版本
 
-## Architecture
+## 架构说明
 
-### Client-Server Structure
-- **Client**: `harmony_ultra_modern.py` - Modern GUI application
-- **Server**: `server/` directory - Flask-based REST API server
-- **Admin Panel**: `server/admin.html` - Web-based management interface
+### 客户端-服务端结构
+- **客户端**：`harmony_ultra_modern.py`（图形安装器）
+- **服务端**：`server/`（Flask REST API）
+- **管理后台**：`server/admin.html`
 
-### Key Components
+### 关键组件
 
-#### Client Features
-- Modern Tkinter GUI with dark theme
-- Application list and version selection
-- Real-time installation progress
-- Device status monitoring
-- Chinese localized interface
+#### 客户端能力
+- Tkinter 深色主题 GUI
+- 应用列表/版本选择
+- 安装进度与日志
+- 设备状态监控（HDC）
 
-#### Server Features
-- RESTful API for application management
-- File upload and version management
-- SQLite database for metadata
-- Web-based admin panel
-- File serving for client downloads
+#### 服务端能力
+- 应用/版本管理 REST API
+- 文件上传与版本文件管理
+- SQLite 元数据存储
+- Web 管理后台
+- 文件下载服务
 
-## Installation
+## 安装与运行
 
-### Prerequisites
+### 前置条件
 - Python 3.7+
-- HDC tools (included in project)
-- Modern web browser for admin panel
+- HDC 工具（项目已包含）
+- 用于管理后台的现代浏览器
 
-### Setup Server
+### 启动服务端
 ```bash
 cd server
 pip install -r requirements.txt
 python app.py
 ```
 
-Optional (recommended for upload security):
-- Copy `server/.env.example` to `server/.env`
-- Set `ADMIN_API_KEY=...`
-- Restart the server
+可选（建议用于上传接口鉴权）：
+- 复制 `server/.env.example` 为 `server/.env`
+- 设置 `ADMIN_API_KEY=...`
+- 重启服务端
 
-Do not commit the real `server/.env` file.
+不要提交真实的 `server/.env` 文件。
 
-The server will start on `http://localhost:5000`
+服务端默认监听：`http://localhost:5000`
 
-### Setup Client
+### 启动客户端
 
-#### Method 1: Run Python Script
+#### 方式 1：直接运行 Python 脚本
 ```bash
 python harmony_ultra_modern.py
 ```
 
-#### Method 2: Build Executable (Recommended)
+#### 方式 2：使用 PyInstaller 构建可执行文件（推荐）
 ```bash
 pip install pyinstaller
 pyinstaller harmony_app_installer.spec
 ```
 
-The executable will be in `dist/HarmonyOSInstaller.exe`
+可执行文件输出在：`dist/HarmonyOSInstaller.exe`
 
-## Usage
+#### 方式 3：生成 Windows 安装包（Setup.exe）
 
-### Using the GUI Client
-1. **Start the Client**: Run `HarmonyOSInstaller.exe` or Python script
-2. **Configure Server**: Set server URL in configuration
-3. **Connect Device**: Connect HarmonyOS device via USB with developer mode
-4. **Select Application**: Choose from application list
-5. **Select Version**: Choose specific version to install
-6. **Install**: Click "Install Selected Version" button
-7. **Monitor Progress**: Watch real-time installation logs
+项目提供了 Inno Setup 脚本 `installer.iss`，用于把 onefile 的 `HarmonyOSInstaller.exe` 封装为标准 Windows 安装程序（支持自定义安装目录、开始菜单、卸载）。
 
-### Using the Web Admin Panel
-1. **Access Admin Panel**: Open `http://localhost:5000/admin`
-2. **Manage Applications**: Add/edit applications
-3. **Upload Versions**: Upload HAP/HSP files
-4. **Configure Settings**: Manage server configuration
+前置条件：
+- Inno Setup 6
 
-## Project Structure
+步骤：
+1. 构建 onefile 可执行文件：
+   ```bash
+   pyinstaller harmony_app_installer.spec
+   ```
+2. 将预先配置好的 `settings.json` 放到 `dist/settings.json`（后续要打不同安装包，只需替换该文件即可）。
+3. 编译安装包：
+   - GUI：打开 Inno Setup Compiler，打开 `installer.iss`，点击 **Compile**
+   - 命令行（PowerShell）：
+     ```powershell
+     & "C:\Users\huangkr\AppData\Local\Programs\Inno Setup 6\ISCC.exe" "C:\Users\huangkr\Desktop\harmony_test_pkg\installer.iss"
+     ```
+
+输出：
+- `installer_out/HarmonyOSInstaller_Setup.exe`
+
+配置文件位置：
+- 客户端配置读写位置为 `%APPDATA%\HarmonyOSInstaller\settings.json`
+- 安装程序会把 `dist/settings.json` 复制到上述位置（脚本使用 `onlyifdoesntexist`，避免覆盖已有用户配置）
+
+默认下载目录：
+- `%LOCALAPPDATA%\HarmonyOSInstaller\downloads`
+
+## 使用方法
+
+### 使用 GUI 客户端
+1. **启动客户端**：运行 `HarmonyOSInstaller.exe` 或 `harmony_ultra_modern.py`
+2. **配置服务端地址**：在配置界面填写 server URL
+3. **连接设备**：USB 连接 HarmonyOS 设备并开启开发者模式
+4. **选择应用**：从应用列表选择目标应用
+5. **选择版本**：选择要安装的版本
+6. **执行安装**：点击安装按钮
+7. **查看日志**：观察实时日志与错误提示
+
+### 使用 Web 管理后台
+1. **打开后台**：访问 `http://localhost:5000/admin`
+2. **管理应用**：新增/编辑应用
+3. **上传版本**：上传 HAP/HSP 文件
+4. **配置与维护**：进行相关配置管理
+
+## 项目结构
 
 ```
 harmony_test_pkg/
@@ -129,37 +158,37 @@ harmony_test_pkg/
 +---dist/                        # Distribution directory
 ```
 
-## API Endpoints
+## API 接口
 
-### Application Management
-- `GET /api/apps` - List all applications
-- `POST /api/apps` - Create new application
-- `PUT /api/apps/{id}` - Update application
-- `DELETE /api/apps/{id}` - Delete application
+### 应用管理
+- `GET /api/apps` - 获取应用列表
+- `POST /api/apps` - 创建应用
+- `PUT /api/apps/{id}` - 更新应用
+- `DELETE /api/apps/{id}` - 删除应用
 
-### Version Management
-- `GET /api/apps/{app_id}/versions` - List application versions
-- `POST /api/apps/{app_id}/versions` - Create new version
-- `PUT /api/versions/{id}` - Update version
-- `DELETE /api/versions/{id}` - Delete version
-- `GET /api/versions/{id}/info` - Get version info (compat format)
-- `DELETE /api/versions/{version_id}/files/{file_type}` - Delete a specific file type (hap/hsp)
+### 版本管理
+- `GET /api/apps/{app_id}/versions` - 获取应用版本列表
+- `POST /api/apps/{app_id}/versions` - 创建版本
+- `PUT /api/versions/{id}` - 更新版本
+- `DELETE /api/versions/{id}` - 删除版本
+- `GET /api/versions/{id}/info` - 获取版本信息（兼容格式）
+- `DELETE /api/versions/{version_id}/files/{file_type}` - 删除指定类型文件（hap/hsp）
 
-#### Create Version with Upload (Fields + Files)
+#### 一次性创建/覆盖版本并上传文件（字段 + 文件）
 
-Create (or overwrite) an app version and upload both HAP/HSP files in a single request.
+在一个请求中创建（或覆盖）版本，并上传 HAP/HSP 文件。
 
 - **Method/URL**: `POST /api/versions/create-with-files`
 - **Content-Type**: `multipart/form-data`
 
-Security:
-- If the server is started with environment variable `ADMIN_API_KEY`, these upload endpoints require header `X-API-Key: <ADMIN_API_KEY>`:
+鉴权说明：
+- 如果服务端使用环境变量 `ADMIN_API_KEY` 启动，则以下接口需要 header `X-API-Key: <ADMIN_API_KEY>`：
   - `POST /api/versions/create-with-files`
   - `POST /api/upload`
   - `PUT /api/apps/{id}`
   - `PUT /api/versions/{id}`
 
-Form fields:
+表单字段：
 - `app_id` (required, int)
 - `version` (required, string)
 - `description` (optional)
@@ -171,11 +200,11 @@ Files:
 - `hap_file` (required, `.hap`)
 - `hsp_file` (required, `.hsp`)
 
-Overwrite rule:
-- A version is considered duplicate by `(app_id, version)`.
-- If it already exists, the server overwrites the existing version's `hap/hsp` records (only one file per type is kept).
+覆盖规则：
+- 版本去重规则为 `(app_id, version)`
+- 若版本已存在，会覆盖旧版本的 `hap/hsp` 记录（每种类型仅保留 1 个文件）
 
-Example (Windows PowerShell curl):
+示例（Windows PowerShell curl）：
 ```powershell
 curl -X POST "http://127.0.0.1:5000/api/versions/create-with-files" `
   -H "X-API-Key: YOUR_ADMIN_API_KEY" `
@@ -189,7 +218,7 @@ curl -X POST "http://127.0.0.1:5000/api/versions/create-with-files" `
   -F "hsp_file=@C:\path\to\tztzfnetwork-signed1.hsp"
 ```
 
-Example (Python):
+示例（Python）：
 ```python
 import requests
 
@@ -214,106 +243,105 @@ print(resp.status_code)
 print(resp.text)
 ```
 
-Response:
-- **Success**: HTTP `201`, returns the version object and `files` map, without an `error` field.
-- **Failure**: HTTP `400/404/500`, returns JSON `{ "error": "..." }`.
+返回说明：
+- **Success**: HTTP `201`，返回版本对象与 `files` 字段，不包含 `error`
+- **Failure**: HTTP `400/404/500`，返回 JSON `{ "error": "..." }`
 
-### File Management
-- `POST /api/upload` - Upload a file to an existing version (multipart)
-- `GET /api/files/{id}` - Download file by file id
-- `DELETE /api/files/{id}` - Delete file by file id
-- `GET /api/versions/{version_id}/files/{file_type}/download` - Download a version's specific file (hap/hsp)
-- `GET /files/{filename}` - Download by filename (legacy/compat)
+### 文件管理
+- `POST /api/upload` - 向已存在的版本上传文件（multipart）
+- `GET /api/files/{id}` - 根据 file id 下载文件
+- `DELETE /api/files/{id}` - 根据 file id 删除文件
+- `GET /api/versions/{version_id}/files/{file_type}/download` - 下载版本的指定文件（hap/hsp）
+- `GET /files/{filename}` - 按文件名下载（legacy/compat）
 
-## Installation Process
+## 安装流程
 
-The automated installation process includes:
-1. **Stop Application**: `shell aa force-stop {bundle_name}`
-2. **Uninstall Old Version**: `shell bm uninstall -n {bundle_name} -k`
-3. **Upload HSP**: `file send {hsp_file} {deploy_path}`
-4. **Upload HAP**: `file send {hap_file} {deploy_path}`
-5. **Install HSP**: `shell bm install -p {deploy_path}/{hsp_file}`
-6. **Install HAP**: `shell bm install -p {deploy_path}/{hap_file}`
-7. **Start Application**: `shell aa start -a {main_ability} -b {bundle_name} -m entry`
+自动化安装步骤包括：
+1. **停止应用**：`shell aa force-stop {bundle_name}`
+2. **卸载旧版本**：`shell bm uninstall -n {bundle_name} -k`
+3. **上传 HSP**：`file send {hsp_file} {deploy_path}`
+4. **上传 HAP**：`file send {hap_file} {deploy_path}`
+5. **安装 HSP**：`shell bm install -p {deploy_path}/{hsp_file}`
+6. **安装 HAP**：`shell bm install -p {deploy_path}/{hap_file}`
+7. **启动应用**：`shell aa start -a {main_ability} -b {bundle_name} -m entry`
 
-## Configuration
+## 配置说明
 
-### Client Configuration
-- Server URL configuration
-- Download directory settings
-- HDC tool path detection
-- Language settings (Chinese/English)
+### 客户端配置
+- 服务端 URL
+- 下载目录
+- HDC 工具检测
 
-### Server Configuration
-- Database settings
-- File storage paths
-- Upload limits
-- API endpoints
+### 服务端配置
+- 数据库
+- 文件存储路径
+- 上传限制
+- API 接口
 
-## Troubleshooting
+## 常见问题排查
 
-### HDC Tool Issues
-- Ensure HDC tools are in correct directories
-- Check device connection and USB debugging
-- Verify developer mode is enabled
+### HDC 相关问题
+- 确认 HDC 工具目录是否完整
+- 检查设备连接与 USB 调试
+- 确认设备已开启开发者选项
 
-### Server Issues
-- Check Flask server is running
-- Verify database permissions
-- Ensure file directories exist
+### 服务端相关问题
+- 确认 Flask 服务已启动
+- 检查数据库权限
+- 确认上传/下载目录存在
 
-### Installation Issues
-- Check device storage space
-- Verify HAP/HSP file integrity
-- Review error logs in client
+### 安装失败问题
+- 检查设备存储空间
+- 检查 HAP/HSP 文件是否正确
+- 查看客户端日志定位错误
 
-## Recent Updates
+## 更新记录
 
-### v3.0 (Latest)
-- **Modern GUI**: Complete interface redesign with dark theme
-- **Chinese Localization**: Full Chinese interface support
-- **Server Architecture**: Client-server architecture with REST API
-- **Web Admin Panel**: Browser-based management interface
-- **Version Selection**: Dynamic version information display
-- **Error Handling**: Improved error handling and user feedback
-- **Installation Optimization**: Fixed installation order and path issues
+### v3.0（最新）
+- **现代 GUI**：深色主题界面
+- **中文化**：中文界面与提示
+- **客户端-服务端架构**：REST API 管理
+- **Web 管理后台**：浏览器管理
+- **版本选择**：动态版本详情展示
+- **错误处理**：更清晰的错误反馈
+- **安装优化**：优化安装步骤与路径
 
 ### v2.0
-- Multi-application support
-- Version management features
-- Improved interface layout
-- Configuration file management
+- 多应用支持
+- 版本管理
+- 界面优化
+- 配置管理
 
 ### v1.0
-- Initial GUI release
-- Cross-platform HDC detection
-- Real-time logging
-- Basic installation features
+- 初始版本
+- 跨平台 HDC 检测
+- 实时日志
+- 基础安装能力
 
-## Requirements
+## 依赖与环境
 
-### System Requirements
+### 系统要求
 - Python 3.7+
-- 4GB+ RAM
-- 100MB+ disk space
-- USB connection for device
+- 4GB+ 内存
+- 100MB+ 磁盘空间
+- USB 连接设备
 
-### Dependencies
-- **Client**: tkinter, requests, subprocess
-- **Server**: Flask, SQLite3, Werkzeug
+### 依赖
+- **客户端**：tkinter, requests, subprocess
+- **服务端**：Flask, SQLite3, Werkzeug
 
-## License
+## 许可证
 
-MIT License - Free to use and modify
+MIT License
 
-## Support
+## 支持与反馈
 
-For issues and support:
-1. Check troubleshooting section
-2. Review error logs
-3. Verify server connection
-4. Check device compatibility
+遇到问题时建议：
+1. 查看“常见问题排查”
+2. 查看客户端日志
+3. 确认服务端连接
+4. 检查设备兼容性
 
 ---
 
-**Note**: This tool is designed specifically for Huawei HarmonyOS application development and testing. Ensure proper development environment setup before use.
+**说明**：该工具用于 HarmonyOS 应用开发/测试环境，请确保设备与开发环境配置正确。

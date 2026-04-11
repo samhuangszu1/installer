@@ -281,14 +281,14 @@ class ModernDesignInstaller:
         
         # 标题文字
         title_text = tk.Label(title_container,
-                            text="鸿蒙应用安装工具",
+                            text="鸿蒙应用安装助手",
                             bg=self.colors['bg_secondary'],
                             fg=self.colors['text_primary'],
                             font=self.fonts['title'])
         title_text.pack(anchor=tk.W)
         
         subtitle_text = tk.Label(title_container,
-                                text="鸿蒙应用安装工具",
+                                text="鸿蒙应用安装助手",
                                 bg=self.colors['bg_secondary'],
                                 fg=self.colors['text_secondary'],
                                 font=self.fonts['small'])

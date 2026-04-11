@@ -1,0 +1,10 @@
+curl -X POST "http://127.0.0.1:5000/api/versions/create-with-files" `
+  -H "X-API-Key: 123456" `
+  -F "app_id=1" `
+  -F "version=1.0.2" `
+  -F "description=second release" `
+  -F "release_date=2026-04-10" `
+  -F "deploy_path=/data/local/tmp" `
+  -F "set_as_current=true" `
+  -F "hap_file=@C:\Users\huangkr\Desktop\harmony_test_pkg\server\uploads\apps\1\1\debug.hap" `
+  -F "hsp_file=@C:\Users\huangkr\Desktop\harmony_test_pkg\server\uploads\apps\1\1\tztzfnetwork-signed.hsp"    
