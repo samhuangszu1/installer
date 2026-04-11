@@ -11,12 +11,10 @@ import platform
 import subprocess
 import threading
 import tkinter as tk
-from tkinter import ttk, scrolledtext, messagebox, filedialog
+from tkinter import ttk, filedialog
 import time
 import json
-from pathlib import Path
 import requests
-from urllib.parse import urljoin
 
 class ModernDesignInstaller:
     def __init__(self, root):
@@ -94,11 +92,58 @@ class ModernDesignInstaller:
             self.root.after(200, self.show_initial_config_dialog)
             return
         
-        # 加载配置
-        self.load_apps_config()
+        # 加载配置（异步，避免在启动阶段阻塞 UI 导致停留在启动页）
+        self.root.after(300, self.load_apps_config_async)
         
         # 添加窗口拖拽功能
         self.setup_window_drag()
+
+    def load_apps_config_async(self):
+        """异步从服务器加载应用配置，避免阻塞 Tk 主线程"""
+        try:
+            apps_url = f"{self.server_base_url}/api/apps"
+        except Exception:
+            apps_url = None
+
+        self.log(f"🌐 获取应用列表: {apps_url}")
+
+        def _worker():
+            try:
+                if not apps_url:
+                    raise Exception("服务器地址无效")
+                response = requests.get(apps_url, timeout=10)
+                if response.status_code != 200:
+                    raise Exception(f"服务器响应错误: {response.status_code}")
+                data = response.json()
+                return True, data
+            except requests.exceptions.RequestException as e:
+                return False, f"无法连接到服务器: {str(e)}\n\n请检查服务器地址配置或网络连接。"
+            except Exception as e:
+                return False, f"配置加载失败: {str(e)}"
+
+        def _on_done(ok, payload):
+            if ok:
+                try:
+                    self.apps_config = payload
+                    apps = (self.apps_config or {}).get('apps', [])
+                    self.log(f"📱 已从服务器加载 {len(apps)} 个应用")
+                    self.populate_app_list()
+                except Exception as e:
+                    self.log(f"❌ 配置加载失败: {str(e)}")
+                    self.show_error("错误", f"配置加载失败: {str(e)}")
+            else:
+                self.log(f"❌ 服务器连接失败: {payload}")
+                self.show_error("错误", str(payload))
+
+        def _run():
+            ok, payload = _worker()
+            try:
+                self.root.after(0, lambda: _on_done(ok, payload))
+            except Exception:
+                pass
+
+        t = threading.Thread(target=_run, daemon=True)
+        t.start()
         
     def setup_custom_styles(self):
         """设置自定义样式"""
@@ -997,6 +1042,46 @@ class ModernDesignInstaller:
 
         window.geometry(f"{width}x{height}+{x}+{y}")
 
+    def _style_entry_widget(self, entry):
+        entry.configure(
+            font=self.fonts['body'],
+            bg=self.colors['bg_primary'],
+            fg=self.colors['text_primary'],
+            insertbackground=self.colors['text_primary'],
+            relief='flat',
+            bd=0,
+            highlightthickness=1,
+            highlightbackground=self.colors['border'],
+            highlightcolor=self.colors['border']
+        )
+
+    def _style_dialog_button_widget(self, btn, *, bg, fg, active_bg, active_fg, bold=False, secondary=False):
+        btn.configure(
+            font=('Segoe UI', 10, 'bold' if bold else 'normal'),
+            bg=bg,
+            fg=fg,
+            activebackground=active_bg,
+            activeforeground=active_fg,
+            relief='flat',
+            bd=0,
+            borderwidth=0,
+            highlightthickness=1 if secondary else 0,
+            highlightbackground=self.colors['border'] if secondary else bg,
+            highlightcolor=self.colors['border'] if secondary else bg,
+            padx=14,
+            pady=7,
+            cursor='hand2'
+        )
+
+        def _on_enter(_e):
+            btn.configure(bg=active_bg)
+
+        def _on_leave(_e):
+            btn.configure(bg=bg)
+
+        btn.bind('<Enter>', _on_enter)
+        btn.bind('<Leave>', _on_leave)
+
     def _show_modal_dialog(self, title, message, variant, buttons):
         dialog = tk.Toplevel(self.root)
         dialog.withdraw()
@@ -1004,6 +1089,8 @@ class ModernDesignInstaller:
         dialog.resizable(False, False)
         dialog.transient(self.root)
         dialog.configure(bg=self.colors['bg_secondary'])
+
+        dialog_width = 620
 
         try:
             dialog.attributes('-alpha', 0.0)
@@ -1021,18 +1108,19 @@ class ModernDesignInstaller:
         icon_text, icon_color = icon_cfg.get(variant, ('ℹ️', self.colors['bg_accent']))
 
         content = tk.Frame(dialog, bg=self.colors['bg_secondary'])
-        content.pack(fill=tk.BOTH, expand=True, padx=20, pady=18)
+        content.pack(fill=tk.BOTH, expand=True, padx=20, pady=14)
 
         top_row = tk.Frame(content, bg=self.colors['bg_secondary'])
         top_row.pack(fill=tk.X)
+        top_row.grid_columnconfigure(1, weight=1)
 
         icon_canvas = tk.Canvas(top_row, width=44, height=44, bg=self.colors['bg_secondary'], highlightthickness=0)
-        icon_canvas.pack(side=tk.LEFT, padx=(0, 14))
+        icon_canvas.grid(row=0, column=0, sticky='n', padx=(0, 14), pady=(2, 0))
         icon_canvas.create_oval(2, 2, 42, 42, fill=icon_color, outline='')
         icon_canvas.create_text(22, 22, text=icon_text, fill='white', font=('Segoe UI', 18, 'bold'))
 
         msg_container = tk.Frame(top_row, bg=self.colors['bg_secondary'])
-        msg_container.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        msg_container.grid(row=0, column=1, sticky='nw')
 
         msg_label = tk.Label(
             msg_container,
@@ -1042,41 +1130,14 @@ class ModernDesignInstaller:
             fg=self.colors['text_primary'],
             justify='left',
             anchor='w',
-            wraplength=520
+            wraplength=max(320, dialog_width - (44 + 14) - 40)
         )
         msg_label.pack(anchor='w')
 
         btn_row = tk.Frame(content, bg=self.colors['bg_secondary'])
-        btn_row.pack(fill=tk.X, pady=(18, 0))
+        btn_row.pack(fill=tk.X, pady=(14, 0))
 
         result = {'value': None}
-
-        def _style_btn(btn, *, bg, fg, active_bg, active_fg, secondary=False):
-            btn.configure(
-                font=('Segoe UI', 10, 'bold' if not secondary else 'normal'),
-                bg=bg,
-                fg=fg,
-                activebackground=active_bg,
-                activeforeground=active_fg,
-                relief='flat',
-                bd=0,
-                borderwidth=0,
-                highlightthickness=1 if secondary else 0,
-                highlightbackground=self.colors['border'] if secondary else bg,
-                highlightcolor=self.colors['border'] if secondary else bg,
-                padx=16,
-                pady=8,
-                cursor='hand2'
-            )
-
-            def _on_enter(_e):
-                btn.configure(bg=active_bg)
-
-            def _on_leave(_e):
-                btn.configure(bg=bg)
-
-            btn.bind('<Enter>', _on_enter)
-            btn.bind('<Leave>', _on_leave)
 
         def _on_close(value):
             result['value'] = value
@@ -1099,27 +1160,32 @@ class ModernDesignInstaller:
             is_primary = (i == 0)
             btn = tk.Button(btn_row, text=label, command=lambda v=value: _on_close(v))
             if is_primary:
-                _style_btn(
+                self._style_dialog_button_widget(
                     btn,
                     bg=self.colors['bg_accent'],
                     fg='white',
                     active_bg=self.colors['hover'],
                     active_fg='white',
+                    bold=True,
                     secondary=False
                 )
             else:
-                _style_btn(
+                self._style_dialog_button_widget(
                     btn,
                     bg=self.colors['bg_selection'],
                     fg=self.colors['text_primary'],
                     active_bg='#343A3F',
                     active_fg=self.colors['text_primary'],
+                    bold=False,
                     secondary=True
                 )
             btn.pack(side=tk.RIGHT, padx=(10 if i == 0 else 0, 0))
 
+        dialog.geometry(f"{dialog_width}x1")
         dialog.update_idletasks()
-        self.center_window(dialog, 620, 260)
+        dialog_height = dialog.winfo_reqheight()
+        dialog_height = max(150, min(520, int(dialog_height)))
+        self.center_window(dialog, dialog_width, dialog_height)
 
         try:
             dialog.deiconify()
@@ -1180,31 +1246,6 @@ class ModernDesignInstaller:
         self.log(" Console cleared")
 
     def save_log(self):
-        """Save log"""
-        try:
-            filename = filedialog.asksaveasfilename(
-                defaultextension=".log",
-                filetypes=[("Log files", "*.log"), ("Text files", "*.txt"), ("All files", "*.*")],
-                parent=self.root
-            )
-            if filename:
-                with open(filename, 'w', encoding='utf-8') as f:
-                    f.write(self.log_text.get(1.0, tk.END))
-                self.log(f" Log saved: {filename}")
-                self._show_modal_dialog("成功", "日志保存成功", 'info', [('确定', True)])
-        except Exception as e:
-            self.log(f" Save failed: {str(e)}")
-            self.show_error("错误", f"日志保存失败: {str(e)}")
-
-
-        response = requests.get(apps_url, timeout=10)
-        if response.status_code == 200:
-            self.apps_config = response.json()
-            self.log(f" 已从服务器加载 {len(self.apps_config['apps'])} 个应用")
-            self.populate_app_list()
-        self.log("🗑️ 控制台已清除")
-    
-    def save_log(self):
         """保存日志"""
         try:
             filename = filedialog.asksaveasfilename(
@@ -1216,7 +1257,7 @@ class ModernDesignInstaller:
                 with open(filename, 'w', encoding='utf-8') as f:
                     f.write(self.log_text.get(1.0, tk.END))
                 self.log(f"💾 日志已保存: {filename}")
-                messagebox.showinfo("复制成功", "UDID已复制到剪贴板", parent=self.root)
+                self._show_modal_dialog("成功", "日志保存成功", 'info', [('确定', True)])
         except Exception as e:
             self.log(f"❌ 保存失败: {str(e)}")
             self.show_error("错误", f"日志保存失败: {str(e)}")
@@ -1729,9 +1770,9 @@ class ModernDesignInstaller:
                 self.show_udid_dialog(udid)
             else:
                 self.log("⚠️ 未获取到UDID")
-                messagebox.showwarning("警告", "未获取到设备UDID。\n\n请确认设备已连接并完成 HDC 授权，然后点击“刷新”重试。")
+                self.show_warning("警告", "未获取到设备UDID。\n\n请确认设备已连接并完成 HDC 授权，然后点击“刷新”重试。")
         else:
-            messagebox.showerror("错误", f"获取UDID失败:\n{self.format_hdc_error(output)}")
+            self.show_error("错误", f"获取UDID失败:\n{self.format_hdc_error(output)}")
     
     def show_udid_dialog(self, udid):
         """显示带有复制按钮的 UDID 对话框"""
@@ -1776,35 +1817,8 @@ class ModernDesignInstaller:
         button_frame = tk.Frame(content, bg=self.colors['bg_secondary'])
         button_frame.pack(fill=tk.X, pady=(16, 0))
 
-        def _style_dialog_btn(btn, *, bg, fg, active_bg, active_fg, bold=False, secondary=False):
-            btn.configure(
-                font=('Segoe UI', 10, 'bold' if bold else 'normal'),
-                bg=bg,
-                fg=fg,
-                activebackground=active_bg,
-                activeforeground=active_fg,
-                relief='flat',
-                bd=0,
-                borderwidth=0,
-                highlightthickness=1 if secondary else 0,
-                highlightbackground=self.colors['border'] if secondary else bg,
-                highlightcolor=self.colors['border'] if secondary else bg,
-                padx=14,
-                pady=7,
-                cursor='hand2'
-            )
-
-            def _on_enter(_e):
-                btn.configure(bg=active_bg)
-
-            def _on_leave(_e):
-                btn.configure(bg=bg)
-
-            btn.bind('<Enter>', _on_enter)
-            btn.bind('<Leave>', _on_leave)
-
         cancel_btn = tk.Button(button_frame, text="取消", command=dialog.destroy)
-        _style_dialog_btn(
+        self._style_dialog_button_widget(
             cancel_btn,
             bg=self.colors['bg_selection'],
             fg=self.colors['text_primary'],
@@ -1816,7 +1830,7 @@ class ModernDesignInstaller:
         cancel_btn.pack(side='right')
 
         copy_btn = tk.Button(button_frame, text="复制 UDID", command=lambda: self.copy_udid(udid))
-        _style_dialog_btn(
+        self._style_dialog_button_widget(
             copy_btn,
             bg=self.colors['bg_accent'],
             fg='white',
@@ -1829,20 +1843,8 @@ class ModernDesignInstaller:
         
         # Update window to ensure it's ready
         dialog.update_idletasks()
-        
-        # Calculate position and center
-        main_x = self.root.winfo_x()
-        main_y = self.root.winfo_y()
-        main_width = self.root.winfo_width()
-        main_height = self.root.winfo_height()
-        
-        dialog_width = 460
-        dialog_height = 240
-        x = main_x + (main_width // 2) - (dialog_width // 2)
-        y = main_y + (main_height // 2) - (dialog_height // 2)
-        
-        # Set position
-        dialog.geometry(f"{dialog_width}x{dialog_height}+{x}+{y}")
+
+        self.center_window(dialog, 460, 240)
 
         try:
             dialog.update_idletasks()
@@ -1977,11 +1979,11 @@ class ModernDesignInstaller:
         """安装选中版本"""
         selection = self.version_tree.selection()
         if not selection:
-            messagebox.showwarning("警告", "请选择要安装的版本")
+            self.show_warning("警告", "请选择要安装的版本")
             return
         
         if not self.current_app:
-            messagebox.showwarning("警告", "请选择应用")
+            self.show_warning("警告", "请选择应用")
             return
         
         item = self.version_tree.item(selection[0])
@@ -2111,7 +2113,7 @@ class ModernDesignInstaller:
             
             if app_installed:
                 self.log("Installation completed successfully")
-                messagebox.showinfo("安装成功", f"应用版本 {version} 安装成功！\n\n已在设备上验证")
+                self._show_modal_dialog("安装成功", f"应用版本 {version} 安装成功！\n\n已在设备上验证", 'info', [('确定', True)])
                 
                 # Try to start the app
                 self.log("Attempting to start the app...")
@@ -2124,10 +2126,10 @@ class ModernDesignInstaller:
                 self.log("Installation verification failed")
                 self.log(f"bm dump output: {verify_output}")
                 self.log(f"bm dump -a output: {list_output}")
-                messagebox.showwarning("安装警告", f"应用安装完成但验证失败。\n\n应用可能未正确安装。\n\n请在设备上手动检查。")        
+                self.show_warning("安装警告", "应用安装完成但验证失败。\n\n应用可能未正确安装。\n\n请在设备上手动检查。")        
         except Exception as e:
             self.log(f"&#x274c; &#x5b89;&#x88c5;&#x5f02;&#x5e38;: {str(e)}")
-            messagebox.showerror("安装错误", f"安装异常：{str(e)}")
+            self.show_error("安装错误", f"安装异常：{str(e)}")
         
         finally:
             self.progress.stop()
@@ -2269,7 +2271,7 @@ class ModernDesignInstaller:
     def uninstall_current_app(self):
         """卸载当前应用"""
         if not self.current_app:
-            messagebox.showwarning("警告", "请先选择要卸载的应用")
+            self.show_warning("警告", "请先选择要卸载的应用")
             return
 
         try:
@@ -2296,7 +2298,7 @@ class ModernDesignInstaller:
         """刷新所有信息"""
         self.log("🔄 刷新中...")
         self.detect_hdc_tool()
-        self.load_apps_config()
+        self.load_apps_config_async()
         if self.current_app:
             self.load_version_list()
         self.log("✅ 刷新完成")
@@ -2340,46 +2342,6 @@ class ModernDesignInstaller:
 
         config_frame = tk.Frame(form_card, bg=self.colors['bg_card'])
         config_frame.pack(padx=18, pady=16, fill='x')
-
-        def _style_entry(entry):
-            entry.configure(
-                font=self.fonts['body'],
-                bg=self.colors['bg_primary'],
-                fg=self.colors['text_primary'],
-                insertbackground=self.colors['text_primary'],
-                relief='flat',
-                bd=0,
-                highlightthickness=1,
-                highlightbackground=self.colors['border'],
-                highlightcolor=self.colors['border']
-            )
-
-        def _style_dialog_btn(btn, *, bg, fg, active_bg, active_fg, bold=False, secondary=False):
-            btn.configure(
-                font=('Segoe UI', 10, 'bold' if bold else 'normal'),
-                bg=bg,
-                fg=fg,
-                activebackground=active_bg,
-                activeforeground=active_fg,
-                relief='flat',
-                bd=0,
-                borderwidth=0,
-                highlightthickness=1 if secondary else 0,
-                highlightbackground=self.colors['border'] if secondary else bg,
-                highlightcolor=self.colors['border'] if secondary else bg,
-                padx=14,
-                pady=7,
-                cursor='hand2'
-            )
-
-            def _on_enter(_e):
-                btn.configure(bg=active_bg)
-
-            def _on_leave(_e):
-                btn.configure(bg=bg)
-
-            btn.bind('<Enter>', _on_enter)
-            btn.bind('<Leave>', _on_leave)
         
         # 服务器地址输入
         tk.Label(config_frame, text="🌐 服务器地址:",
@@ -2388,7 +2350,7 @@ class ModernDesignInstaller:
                  bg=self.colors['bg_card']).pack(anchor='w', pady=(0, 6))
 
         url_entry = tk.Entry(config_frame)
-        _style_entry(url_entry)
+        self._style_entry_widget(url_entry)
         url_entry.pack(fill='x', ipady=6, pady=(0, 14))
         url_entry.insert(0, self.server_base_url)
         
@@ -2402,7 +2364,7 @@ class ModernDesignInstaller:
         download_frame.pack(fill='x', pady=(0, 4))
 
         download_entry = tk.Entry(download_frame)
-        _style_entry(download_entry)
+        self._style_entry_widget(download_entry)
         download_entry.pack(side='left', fill='x', expand=True, ipady=6)
         download_entry.insert(0, self.download_dir)
         
@@ -2419,12 +2381,13 @@ class ModernDesignInstaller:
                 download_entry.focus_set()
         
         browse_btn = tk.Button(download_frame, text="浏览", command=browse_directory)
-        _style_dialog_btn(
+        self._style_dialog_button_widget(
             browse_btn,
             bg=self.colors['bg_selection'],
             fg=self.colors['text_primary'],
             active_bg='#343A3F',
             active_fg=self.colors['text_primary'],
+            bold=False,
             secondary=True
         )
         browse_btn.pack(side='right', padx=(10, 0))
@@ -2484,7 +2447,7 @@ class ModernDesignInstaller:
             dialog.destroy()
         
         cancel_btn = tk.Button(button_frame, text="取消", command=cancel_config)
-        _style_dialog_btn(
+        self._style_dialog_button_widget(
             cancel_btn,
             bg=self.colors['bg_selection'],
             fg=self.colors['text_primary'],
@@ -2496,7 +2459,7 @@ class ModernDesignInstaller:
         cancel_btn.pack(side='right')
 
         save_btn = tk.Button(button_frame, text="保存", command=save_config)
-        _style_dialog_btn(
+        self._style_dialog_button_widget(
             save_btn,
             bg=self.colors['bg_accent'],
             fg='white',
@@ -2529,7 +2492,7 @@ class ModernDesignInstaller:
         
         # 如果配置已保存，重新加载应用列表
         if config_saved[0]:
-            self.load_apps_config()
+            self.load_apps_config_async()
     
 
 def main():
