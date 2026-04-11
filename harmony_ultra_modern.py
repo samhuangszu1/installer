@@ -1414,15 +1414,64 @@ class ModernDesignInstaller:
         """显示应用信息"""
         if not self.current_app:
             return
-        
-        info = f"📱 应用名称: {self.current_app['name']}\n"
-        info += f"🆔 包名: {self.current_app['id']}\n"
-        info += f"📝 描述: {self.current_app['description']}\n"
-        info += f"🏷️ 当前版本: {self.current_app['current_version']}\n"
-        info += f"⚡ 主能力: {self.current_app['main_ability']}"
-        
+
+        app_name = self.current_app.get('name', 'N/A')
+        bundle_name = self.current_app.get('bundle_name', 'N/A')
+        current_version = self.current_app.get('current_version', 'N/A')
+        main_ability = self.current_app.get('main_ability', 'N/A')
+
+        info = f"应用名称: {app_name}\n"
+        info += f"应用包名: {bundle_name}\n"
+        info += f"当前版本: {current_version}\n"
+        info += f"应用入口: {main_ability}\n"
+        info += f"版本描述: N/A"
+
         self.app_info_text.delete(1.0, tk.END)
         self.app_info_text.insert(1.0, info)
+
+        if not current_version or current_version == 'N/A':
+            return
+
+        # 异步获取“当前版本”的描述，避免服务器异常导致 UI 卡顿
+        app_snapshot = self.current_app
+
+        def _run():
+            try:
+                vinfo = self.get_version_info(current_version)
+                desc = None
+                if isinstance(vinfo, dict):
+                    desc = vinfo.get('description')
+                if not desc:
+                    desc = 'N/A'
+                ok = True
+                payload = desc
+            except Exception:
+                ok = False
+                payload = 'N/A'
+
+            def _apply():
+                try:
+                    # 避免切换应用后回写旧数据
+                    if self.current_app is not app_snapshot:
+                        return
+
+                    info2 = f"应用名称: {app_name}\n"
+                    info2 += f"应用包名: {bundle_name}\n"
+                    info2 += f"当前版本: {current_version}\n"
+                    info2 += f"应用入口: {main_ability}\n"
+                    info2 += f"版本描述: {payload}"
+
+                    self.app_info_text.delete(1.0, tk.END)
+                    self.app_info_text.insert(1.0, info2)
+                except Exception:
+                    pass
+
+            try:
+                self.root.after(0, _apply)
+            except Exception:
+                pass
+
+        threading.Thread(target=_run, daemon=True).start()
     
     def show_version_info(self, version):
         """显示版本特定信息"""
@@ -1437,18 +1486,17 @@ class ModernDesignInstaller:
             return
         
         # 构建版本特定信息
-        info = f"📱 应用名称: {self.current_app['name']}\n"
-        info += f"🆔 包名: {self.current_app.get('bundle_name', self.current_app.get('id', 'N/A'))}\n"
-        info += f"📝 描述: {self.current_app['description']}\n"
-        info += f"🏷️ 选中版本: {version}\n"
-        info += f"📅 发布日期: {version_info.get('release_date', 'N/A')}\n"
-        info += f"📏 文件大小: {version_info.get('size', 'N/A')}\n"
-        info += f"⚡ 主能力: {self.current_app['main_ability']}\n"
+        info = f"应用名称: {self.current_app.get('name', 'N/A')}\n"
+        info += f"应用包名: {self.current_app.get('bundle_name', 'N/A')}\n"
+        info += f"选中版本: {version}\n"
+        info += f"发布日期: {version_info.get('release_date', 'N/A')}\n"
+        info += f"应用入口: {self.current_app.get('main_ability', 'N/A')}\n"
+        info += f"版本描述: {version_info.get('description', 'N/A')}\n"
         
         # 添加文件信息（如果可用）
         files = version_info.get('files', {})
         if isinstance(files, dict):
-            info += f"\n📁 文件信息:\n"
+            info += f"\n文件信息:\n"
             info += f"  HAP: {files.get('hap', 'N/A')}\n"
             info += f"  HSP: {files.get('hsp', 'N/A')}\n"
         
@@ -1466,13 +1514,7 @@ class ModernDesignInstaller:
         if hasattr(self, 'uninstall_button'):
             self.uninstall_button.config(state='normal')
         
-        # Update status text
-        if hasattr(self, 'status_text'):
-            self.status_text.config(text=f"准备安装: {self.current_app['name']}")
-        
-        # Update status indicator
-        if hasattr(self, 'status_indicator'):
-            self.update_status_indicator('success')
+        # Keep status_text/status_indicator reserved for HDC connection status
     
     def on_version_select(self, event):
         """Version selection event"""
