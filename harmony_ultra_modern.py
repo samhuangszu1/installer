@@ -287,13 +287,6 @@ class ModernDesignInstaller:
                             font=self.fonts['title'])
         title_text.pack(anchor=tk.W)
         
-        subtitle_text = tk.Label(title_container,
-                                text="鸿蒙应用安装助手",
-                                bg=self.colors['bg_secondary'],
-                                fg=self.colors['text_secondary'],
-                                font=self.fonts['small'])
-        subtitle_text.pack(anchor=tk.W)
-        
         segment_container = tk.Frame(header, bg=self.colors['bg_secondary'])
         segment_container.place(x=0, y=19)
         self.header_segment_container = segment_container
@@ -543,7 +536,7 @@ class ModernDesignInstaller:
         panel = self.create_card_panel(parent, row, column, columnspan)
         
         # 面板头部
-        header = self.create_panel_header(panel, "📱 应用列表", self.colors['bg_accent'])
+        header = self.create_panel_header(panel, "应用列表", self.colors['bg_accent'])
         header.pack(fill=tk.X, padx=(15, 15), pady=(15, 10))
         
         # 应用列表容器
@@ -563,7 +556,7 @@ class ModernDesignInstaller:
         panel = self.create_card_panel(parent, row, column, columnspan)
         
         # 面板头部
-        header = self.create_panel_header(panel, "📦 版本管理", self.colors['bg_success'])
+        header = self.create_panel_header(panel, "版本管理", self.colors['bg_success'])
         header.pack(fill=tk.X, padx=(15, 15), pady=(15, 10))
         
         # 版本列表容器
@@ -584,7 +577,7 @@ class ModernDesignInstaller:
         self.control_panel_frame = panel
         
         # 面板头部
-        header = self.create_panel_header(panel, "⚙️ 控制中心", self.colors['bg_warning'])
+        header = self.create_panel_header(panel, "版本详情", self.colors['bg_warning'])
         header.pack(fill=tk.X, padx=(15, 15), pady=(15, 10))
         
         # 控制面板内容
@@ -593,8 +586,7 @@ class ModernDesignInstaller:
 
         self.control_panel_content = content
         self.schedule_header_segment_align()
-        
-        # 应用信息区域
+
         self.create_app_info_section(content)
         
         # 操作按钮区域
@@ -652,7 +644,7 @@ class ModernDesignInstaller:
                               bg=self.colors['bg_card'],
                               fg=self.colors['text_primary'],
                               font=self.fonts['heading'])
-        title_label.pack(side=tk.LEFT, padx=14)
+        title_label.pack(side=tk.LEFT, padx=0)
 
         return header
     
@@ -825,18 +817,15 @@ class ModernDesignInstaller:
     
     def create_app_info_section(self, parent):
         """创建应用信息区域"""
-        info_frame = tk.LabelFrame(parent,
-                                  text="应用详情",
-                                  bg=self.colors['bg_card'],
-                                  fg=self.colors['text_primary'],
-                                  font=self.fonts['heading'],
-                                  relief='flat',
-                                  borderwidth=1)
+        info_frame = tk.Frame(parent,
+                             bg=self.colors['bg_card'],
+                             relief='flat',
+                             borderwidth=1)
         info_frame.pack(fill=tk.X, pady=(0, 15))
         
         # 信息文本区域
         self.app_info_text = self.create_modern_text(info_frame, height=6)
-        self.app_info_text._container.pack(fill=tk.X, padx=10, pady=10)
+        self.app_info_text._container.pack(fill=tk.X, padx=0, pady=10)
     
     def create_action_buttons(self, parent):
         """创建操作按钮区域"""
@@ -864,7 +853,7 @@ class ModernDesignInstaller:
             self.colors['bg_danger'],
             '#A8193F'
         )
-        self.uninstall_button.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 4))
+        self.uninstall_button.pack(fill=tk.X)
         
         # 工具按钮行
         tool_row = tk.Frame(button_frame, bg=self.colors['bg_card'])
