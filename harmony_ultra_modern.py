@@ -737,27 +737,14 @@ class ModernDesignInstaller:
         header = tk.Frame(parent, bg=self.colors['bg_card'])
         header.pack(fill=tk.X)
 
-        ui_scale = 1.0
-        try:
-            ui_scale = float(getattr(self, 'ui_scale', 1.0))
-        except Exception:
-            ui_scale = 1.0
-
-        # 以本机为准：ui_scale≈1 时严格使用旧版 4/40 的视觉间距
-        if 0.97 <= ui_scale <= 1.03:
-            bar_h = 4
-            title_row_h = 40
-        else:
-            bar_h = max(1, int(round(4 * ui_scale)))
-            title_row_h = max(1, int(round(40 * ui_scale)))
-
-        accent_bar = tk.Frame(header, bg=accent_color, height=bar_h)
+        # Scheme 1: 以旧版 4/40 为本机视觉基准，但在高 DPI/大字体下
+        # 根据标题字体真实高度自动增高，避免固定 40 导致“很挤”。
+        accent_bar = tk.Frame(header, bg=accent_color, height=4)
         accent_bar.pack(fill=tk.X)
         accent_bar.pack_propagate(False)
 
-        title_row = tk.Frame(header, bg=self.colors['bg_card'], height=title_row_h)
+        title_row = tk.Frame(header, bg=self.colors['bg_card'], height=40)
         title_row.pack(fill=tk.X)
-        title_row.pack_propagate(False)
 
         title_label = tk.Label(title_row,
                               text=title,
@@ -765,6 +752,44 @@ class ModernDesignInstaller:
                               fg=self.colors['text_primary'],
                               font=self.fonts['heading'])
         title_label.pack(side=tk.LEFT, padx=0)
+
+        ui_scale = 1.0
+        try:
+            ui_scale = float(getattr(self, 'ui_scale', 1.0))
+        except Exception:
+            ui_scale = 1.0
+
+        try:
+            title_row.update_idletasks()
+            label_h = int(title_label.winfo_reqheight() or 0)
+        except Exception:
+            label_h = 0
+
+        # 给标题留一点上下缓冲（随 ui_scale 增大），但保持本机旧版的紧凑观感
+        min_pad = 2
+        try:
+            min_pad = max(2, int(round(2 * ui_scale)))
+        except Exception:
+            min_pad = 2
+
+        title_row_h = 40
+        if label_h > 0:
+            title_row_h = max(40, label_h + min_pad * 2)
+
+        title_row.configure(height=title_row_h)
+        title_row.pack_propagate(False)
+
+        # 色条以旧版 4px 为基准；只有当标题行明显变高时再轻微加粗
+        bar_h = 4
+        try:
+            if title_row_h > 45:
+                bar_h = max(4, int(round(4 * (float(title_row_h) / 40.0))))
+        except Exception:
+            bar_h = 4
+        try:
+            accent_bar.configure(height=bar_h)
+        except Exception:
+            pass
 
         return header
     
