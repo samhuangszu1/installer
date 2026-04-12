@@ -684,7 +684,7 @@ class ModernDesignInstaller:
         panel = self.create_card_panel(parent, row, column, columnspan)
         
         # 面板头部
-        header = self.create_panel_header(panel, "版本管理", self.colors['bg_success'])
+        header = self.create_panel_header(panel, "版本列表", self.colors['bg_success'])
         header.pack(fill=tk.X, padx=(15, 15), pady=(15, 10))
         
         # 版本列表容器
@@ -1275,10 +1275,73 @@ class ModernDesignInstaller:
         top_row.pack(fill=tk.X)
         top_row.grid_columnconfigure(1, weight=1)
 
-        icon_canvas = tk.Canvas(top_row, width=44, height=44, bg=self.colors['bg_secondary'], highlightthickness=0)
+        # Scale icon size based on DPI
+        icon_size = 44
+        try:
+            ui_scale = float(getattr(self, 'ui_scale', 1.0))
+            icon_size = int(round(44 * ui_scale))
+        except Exception:
+            pass
+
+        icon_canvas = tk.Canvas(top_row, width=icon_size, height=icon_size, bg=self.colors['bg_secondary'], highlightthickness=0)
         icon_canvas.grid(row=0, column=0, sticky='n', padx=(0, 14), pady=(2, 0))
-        icon_canvas.create_oval(2, 2, 42, 42, fill=icon_color, outline='')
-        icon_canvas.create_text(22, 22, text=icon_text, fill='white', font=('Segoe UI', 18, 'bold'))
+        icon_canvas.create_oval(2, 2, icon_size - 2, icon_size - 2, fill=icon_color, outline='')
+
+        # Draw geometric icons instead of emoji for better DPI compatibility
+        center = icon_size // 2
+        padding = int(round(icon_size * 0.25))
+
+        if variant == 'error':
+            # Draw X
+            line_width = max(2, int(round(icon_size * 0.08)))
+            icon_canvas.create_line(center - padding, center - padding, center + padding, center + padding,
+                                  fill='white', width=line_width, capstyle='round')
+            icon_canvas.create_line(center + padding, center - padding, center - padding, center + padding,
+                                  fill='white', width=line_width, capstyle='round')
+        elif variant == 'warning':
+            # Draw taller triangle with exclamation
+            triangle_radius = int(round(icon_size * 0.4))
+            h = int(round(triangle_radius * 1.2))  # taller than equilateral triangle
+            points = [
+                center, center - h,
+                center - triangle_radius, center + h // 2,
+                center + triangle_radius, center + h // 2
+            ]
+            icon_canvas.create_polygon(points, fill='white', outline='')
+            # Draw exclamation mark in center (shifted up)
+            exclamation_width = max(2, int(round(icon_size * 0.08)))
+            exclamation_height = int(round(icon_size * 0.3))
+            # Vertical line (shifted up)
+            line_top = center - exclamation_height // 2 - 4
+            line_bottom = center + exclamation_height // 6 - 4
+            icon_canvas.create_rectangle(center - exclamation_width // 2, line_top,
+                                       center + exclamation_width // 2, line_bottom,
+                                       fill=icon_color, outline='')
+            # Dot at bottom (shifted up)
+            dot_size = max(2, int(round(icon_size * 0.08)))
+            dot_y = line_bottom + dot_size + 2
+            icon_canvas.create_oval(center - dot_size, dot_y,
+                                  center + dot_size, dot_y + dot_size * 2,
+                                  fill=icon_color, outline='')
+        elif variant == 'question':
+            # Draw question mark using text (more reliable than emoji)
+            font_size = int(round(icon_size * 0.28))
+            try:
+                font_size = max(10, font_size)
+            except Exception:
+                pass
+            icon_canvas.create_text(center, center, text='?', fill='white',
+                                  font=('Segoe UI', font_size, 'bold'), anchor='center')
+        elif variant == 'info':
+            # Draw i using text
+            font_size = int(round(icon_size * 0.5))
+            icon_canvas.create_text(center, center, text='i', fill='white',
+                                  font=('Segoe UI', font_size, 'bold'), anchor='center')
+        else:
+            # Default: draw i
+            font_size = int(round(icon_size * 0.5))
+            icon_canvas.create_text(center, center, text='i', fill='white',
+                                  font=('Segoe UI', font_size, 'bold'), anchor='center')
 
         msg_container = tk.Frame(top_row, bg=self.colors['bg_secondary'])
         msg_container.grid(row=0, column=1, sticky='nw')
@@ -2849,16 +2912,41 @@ def main():
         splash = tk.Toplevel(root)
         splash.overrideredirect(True)
         splash.configure(bg='#0F1419')
+        _splash_scale = 1.0
+        try:
+            _splash_scale = float(getattr(root, '_system_dpi', 96.0)) / 96.0
+        except Exception:
+            _splash_scale = 1.0
+
         sw, sh = 420, 220
+        try:
+            sw = int(round(sw * _splash_scale))
+            sh = int(round(sh * _splash_scale))
+        except Exception:
+            sw, sh = 420, 220
+
         sx, sy = _get_center_xy(sw, sh)
         splash.geometry(f'{sw}x{sh}+{sx}+{sy}')
         splash.attributes('-topmost', True)
         splash_frame = tk.Frame(splash, bg='#0F1419', highlightthickness=1, highlightbackground='#2F3336')
         splash_frame.pack(fill=tk.BOTH, expand=True)
+
+        _splash_title_size = 18
+        _splash_sub_size = 11
+        _splash_title_pad_top = 54
+        _splash_title_pad_bottom = 10
+        try:
+            _splash_title_size = int(round(_splash_title_size * _splash_scale))
+            _splash_sub_size = int(round(_splash_sub_size * _splash_scale))
+            _splash_title_pad_top = int(round(_splash_title_pad_top * _splash_scale))
+            _splash_title_pad_bottom = int(round(_splash_title_pad_bottom * _splash_scale))
+        except Exception:
+            pass
+
         tk.Label(splash_frame, text='鸿蒙应用安装工具', fg='#E7E9EA', bg='#0F1419',
-                 font=('Segoe UI', 18, 'bold')).pack(pady=(54, 10))
+                 font=('Segoe UI', _splash_title_size, 'bold')).pack(pady=(_splash_title_pad_top, _splash_title_pad_bottom))
         tk.Label(splash_frame, text='正在启动...', fg='#71767B', bg='#0F1419',
-                 font=('Segoe UI', 11)).pack()
+                 font=('Segoe UI', _splash_sub_size)).pack()
         splash.update_idletasks()
         try:
             splash.update()
