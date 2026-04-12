@@ -6,3 +6,4 @@
 - 客户端与server端通过HTTP协议进行通信
 - 客户端与server端通过JSON格式进行数据交换 
 - 客户端自动适配不同屏幕及分辨率
+- 客户端要在macOS、windows、linux上运行

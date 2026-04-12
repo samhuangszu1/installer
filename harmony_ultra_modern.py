@@ -89,6 +89,10 @@ class ModernDesignInstaller:
         # 服务器配置
         self.server_base_url = ""  # 服务器地址
         self.download_dir = ""  # 下载目录
+
+        self._install_spinner_after_id = None
+        self._install_spinner_idx = 0
+        self._install_button_base_text = None
         
         # 创建自定义样式
         self.setup_custom_styles()
@@ -646,9 +650,9 @@ class ModernDesignInstaller:
         grid_container.pack(fill=tk.BOTH, expand=True)
         
         # 配置网格权重
-        grid_container.grid_columnconfigure(0, weight=10)
-        grid_container.grid_columnconfigure(1, weight=21)
-        grid_container.grid_columnconfigure(2, weight=10)
+        grid_container.grid_columnconfigure(0, weight=10, uniform='main_panels')
+        grid_container.grid_columnconfigure(1, weight=21, uniform='main_panels')
+        grid_container.grid_columnconfigure(2, weight=10, uniform='main_panels')
         grid_container.grid_rowconfigure(0, weight=1)
         grid_container.grid_rowconfigure(1, weight=1)
         
@@ -719,13 +723,9 @@ class ModernDesignInstaller:
         
         # 操作按钮区域
         self.create_action_buttons(content)
-        
-        # 进度显示区域
-        self.create_progress_section(content)
     
     def create_console_panel(self, parent, row, column, columnspan=3):
         """创建控制台面板"""
-        # 面板容器 - 控制台跨越3列，不需要右侧padx，因为列2已经没有右侧padx了
         panel = tk.Frame(parent, bg=self.colors['bg_card'], relief='flat')
         panel.grid(row=row, column=column, columnspan=columnspan, sticky='nsew', 
                  padx=(0, 0), pady=(0, 10))
@@ -746,8 +746,10 @@ class ModernDesignInstaller:
     def create_card_panel(self, parent, row, column, columnspan=1):
         """创建卡片面板"""
         panel = tk.Frame(parent, bg=self.colors['bg_card'], relief='flat')
+        # 最后一列(版本详情)不设右边距，确保对齐底部的控制台右边缘
+        right_pad = 10 if column < 2 else 0
         panel.grid(row=row, column=column, columnspan=columnspan, sticky='nsew', 
-                 padx=(0, 10) if column < 2 else (0, 0), pady=(0, 10))
+                 padx=(0, right_pad), pady=(0, 10))
         
         # 优化边框：使用更微妙的颜色和更薄的边框
         panel.configure(highlightbackground='#2F3336', highlightthickness=1)
@@ -1055,25 +1057,78 @@ class ModernDesignInstaller:
         
         button.bind('<Enter>', on_enter)
         button.bind('<Leave>', on_leave)
-    
-    def create_progress_section(self, parent):
-        """创建进度显示区域"""
-        progress_frame = tk.Frame(parent, bg=self.colors['bg_card'])
-        progress_frame.pack(fill=tk.X)
+
+    def _install_spinner_start(self, base_text=None):
+        # 记录当前的运行中文案（如果不传则默认为 "正在安装..."）
+        _running_text = base_text if base_text else "正在安装..."
         
-        # 进度标签
-        progress_label = tk.Label(progress_frame,
-                                text="安装进度",
-                                bg=self.colors['bg_card'],
-                                fg=self.colors['text_secondary'],
-                                font=self.fonts['body'])
-        progress_label.pack(anchor=tk.W, pady=(0, 8))
-        
-        # 进度条
-        self.progress = ttk.Progressbar(progress_frame,
-                                       mode='indeterminate',
-                                       style='Modern.Horizontal.TProgressbar')
-        self.progress.pack(fill=tk.X)
+        try:
+            if not hasattr(self, 'install_button') or self.install_button is None:
+                return
+        except Exception:
+            return
+
+        try:
+            if self._install_spinner_after_id is not None:
+                try:
+                    self.root.after_cancel(self._install_spinner_after_id)
+                except Exception:
+                    pass
+                self._install_spinner_after_id = None
+        except Exception:
+            self._install_spinner_after_id = None
+
+        try:
+            if self._install_button_base_text is None:
+                self._install_button_base_text = str(self.install_button.cget('text'))
+        except Exception:
+            if self._install_button_base_text is None:
+                self._install_button_base_text = "🚀 安装选中版本"
+
+        self._install_spinner_idx = 0
+        frames = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏']
+
+        def _tick():
+            try:
+                if not hasattr(self, 'install_button') or self.install_button is None:
+                    self._install_spinner_after_id = None
+                    return
+                if str(self.install_button.cget('state')) == 'disabled':
+                    ch = frames[self._install_spinner_idx % len(frames)]
+                    self._install_spinner_idx += 1
+                    self.install_button.config(text=f"{ch} {_running_text}")
+                    self._install_spinner_after_id = self.root.after(90, _tick)
+                else:
+                    self._install_spinner_after_id = None
+            except Exception:
+                self._install_spinner_after_id = None
+
+        try:
+            self.install_button.config(state='disabled')
+        except Exception:
+            pass
+        try:
+            _tick()
+        except Exception:
+            pass
+
+    def _install_spinner_stop(self):
+        try:
+            if self._install_spinner_after_id is not None:
+                try:
+                    self.root.after_cancel(self._install_spinner_after_id)
+                except Exception:
+                    pass
+            self._install_spinner_after_id = None
+        except Exception:
+            self._install_spinner_after_id = None
+
+        try:
+            if hasattr(self, 'install_button') and self.install_button is not None:
+                if self._install_button_base_text:
+                    self.install_button.config(text=self._install_button_base_text)
+        except Exception:
+            pass
     
     def create_modern_console(self, parent):
         """创建现代化控制台"""
@@ -2298,6 +2353,14 @@ class ModernDesignInstaller:
         version = item['values'][0]
         
         self.log(f"&#x1d4cb; &#x9009;&#x4e2d;&#x7684;&#x7248;&#x672c;&#x53f7;: '{version}' (&#x7c7b;&#x578b;: {type(version)})")
+
+        try:
+            self.root.after(0, self._install_spinner_start)
+        except Exception:
+            try:
+                self._install_spinner_start()
+            except Exception:
+                pass
         
         thread = threading.Thread(target=self.install_app_version, args=(version,))
         thread.daemon = True
@@ -2306,9 +2369,6 @@ class ModernDesignInstaller:
     def install_app_version(self, version):
         """安装应用版本"""
         try:
-            self.progress.start()
-            self.install_button.config(state='disabled')
-            
             self.log(f"🚀 开始安装版本 {version}")
 
             try:
@@ -2440,8 +2500,20 @@ class ModernDesignInstaller:
             self.show_error("安装错误", f"安装异常：{str(e)}")
         
         finally:
-            self.progress.stop()
-            self.install_button.config(state='normal')
+            try:
+                self.root.after(0, self._install_spinner_stop)
+            except Exception:
+                try:
+                    self._install_spinner_stop()
+                except Exception:
+                    pass
+            try:
+                self.root.after(0, lambda: hasattr(self, 'install_button') and self.install_button.config(state='normal'))
+            except Exception:
+                try:
+                    self.install_button.config(state='normal')
+                except Exception:
+                    pass
     def get_version_info(self, version):
         """获取版本信息"""
         try:
