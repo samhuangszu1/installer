@@ -1510,18 +1510,41 @@ class ModernDesignInstaller:
             self.show_error("错误", f"配置加载失败: {str(e)}")
 
     def _get_settings_path(self):
-        appdata = os.environ.get('APPDATA')
-        if not appdata:
-            appdata = os.path.expanduser('~')
+        system = platform.system()
+        home = os.path.expanduser('~')
 
-        settings_dir = os.path.join(appdata, 'HarmonyOSInstaller')
+        if system == 'Windows':
+            appdata = os.environ.get('APPDATA')
+            if not appdata:
+                appdata = home
+            settings_dir = os.path.join(appdata, 'HarmonyOSInstaller')
+        elif system == 'Darwin':
+            settings_dir = os.path.join(home, 'Library', 'Application Support', 'HarmonyOSInstaller')
+        else:
+            config_home = os.environ.get('XDG_CONFIG_HOME')
+            if not config_home:
+                config_home = os.path.join(home, '.config')
+            settings_dir = os.path.join(config_home, 'HarmonyOSInstaller')
+
         return os.path.join(settings_dir, 'settings.json')
 
     def _get_default_download_dir(self):
-        local_appdata = os.environ.get('LOCALAPPDATA')
-        if not local_appdata:
-            local_appdata = os.path.join(os.path.expanduser('~'), 'AppData', 'Local')
-        return os.path.join(local_appdata, 'HarmonyOSInstaller', 'downloads')
+        system = platform.system()
+        home = os.path.expanduser('~')
+
+        if system == 'Windows':
+            local_appdata = os.environ.get('LOCALAPPDATA')
+            if not local_appdata:
+                local_appdata = os.path.join(home, 'AppData', 'Local')
+            return os.path.join(local_appdata, 'HarmonyOSInstaller', 'downloads')
+
+        if system == 'Darwin':
+            return os.path.join(home, 'Library', 'Application Support', 'HarmonyOSInstaller', 'downloads')
+
+        data_home = os.environ.get('XDG_DATA_HOME')
+        if not data_home:
+            data_home = os.path.join(home, '.local', 'share')
+        return os.path.join(data_home, 'HarmonyOSInstaller', 'downloads')
     
     def check_initial_config(self):
         """检查初始配置"""
