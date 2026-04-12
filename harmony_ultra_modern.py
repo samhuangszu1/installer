@@ -2835,9 +2835,11 @@ def main():
         except Exception:
             return 0, 0
 
-    # Center window on screen (use fixed target size to avoid size thrash)
-    width = 1400
-    height = 900
+    # Center window on screen with dynamic size based on screen dimensions
+    screen_width = root.winfo_screenwidth()
+    screen_height = root.winfo_screenheight()
+    width = int(screen_width * 2 / 3)
+    height = int(screen_height * 4 / 5)
     x, y = _get_center_xy(width, height)
     root.geometry(f'{width}x{height}+{x}+{y}')
 
