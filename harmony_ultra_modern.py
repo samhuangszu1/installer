@@ -12,6 +12,7 @@ import subprocess
 import threading
 import tkinter as tk
 from tkinter import ttk, filedialog
+import tkinter.font as tkfont
 import time
 import json
 import requests
@@ -235,12 +236,33 @@ class ModernDesignInstaller:
         self.style.map('Modern.Treeview',
                       background=[('selected', self.colors['bg_selection'])],
                       foreground=[('selected', self.colors['text_primary'])])
-        
+
+        heading_font = ('Segoe UI', 11, 'bold')
+        pad_y = 4
+        try:
+            row_h = int(self.style.lookup('Modern.Treeview', 'rowheight') or 40)
+        except Exception:
+            row_h = 40
+
+        try:
+            f = tkfont.Font(self.root, font=heading_font)
+            linespace = int(f.metrics('linespace') or 0)
+            if linespace > 0:
+                # Heading height is affected by theme internals; using floor here often makes it slightly smaller.
+                # Use rounding and then correct upwards to guarantee heading height >= rowheight.
+                pad_y = max(0, int(round((row_h - linespace) / 2.0)))
+                total_h = linespace + pad_y * 2
+                if total_h < row_h:
+                    # bump padding to eliminate off-by-1/-2 differences across DPI/theme
+                    pad_y += int((row_h - total_h + 1) / 2)
+        except Exception:
+            pad_y = 4
+
         self.style.configure('Modern.Treeview.Heading',
                            background=self.colors['bg_secondary'],
                            foreground=self.colors['text_primary'],
-                           font=self.fonts['heading'],
-                           padding=(6, 8),
+                           font=heading_font,
+                           padding=(6, pad_y),
                            borderwidth=0,
                            relief='flat')
 
