@@ -6,6 +6,7 @@ DefaultDirName={autopf}\HarmonyOSInstaller
 DefaultGroupName=HarmonyOS Installer
 OutputDir=installer_out
 OutputBaseFilename=HarmonyOSInstaller_Setup
+SetupIconFile=logo.ico
 Compression=lzma
 SolidCompression=yes
 ArchitecturesInstallIn64BitMode=x64compatible
@@ -14,6 +15,7 @@ DisableProgramGroupPage=yes
 [Files]
 Source: "dist\HarmonyOSInstaller.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: "dist\settings.json"; DestDir: "{userappdata}\HarmonyOSInstaller"; Flags: onlyifdoesntexist ignoreversion
+Source: "logo.ico"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
 Name: "{autoprograms}\HarmonyOS Installer"; Filename: "{app}\HarmonyOSInstaller.exe"
