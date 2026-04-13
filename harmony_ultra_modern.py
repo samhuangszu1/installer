@@ -130,8 +130,45 @@ class ModernDesignInstaller:
         # 加载配置（异步，避免在启动阶段阻塞 UI 导致停留在启动页）
         self.root.after(300, self.load_apps_config_async)
         
+        # 设置窗口图标
+        self._set_window_icon()
+
         # 添加窗口拖拽功能
         self.setup_window_drag()
+
+    def _set_window_icon(self):
+        try:
+            if getattr(sys, 'frozen', False):
+                # PyInstaller 打包环境
+                base_path = sys._MEIPASS
+            else:
+                # 开发环境
+                base_path = os.path.dirname(os.path.abspath(__file__))
+            
+            # 优先尝试PNG格式
+            png_path = os.path.join(base_path, 'logo.png')
+            
+            # 尝试使用PNG图标（需要PIL库）
+            if os.path.exists(png_path):
+                try:
+                    from PIL import Image, ImageTk
+                    img = Image.open(png_path)
+                    
+                    # 确保图像有透明通道（RGBA）
+                    if img.mode != 'RGBA':
+                        img = img.convert('RGBA')
+                    
+                    # 创建透明背景的PhotoImage
+                    photo = ImageTk.PhotoImage(img)
+                    self.root.iconphoto(True, photo)
+                    # 保持引用防止垃圾回收
+                    self.root._icon_photo = photo
+                    return
+                except Exception:
+                    pass
+
+        except Exception:
+            pass
 
     def load_apps_config_async(self):
         """异步从服务器加载应用配置，避免阻塞 Tk 主线程"""
@@ -323,7 +360,6 @@ class ModernDesignInstaller:
         header = tk.Frame(self.main_frame, bg=self.colors['bg_secondary'], height=header_h)
         header.pack(fill=tk.X)
         header.pack_propagate(False)
-
         self.header_frame = header
         
         # 左侧标题区域
@@ -373,7 +409,9 @@ class ModernDesignInstaller:
             seg_y = max(0, int((header_h - seg_h) / 2))
         except Exception:
             seg_y = 19
-        segment_container.place(x=0, y=seg_y)
+            
+        # segment_container 初始放在屏幕外(x=-1000)，但 y 坐标提前定死防止跳动
+        segment_container.place(x=-1000, y=seg_y)
 
         segment_canvas = tk.Canvas(segment_container, bg=self.colors['bg_secondary'],
                                    highlightthickness=0, width=seg_total_w, height=seg_h)
@@ -468,10 +506,19 @@ class ModernDesignInstaller:
         _bind_segment('seg2', 'hl2', self.refresh_all)
         _bind_segment('seg3', 'hl3', self.configure_server)
         
-        # HDC状态指示器（放在按钮组左侧，不参与右对齐）
+        # HDC状态指示器（初始放在屏幕外(x=-1000)，y 坐标定死防止跳动）
         status_container = tk.Frame(header, bg=self.colors['bg_secondary'])
-        status_container.place(x=0, y=0)
         self.header_status_container = status_container
+        
+        # 预计算 status_y
+        try:
+            status_h = 24 # 预估高度
+            status_y = max(0, int((header_h - status_h) / 2))
+        except Exception:
+            status_y = 23
+        
+        # Fix logic error where status_container was placed before status_y was defined
+        status_container.place(x=-1000, y=status_y)
         
         self.status_indicator = tk.Canvas(status_container, width=12, height=12,
                                         bg=self.colors['bg_secondary'], highlightthickness=0)
@@ -536,18 +583,17 @@ class ModernDesignInstaller:
                 visual_right_offset = int(round(2 * float(getattr(self, 'ui_scale', 1.0))))
             except Exception:
                 visual_right_offset = 2
+            # 初始对齐标志
+            if not hasattr(self, '_first_align_done'):
+                self._first_align_done = False
+
+            # 只有在计算出有效坐标后才放置
             x = int(control_right - header_left - seg_w + visual_right_offset)
-            if x < 0:
-                x = 0
-
-            try:
-                gap = int(round(14 * float(getattr(self, 'ui_scale', 1.0))))
-            except Exception:
-                gap = 14
-
-            # status 放在 segment 左侧
-            status_x = x - gap - status_w
-
+            if x >= 0:
+                self._first_align_done = True
+                self.header_segment_container.place(x=x, y=seg_y)
+                self.header_status_container.place(x=x - 14 - status_w, y=status_y)
+            
             # 防止覆盖左侧标题
             left_limit = 0
             if self.header_left_section is not None and self.header_left_section.winfo_ismapped():
@@ -573,7 +619,7 @@ class ModernDesignInstaller:
             self.schedule_header_segment_align()
     
     def draw_modern_icon(self, canvas):
-        """绘制现代化图标"""
+        """显示 logo.ico 图标"""
         try:
             canvas.update_idletasks()
         except Exception:
@@ -588,6 +634,55 @@ class ModernDesignInstaller:
         if w <= 1 or h <= 1:
             w, h = 40, 40
 
+        # 加载 logo.ico 文件
+        try:
+            import os
+            import sys
+            from PIL import Image, ImageTk
+            
+            # 获取图标路径（兼容打包环境）
+            if getattr(sys, 'frozen', False):
+                base_path = sys._MEIPASS
+            else:
+                base_path = os.path.dirname(os.path.abspath(__file__))
+            
+            icon_path = os.path.join(base_path, "logo.ico")
+            
+            if os.path.exists(icon_path):
+                # 加载并调整图标大小
+                img = Image.open(icon_path)
+                img = img.resize((w-4, h-4), Image.Resampling.LANCZOS)
+                
+                # 创建圆形遮罩（使用抗锯齿）
+                size = min(w-4, h-4)
+                # 创建更大的遮罩用于抗锯齿
+                mask_size = size * 2
+                mask = Image.new('L', (mask_size, mask_size), 0)
+                from PIL import ImageDraw
+                draw = ImageDraw.Draw(mask)
+                # 在更大的画布上绘制圆形，然后缩小以获得抗锯齿效果
+                draw.ellipse((2, 2, mask_size-2, mask_size-2), fill=255)
+                mask = mask.resize((size, size), Image.Resampling.LANCZOS)
+                
+                # 创建圆形背景
+                circular_img = Image.new('RGBA', (size, size), (0, 0, 0, 0))
+                circular_img.paste(img.resize((size, size), Image.Resampling.LANCZOS), (0, 0), mask)
+                
+                photo = ImageTk.PhotoImage(circular_img)
+                
+                # 清空画布并显示圆形图标
+                canvas.delete("all")
+                canvas.create_image(w//2, h//2, image=photo, anchor='center')
+                
+                # 保持引用防止垃圾回收
+                canvas.image = photo
+                return
+        except Exception:
+            # 如果加载失败，使用备用方案
+            pass
+        
+        # 备用方案：绘制简单的圆形图标
+        canvas.delete("all")
         size = min(w, h)
         margin = max(2, int(round(size * 0.05)))
         x0 = int((w - size) / 2) + margin
@@ -3027,6 +3122,42 @@ def main():
     # Set dark background immediately to prevent white flash
     root.configure(bg='#0F1419')
 
+    def _set_window_icon():
+        try:
+            if getattr(sys, 'frozen', False):
+                # PyInstaller 打包环境
+                base_path = sys._MEIPASS
+            else:
+                # 开发环境
+                base_path = os.path.dirname(os.path.abspath(__file__))
+            
+            # 优先尝试PNG格式
+            png_path = os.path.join(base_path, 'logo.png')
+            
+            # 尝试使用PNG图标（需要PIL库）
+            if os.path.exists(png_path):
+                try:
+                    from PIL import Image, ImageTk
+                    img = Image.open(png_path)
+                    
+                    # 确保图像有透明通道（RGBA）
+                    if img.mode != 'RGBA':
+                        img = img.convert('RGBA')
+                    
+                    # 创建透明背景的PhotoImage
+                    photo = ImageTk.PhotoImage(img)
+                    root.iconphoto(True, photo)
+                    # 保持引用防止垃圾回收
+                    root._icon_photo = photo
+                    return
+                except Exception:
+                    pass
+                
+        except Exception:
+            pass
+
+    _set_window_icon()
+
     try:
         dpi = None
         if platform.system() == 'Windows' and ctypes is not None:
@@ -3089,53 +3220,6 @@ def main():
 
     splash = None
     splash_shown_t0 = None
-    try:
-        splash = tk.Toplevel(root)
-        splash.overrideredirect(True)
-        splash.configure(bg='#0F1419')
-        _splash_scale = 1.0
-        try:
-            _splash_scale = float(getattr(root, '_system_dpi', 96.0)) / 96.0
-        except Exception:
-            _splash_scale = 1.0
-
-        sw, sh = 420, 220
-        try:
-            sw = int(round(sw * _splash_scale))
-            sh = int(round(sh * _splash_scale))
-        except Exception:
-            sw, sh = 420, 220
-
-        sx, sy = _get_center_xy(sw, sh)
-        splash.geometry(f'{sw}x{sh}+{sx}+{sy}')
-        splash.attributes('-topmost', True)
-        splash_frame = tk.Frame(splash, bg='#0F1419', highlightthickness=1, highlightbackground='#2F3336')
-        splash_frame.pack(fill=tk.BOTH, expand=True)
-
-        _splash_title_size = 18
-        _splash_sub_size = 11
-        _splash_title_pad_top = 54
-        _splash_title_pad_bottom = 10
-        try:
-            _splash_title_size = int(round(_splash_title_size * _splash_scale))
-            _splash_sub_size = int(round(_splash_sub_size * _splash_scale))
-            _splash_title_pad_top = int(round(_splash_title_pad_top * _splash_scale))
-            _splash_title_pad_bottom = int(round(_splash_title_pad_bottom * _splash_scale))
-        except Exception:
-            pass
-
-        tk.Label(splash_frame, text='鸿蒙应用安装工具', fg='#E7E9EA', bg='#0F1419',
-                 font=('Segoe UI', _splash_title_size, 'bold')).pack(pady=(_splash_title_pad_top, _splash_title_pad_bottom))
-        tk.Label(splash_frame, text='正在启动...', fg='#71767B', bg='#0F1419',
-                 font=('Segoe UI', _splash_sub_size)).pack()
-        splash.update_idletasks()
-        try:
-            splash.update()
-        except Exception:
-            pass
-        splash_shown_t0 = time.monotonic()
-    except Exception:
-        splash = None
     
     # Create app (window is already dark)
     app = ModernDesignInstaller(root)
@@ -3159,16 +3243,16 @@ def main():
 
         _post_show_finalized = True
 
+        # CRITICAL: Force layout calculation while still transparent
         try:
             root.update_idletasks()
-        except Exception:
-            pass
-        try:
             if hasattr(app, 'align_header_segment'):
                 app.align_header_segment()
+            root.update() # Force an actual draw cycle
         except Exception:
             pass
 
+        # 直接显示主窗口
         try:
             root.attributes('-alpha', 1.0)
         except Exception:
@@ -3189,23 +3273,6 @@ def main():
         if not _fg_ok:
             root.after(250, _force_foreground_retry_once)
 
-        try:
-            if splash is not None and splash.winfo_exists():
-                try:
-                    splash.attributes('-topmost', False)
-                except Exception:
-                    pass
-                try:
-                    splash.attributes('-alpha', 0.0)
-                except Exception:
-                    pass
-                try:
-                    splash.withdraw()
-                except Exception:
-                    pass
-        except Exception:
-            pass
-
         root._window_visible = True
 
     _show_root_after_id = None
@@ -3221,16 +3288,6 @@ def main():
         nonlocal _show_root_after_id
         if _show_root_after_id is not None:
             return
-        try:
-            if splash_shown_t0 is not None:
-                min_ms = 250
-                elapsed_ms = int((time.monotonic() - splash_shown_t0) * 1000)
-                remain_ms = min_ms - elapsed_ms
-                if remain_ms > 0:
-                    _show_root_after_id = root.after(remain_ms, _do_show_root)
-                    return
-        except Exception:
-            pass
         _do_show_root()
 
     root.after(0, _show_root)

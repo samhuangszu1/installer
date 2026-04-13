@@ -15,6 +15,8 @@ a = Analysis(
         ('hdc_win/*', 'hdc_win'),
         ('hdc_arm/*', 'hdc_arm'),
         ('hdc_x86/*', 'hdc_x86'),
+        ('logo.ico', '.'),
+        ('logo.png', '.')
     ],
     hiddenimports=[
         'tkinter',
@@ -52,7 +54,7 @@ exe = EXE(
     a.zipfiles,
     a.datas,
     [],
-    name='HarmonyOSInstaller',
+    name='HarmonyOSInstaller2',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
@@ -65,5 +67,5 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon=None
+    icon=['logo.ico']
 )
