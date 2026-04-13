@@ -1332,13 +1332,14 @@ class ModernDesignInstaller:
 
         dialog.grab_set()
 
-        icon_cfg = {
-            'error': ('❌', self.colors['bg_danger']),
-            'warning': ('⚠️', self.colors['bg_warning']),
-            'question': ('❓', self.colors['bg_accent']),
-            'info': ('ℹ️', self.colors['bg_accent']),
+        # Get icon color based on variant
+        icon_colors = {
+            'error': self.colors['bg_danger'],
+            'warning': self.colors['bg_warning'],
+            'question': self.colors['bg_accent'],
+            'info': self.colors['bg_accent'],
         }
-        icon_text, icon_color = icon_cfg.get(variant, ('ℹ️', self.colors['bg_accent']))
+        icon_color = icon_colors.get(variant, self.colors['bg_accent'])
 
         content = tk.Frame(dialog, bg=self.colors['bg_secondary'])
         content.pack(fill=tk.BOTH, expand=True, padx=20, pady=14)
