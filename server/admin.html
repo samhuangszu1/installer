@@ -1,10 +1,10 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>HarmonyOS Installer - Admin Panel</title>
-    <style>
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>HarmonyOS Installer - Admin Panel</title>
+        <style>
         * {
             margin: 0;
             padding: 0;
@@ -226,262 +226,290 @@
             margin-top: 5px;
         }
     </style>
-</head>
-<body>
-    <div class="container">
-        <div class="header">
-            <h1>HarmonyOS Installer - Admin Panel</h1>
-            <p>Manage applications and versions</p>
+    </head>
+    <body>
+        <div class="container">
+            <div class="header">
+                <h1>HarmonyOS Installer - Admin Panel</h1>
+                <p>Manage applications and versions</p>
+            </div>
+
+            <div class="card">
+                <div class="form-group">
+                    <label for="api-key-input">API Key (for upload)</label>
+                    <div class="inline-row">
+                        <input type="password" id="api-key-input"
+                            placeholder="Set X-API-Key for uploads">
+                        <button class="btn" type="button"
+                            onclick="saveApiKey()">Save</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="stats" id="stats">
+                <div class="stat-card">
+                    <div class="stat-number" id="appCount">0</div>
+                    <div class="stat-label">Applications</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="versionCount">0</div>
+                    <div class="stat-label">Versions</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="fileCount">0</div>
+                    <div class="stat-label">Files</div>
+                </div>
+            </div>
+
+            <div class="tabs">
+                <button class="tab active"
+                    onclick="showTab('apps')">Applications</button>
+                <button class="tab"
+                    onclick="showTab('versions')">Versions</button>
+                <button class="tab" onclick="showTab('files')">Files</button>
+            </div>
+
+            <!-- Applications Tab -->
+            <div id="apps-tab" class="tab-content active">
+                <div class="card">
+                    <h2>Applications</h2>
+                    <button class="btn" onclick="showCreateAppModal()">Create
+                        New App</button>
+                    <button class="btn" onclick="loadApps()">Refresh</button>
+
+                    <table class="table" id="apps-table">
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Bundle Name</th>
+                                <th>Main Ability</th>
+                                <th>Current Version</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <!-- Apps will be loaded here -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Versions Tab -->
+            <div id="versions-tab" class="tab-content">
+                <div class="card">
+                    <h2>Versions</h2>
+                    <div class="form-group">
+                        <label for="app-select">Select Application:</label>
+                        <select id="app-select" onchange="loadVersions()">
+                            <option value>Select an app...</option>
+                        </select>
+                    </div>
+                    <button class="btn"
+                        onclick="showCreateVersionModal()">Create New
+                        Version</button>
+                    <button class="btn"
+                        onclick="loadVersions()">Refresh</button>
+
+                    <table class="table" id="versions-table">
+                        <thead>
+                            <tr>
+                                <th>Version</th>
+                                <th>Description</th>
+                                <th>Release Date</th>
+                                <th>Files</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <!-- Versions will be loaded here -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Files Tab -->
+            <div id="files-tab" class="tab-content">
+                <div class="card">
+                    <h2>File Upload</h2>
+                    <div class="form-group">
+                        <label for="version-select">Select Version:</label>
+                        <select id="version-select">
+                            <option value>Select a version...</option>
+                        </select>
+                    </div>
+
+                    <div class="file-upload"
+                        onclick="document.getElementById('file-input').click()">
+                        <p>Click to select files or drag and drop (HAP/HSP
+                            files)</p>
+                        <input type="file" id="file-input"
+                            style="display: none;" multiple accept=".hap,.hsp"
+                            onchange="uploadFile()">
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h2>Files List</h2>
+                    <table class="table" id="files-table">
+                        <thead>
+                            <tr>
+                                <th>File Type</th>
+                                <th>File Name</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <!-- Files will be loaded here -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
         </div>
 
-        <div class="card">
-            <div class="form-group">
-                <label for="api-key-input">API Key (for upload)</label>
-                <div class="inline-row">
-                    <input type="password" id="api-key-input" placeholder="Set X-API-Key for uploads">
-                    <button class="btn" type="button" onclick="saveApiKey()">Save</button>
-                </div>
+        <!-- Create App Modal -->
+        <div id="create-app-modal" class="modal">
+            <div class="modal-content">
+                <span class="close"
+                    onclick="closeModal('create-app-modal')">&times;</span>
+                <h2>Create New Application</h2>
+                <form id="create-app-form">
+                    <div class="form-group">
+                        <label for="app-name">Name:</label>
+                        <input type="text" id="app-name" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="app-description">Description:</label>
+                        <textarea id="app-description"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="app-bundle-name">Bundle Name:</label>
+                        <input type="text" id="app-bundle-name" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="app-main-ability">Main Ability:</label>
+                        <input type="text" id="app-main-ability" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="app-current-version">Current
+                            Version:</label>
+                        <input type="text" id="app-current-version">
+                    </div>
+                    <button type="submit" class="btn">Create App</button>
+                    <button type="button" class="btn"
+                        onclick="closeModal('create-app-modal')">Cancel</button>
+                </form>
             </div>
         </div>
-        
-        <div class="stats" id="stats">
-            <div class="stat-card">
-                <div class="stat-number" id="appCount">0</div>
-                <div class="stat-label">Applications</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-number" id="versionCount">0</div>
-                <div class="stat-label">Versions</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-number" id="fileCount">0</div>
-                <div class="stat-label">Files</div>
-            </div>
-        </div>
-        
-        <div class="tabs">
-            <button class="tab active" onclick="showTab('apps')">Applications</button>
-            <button class="tab" onclick="showTab('versions')">Versions</button>
-            <button class="tab" onclick="showTab('files')">Files</button>
-        </div>
-        
-        <!-- Applications Tab -->
-        <div id="apps-tab" class="tab-content active">
-            <div class="card">
-                <h2>Applications</h2>
-                <button class="btn" onclick="showCreateAppModal()">Create New App</button>
-                <button class="btn" onclick="loadApps()">Refresh</button>
-                
-                <table class="table" id="apps-table">
-                    <thead>
-                        <tr>
-                            <th>Name</th>
-                            <th>Bundle Name</th>
-                            <th>Main Ability</th>
-                            <th>Current Version</th>
-                            <th>Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <!-- Apps will be loaded here -->
-                    </tbody>
-                </table>
-            </div>
-        </div>
-        
-        <!-- Versions Tab -->
-        <div id="versions-tab" class="tab-content">
-            <div class="card">
-                <h2>Versions</h2>
-                <div class="form-group">
-                    <label for="app-select">Select Application:</label>
-                    <select id="app-select" onchange="loadVersions()">
-                        <option value="">Select an app...</option>
-                    </select>
-                </div>
-                <button class="btn" onclick="showCreateVersionModal()">Create New Version</button>
-                <button class="btn" onclick="loadVersions()">Refresh</button>
-                
-                <table class="table" id="versions-table">
-                    <thead>
-                        <tr>
-                            <th>Version</th>
-                            <th>Description</th>
-                            <th>Release Date</th>
-                            <th>Files</th>
-                            <th>Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <!-- Versions will be loaded here -->
-                    </tbody>
-                </table>
-            </div>
-        </div>
-        
-        <!-- Files Tab -->
-        <div id="files-tab" class="tab-content">
-            <div class="card">
-                <h2>File Upload</h2>
-                <div class="form-group">
-                    <label for="version-select">Select Version:</label>
-                    <select id="version-select">
-                        <option value="">Select a version...</option>
-                    </select>
-                </div>
-                
-                <div class="file-upload" onclick="document.getElementById('file-input').click()">
-                    <p>Click to select files or drag and drop (HAP/HSP files)</p>
-                    <input type="file" id="file-input" style="display: none;" multiple accept=".hap,.hsp" onchange="uploadFile()">
-                </div>
-            </div>
-            
-            <div class="card">
-                <h2>Files List</h2>
-                <table class="table" id="files-table">
-                    <thead>
-                        <tr>
-                            <th>File Type</th>
-                            <th>File Name</th>
-                            <th>Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <!-- Files will be loaded here -->
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    </div>
-    
-    <!-- Create App Modal -->
-    <div id="create-app-modal" class="modal">
-        <div class="modal-content">
-            <span class="close" onclick="closeModal('create-app-modal')">&times;</span>
-            <h2>Create New Application</h2>
-            <form id="create-app-form">
-                <div class="form-group">
-                    <label for="app-name">Name:</label>
-                    <input type="text" id="app-name" required>
-                </div>
-                <div class="form-group">
-                    <label for="app-description">Description:</label>
-                    <textarea id="app-description"></textarea>
-                </div>
-                <div class="form-group">
-                    <label for="app-bundle-name">Bundle Name:</label>
-                    <input type="text" id="app-bundle-name" required>
-                </div>
-                <div class="form-group">
-                    <label for="app-main-ability">Main Ability:</label>
-                    <input type="text" id="app-main-ability" required>
-                </div>
-                <div class="form-group">
-                    <label for="app-current-version">Current Version:</label>
-                    <input type="text" id="app-current-version">
-                </div>
-                <button type="submit" class="btn">Create App</button>
-                <button type="button" class="btn" onclick="closeModal('create-app-modal')">Cancel</button>
-            </form>
-        </div>
-    </div>
 
-    <!-- Edit Version Modal -->
-    <div id="edit-version-modal" class="modal">
-        <div class="modal-content">
-            <span class="close" onclick="closeModal('edit-version-modal')">&times;</span>
-            <h2>Edit Version</h2>
-            <form id="edit-version-form">
-                <div class="form-group">
-                    <label for="edit-version-number">Version:</label>
-                    <input type="text" id="edit-version-number" required>
-                </div>
-                <div class="form-group">
-                    <label for="edit-version-description">Description:</label>
-                    <textarea id="edit-version-description"></textarea>
-                </div>
-                <div class="form-group">
-                    <label for="edit-version-release-date">Release Date:</label>
-                    <input type="date" id="edit-version-release-date">
-                </div>
-                <div class="form-group">
-                    <label for="edit-version-deploy-path">Deploy Path:</label>
-                    <input type="text" id="edit-version-deploy-path" value="/data/local/tmp">
-                </div>
-                <button type="submit" class="btn">Save</button>
-                <button type="button" class="btn" onclick="closeModal('edit-version-modal')">Cancel</button>
-            </form>
+        <!-- Edit Version Modal -->
+        <div id="edit-version-modal" class="modal">
+            <div class="modal-content">
+                <span class="close"
+                    onclick="closeModal('edit-version-modal')">&times;</span>
+                <h2>Edit Version</h2>
+                <form id="edit-version-form">
+                    <div class="form-group">
+                        <label for="edit-version-number">Version:</label>
+                        <input type="text" id="edit-version-number" required>
+                    </div>
+                    <div class="form-group">
+                        <label
+                            for="edit-version-description">Description:</label>
+                        <textarea id="edit-version-description"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="edit-version-release-date">Release
+                            Date:</label>
+                        <input type="date" id="edit-version-release-date">
+                    </div>
+                    <div class="form-group">
+                        <label for="edit-version-deploy-path">Deploy
+                            Path:</label>
+                        <input type="text" id="edit-version-deploy-path"
+                            value="/data/local/tmp">
+                    </div>
+                    <button type="submit" class="btn">Save</button>
+                    <button type="button" class="btn"
+                        onclick="closeModal('edit-version-modal')">Cancel</button>
+                </form>
+            </div>
         </div>
-    </div>
 
-    <!-- Edit App Modal -->
-    <div id="edit-app-modal" class="modal">
-        <div class="modal-content">
-            <span class="close" onclick="closeModal('edit-app-modal')">&times;</span>
-            <h2>Edit Application</h2>
-            <form id="edit-app-form">
-                <div class="form-group">
-                    <label for="edit-app-name">Name:</label>
-                    <input type="text" id="edit-app-name" required>
-                </div>
-                <div class="form-group">
-                    <label for="edit-app-description">Description:</label>
-                    <textarea id="edit-app-description"></textarea>
-                </div>
-                <div class="form-group">
-                    <label for="edit-app-bundle-name">Bundle Name:</label>
-                    <input type="text" id="edit-app-bundle-name" required>
-                </div>
-                <div class="form-group">
-                    <label for="edit-app-main-ability">Main Ability:</label>
-                    <input type="text" id="edit-app-main-ability" required>
-                </div>
-                <div class="form-group">
-                    <label for="edit-app-current-version">Current Version:</label>
-                    <input type="text" id="edit-app-current-version">
-                </div>
-                <button type="submit" class="btn">Save</button>
-                <button type="button" class="btn" onclick="closeModal('edit-app-modal')">Cancel</button>
-            </form>
+        <!-- Edit App Modal -->
+        <div id="edit-app-modal" class="modal">
+            <div class="modal-content">
+                <span class="close"
+                    onclick="closeModal('edit-app-modal')">&times;</span>
+                <h2>Edit Application</h2>
+                <form id="edit-app-form">
+                    <div class="form-group">
+                        <label for="edit-app-name">Name:</label>
+                        <input type="text" id="edit-app-name" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="edit-app-description">Description:</label>
+                        <textarea id="edit-app-description"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="edit-app-bundle-name">Bundle Name:</label>
+                        <input type="text" id="edit-app-bundle-name" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="edit-app-main-ability">Main Ability:</label>
+                        <input type="text" id="edit-app-main-ability" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="edit-app-current-version">Current
+                            Version:</label>
+                        <input type="text" id="edit-app-current-version">
+                    </div>
+                    <button type="submit" class="btn">Save</button>
+                    <button type="button" class="btn"
+                        onclick="closeModal('edit-app-modal')">Cancel</button>
+                </form>
+            </div>
         </div>
-    </div>
-    
-    <!-- Create Version Modal -->
-    <div id="create-version-modal" class="modal">
-        <div class="modal-content">
-            <span class="close" onclick="closeModal('create-version-modal')">&times;</span>
-            <h2>Create New Version</h2>
-            <form id="create-version-form">
-                <div class="form-group">
-                    <label for="version-number">Version:</label>
-                    <input type="text" id="version-number" required>
-                </div>
-                <div class="form-group">
-                    <label for="version-description">Description:</label>
-                    <textarea id="version-description"></textarea>
-                </div>
-                <div class="form-group">
-                    <label for="version-release-date">Release Date:</label>
-                    <input type="date" id="version-release-date">
-                </div>
-                <div class="form-group">
-                    <label for="version-deploy-path">Deploy Path:</label>
-                    <input type="text" id="version-deploy-path" value="/data/local/tmp">
-                </div>
-                <div class="form-group">
-                    <label>
-                        <input type="checkbox" id="set-as-current"> Set as current version
-                    </label>
-                </div>
-                <button type="submit" class="btn">Create Version</button>
-                <button type="button" class="btn" onclick="closeModal('create-version-modal')">Cancel</button>
-            </form>
+
+        <!-- Create Version Modal -->
+        <div id="create-version-modal" class="modal">
+            <div class="modal-content">
+                <span class="close"
+                    onclick="closeModal('create-version-modal')">&times;</span>
+                <h2>Create New Version</h2>
+                <form id="create-version-form">
+                    <div class="form-group">
+                        <label for="version-number">Version:</label>
+                        <input type="text" id="version-number" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="version-description">Description:</label>
+                        <textarea id="version-description"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="version-release-date">Release Date:</label>
+                        <input type="date" id="version-release-date">
+                    </div>
+                    <div class="form-group">
+                        <label for="version-deploy-path">Deploy Path:</label>
+                        <input type="text" id="version-deploy-path"
+                            value="/data/local/tmp">
+                    </div>
+                    <div class="form-group">
+                        <label>
+                            <input type="checkbox" id="set-as-current"> Set as
+                            current version
+                        </label>
+                    </div>
+                    <button type="submit" class="btn">Create Version</button>
+                    <button type="button" class="btn"
+                        onclick="closeModal('create-version-modal')">Cancel</button>
+                </form>
+            </div>
         </div>
-    </div>
-    
-    <div id="status-message"></div>
-    
-    <script>
+
+        <div id="status-message"></div>
+
+        <script>
         const API_BASE = '/api';
         let currentAppId = null;
         let appsById = {};
@@ -748,7 +776,7 @@
                                 <td>${fileType.toUpperCase()}</td>
                                 <td>${fileName}</td>
                                 <td>
-                                    <button class="btn btn-primary" onclick="downloadFile('${fileName}')">Download</button>
+                                    <button class="btn btn-primary" onclick="downloadFile('${versionId}', '${fileType}')">Download</button>
                                     <button class="btn btn-danger" onclick="deleteFile('${versionId}', '${fileType}')">Delete</button>
                                 </td>
                             `;
@@ -763,8 +791,12 @@
             }
         }
         
-        function downloadFile(fileName) {
-            window.open(`/files/${fileName}`, '_blank');
+        function downloadFile(versionId, fileType) {
+            if (!versionId || !fileType) {
+                showStatus('Missing versionId or fileType for download', 'error');
+                return;
+            }
+            window.open(`${API_BASE}/versions/${versionId}/files/${fileType}/download`, '_blank');
         }
         
         async function deleteFile(versionId, fileType) {
@@ -1185,5 +1217,5 @@
             }
         }
     </script>
-</body>
+    </body>
 </html>

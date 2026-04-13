@@ -17,6 +17,7 @@ import time
 import json
 import requests
 
+
 class ModernDesignInstaller:
     def __init__(self, root):
         self.root = root
@@ -33,7 +34,8 @@ class ModernDesignInstaller:
 
         self.system_dpi = 96.0
         try:
-            self.system_dpi = float(getattr(self.root, '_system_dpi', None) or 0) or float(self.root.winfo_fpixels('1i'))
+            self.system_dpi = float(getattr(self.root, '_system_dpi', None) or 0) or float(
+                self.root.winfo_fpixels('1i'))
         except Exception:
             self.system_dpi = 96.0
 
@@ -43,7 +45,7 @@ class ModernDesignInstaller:
                 return -max(9, int(round(px)))
             except Exception:
                 return -int(pt)
-        
+
         # 现代化颜色方案
         self.colors = {
             'bg_primary': '#0B0F13',     # 更深邃的主背景
@@ -55,13 +57,13 @@ class ModernDesignInstaller:
             'bg_warning': '#F7931A',     # 警告橙
             'bg_danger': '#F4212E',      # 错误红 (高饱和)
             'text_primary': '#E7E9EA',   # 主要文字
-            'text_secondary': '#71767B', # 次要文字
+            'text_secondary': '#71767B',  # 次要文字
             'text_muted': '#536471',     # 静音文字
             'border': '#2F3336',         # 边框色
             'hover': '#2F6F98',          # 悬停色（与蓝灰主色匹配）
             'shadow': '#000000'          # 阴影色
         }
-        
+
         # 字体设置
         self.fonts = {
             'title': ('Segoe UI', _px(22), 'bold'),
@@ -72,7 +74,7 @@ class ModernDesignInstaller:
             'mono': ('Consolas', _px(10)),
             'button': ('Segoe UI', _px(12), 'bold')
         }
-        
+
         # 初始化变量
         self.hdc_path = None
         self.apps_config = None
@@ -85,7 +87,7 @@ class ModernDesignInstaller:
         self.header_status_container = None
         self.header_left_section = None
         self._header_align_after_id = None
-        
+
         # 服务器配置
         self.server_base_url = ""  # 服务器地址
         self.download_dir = ""  # 下载目录
@@ -93,10 +95,10 @@ class ModernDesignInstaller:
         self._install_spinner_after_id = None
         self._install_spinner_idx = 0
         self._install_button_base_text = None
-        
+
         # 创建自定义样式
         self.setup_custom_styles()
-        
+
         # 创建界面
         self.create_modern_interface()
 
@@ -108,17 +110,17 @@ class ModernDesignInstaller:
             )
         except Exception:
             pass
-        
+
         # 延迟检测HDC工具（确保UI完全加载）
         self.root.after(100, self.detect_hdc_tool)
-        
+
         # 加载配置（现在log_text已经创建）
         self.load_local_settings()
-        
+
         # 创建下载目录（只有在配置有效时才创建）
         if self.download_dir and not os.path.exists(self.download_dir):
             os.makedirs(self.download_dir)
-        
+
         # 检查配置
         if not self.check_initial_config():
             # 强制弹出配置界面
@@ -126,10 +128,10 @@ class ModernDesignInstaller:
             # Delay the dialog to avoid white screen flicker
             self.root.after(200, self.show_initial_config_dialog)
             return
-        
+
         # 加载配置（异步，避免在启动阶段阻塞 UI 导致停留在启动页）
         self.root.after(300, self.load_apps_config_async)
-        
+
         # 设置窗口图标
         self._set_window_icon()
 
@@ -144,20 +146,20 @@ class ModernDesignInstaller:
             else:
                 # 开发环境
                 base_path = os.path.dirname(os.path.abspath(__file__))
-            
+
             # 优先尝试PNG格式
             png_path = os.path.join(base_path, 'logo.png')
-            
+
             # 尝试使用PNG图标（需要PIL库）
             if os.path.exists(png_path):
                 try:
                     from PIL import Image, ImageTk
                     img = Image.open(png_path)
-                    
+
                     # 确保图像有透明通道（RGBA）
                     if img.mode != 'RGBA':
                         img = img.convert('RGBA')
-                    
+
                     # 创建透明背景的PhotoImage
                     photo = ImageTk.PhotoImage(img)
                     self.root.iconphoto(True, photo)
@@ -216,72 +218,73 @@ class ModernDesignInstaller:
 
         t = threading.Thread(target=_run, daemon=True)
         t.start()
-        
+
     def setup_custom_styles(self):
         """设置自定义样式"""
         self.style = ttk.Style()
-        
+
         # 配置ttk样式
         self.style.theme_use('clam')
-        
+
         # 自定义按钮样式
         self.style.configure('Modern.TButton',
-                           background=self.colors['bg_accent'],
-                           foreground='white',
-                           borderwidth=0,
-                           focuscolor='none',
-                           font=self.fonts['button'],
-                           relief='flat')
-        
+                             background=self.colors['bg_accent'],
+                             foreground='white',
+                             borderwidth=0,
+                             focuscolor='none',
+                             font=self.fonts['button'],
+                             relief='flat')
+
         self.style.map('Modern.TButton',
-                      background=[('active', self.colors['hover'])])
-        
+                       background=[('active', self.colors['hover'])])
+
         self.style.configure('Success.TButton',
-                           background=self.colors['bg_success'],
-                           foreground='white',
-                           borderwidth=0,
-                           focuscolor='none',
-                           font=self.fonts['button'],
-                           relief='flat')
-        
+                             background=self.colors['bg_success'],
+                             foreground='white',
+                             borderwidth=0,
+                             focuscolor='none',
+                             font=self.fonts['button'],
+                             relief='flat')
+
         self.style.configure('Danger.TButton',
-                           background=self.colors['bg_danger'],
-                           foreground='white',
-                           borderwidth=0,
-                           focuscolor='none',
-                           font=self.fonts['button'],
-                           relief='flat')
-        
+                             background=self.colors['bg_danger'],
+                             foreground='white',
+                             borderwidth=0,
+                             focuscolor='none',
+                             font=self.fonts['button'],
+                             relief='flat')
+
         self.style.configure('Card.TFrame',
-                           background=self.colors['bg_card'],
-                           relief='flat',
-                           borderwidth=0)
-        
+                             background=self.colors['bg_card'],
+                             relief='flat',
+                             borderwidth=0)
+
         # 进度条样式
         self.style.configure('Modern.Horizontal.TProgressbar',
-                           background=self.colors['bg_accent'],
-                           troughcolor=self.colors['bg_secondary'],
-                           borderwidth=0,
-                           lightcolor=self.colors['bg_accent'],
-                           darkcolor=self.colors['bg_accent'])
-        
+                             background=self.colors['bg_accent'],
+                             troughcolor=self.colors['bg_secondary'],
+                             borderwidth=0,
+                             lightcolor=self.colors['bg_accent'],
+                             darkcolor=self.colors['bg_accent'])
+
         # Treeview 样式优化
         self.style.configure('Modern.Treeview',
-                           background=self.colors['bg_card'],
-                           foreground=self.colors['text_primary'],
-                           fieldbackground=self.colors['bg_card'],
-                           rowheight=40,
-                           font=self.fonts['body'],
-                           borderwidth=0,
-                           relief='flat')
+                             background=self.colors['bg_card'],
+                             foreground=self.colors['text_primary'],
+                             fieldbackground=self.colors['bg_card'],
+                             rowheight=40,
+                             font=self.fonts['body'],
+                             borderwidth=0,
+                             relief='flat')
         self.style.map('Modern.Treeview',
-                      background=[('selected', self.colors['bg_selection'])],
-                      foreground=[('selected', self.colors['text_primary'])])
+                       background=[('selected', self.colors['bg_selection'])],
+                       foreground=[('selected', self.colors['text_primary'])])
 
         heading_font = ('Segoe UI', 11, 'bold')
         pad_y = 4
         try:
-            row_h = int(self.style.lookup('Modern.Treeview', 'rowheight') or 40)
+            row_h = int(self.style.lookup(
+                'Modern.Treeview', 'rowheight') or 40)
         except Exception:
             row_h = 40
 
@@ -300,55 +303,58 @@ class ModernDesignInstaller:
             pad_y = 4
 
         self.style.configure('Modern.Treeview.Heading',
-                           background=self.colors['bg_secondary'],
-                           foreground=self.colors['text_primary'],
-                           font=heading_font,
-                           padding=(6, pad_y),
-                           borderwidth=0,
-                           relief='flat')
+                             background=self.colors['bg_secondary'],
+                             foreground=self.colors['text_primary'],
+                             font=heading_font,
+                             padding=(6, pad_y),
+                             borderwidth=0,
+                             relief='flat')
 
         # 进一步降低原生边框/分隔线存在感
         self.style.configure('Modern.Treeview',
-                           bordercolor=self.colors['bg_card'],
-                           lightcolor=self.colors['bg_card'],
-                           darkcolor=self.colors['bg_card'])
+                             bordercolor=self.colors['bg_card'],
+                             lightcolor=self.colors['bg_card'],
+                             darkcolor=self.colors['bg_card'])
         self.style.map('Modern.Treeview.Heading',
-                      background=[('active', self.colors['bg_secondary'])],
-                      foreground=[('active', self.colors['text_primary'])])
-        
+                       background=[('active', self.colors['bg_secondary'])],
+                       foreground=[('active', self.colors['text_primary'])])
+
         # 滚动条样式
         self.style.configure('Modern.Vertical.TScrollbar',
-                           background=self.colors['border'],
-                           troughcolor=self.colors['bg_card'],
-                           bordercolor=self.colors['bg_card'],
-                           lightcolor=self.colors['border'],
-                           darkcolor=self.colors['border'],
-                           arrowcolor=self.colors['text_secondary'],
-                           borderwidth=0,
-                           arrowsize=12)
+                             background=self.colors['border'],
+                             troughcolor=self.colors['bg_card'],
+                             bordercolor=self.colors['bg_card'],
+                             lightcolor=self.colors['border'],
+                             darkcolor=self.colors['border'],
+                             arrowcolor=self.colors['text_secondary'],
+                             borderwidth=0,
+                             arrowsize=12)
         self.style.map('Modern.Vertical.TScrollbar',
-                      background=[('active', self.colors['border']), ('pressed', self.colors['border'])],
-                      arrowcolor=[('active', self.colors['text_secondary']), ('pressed', self.colors['text_secondary'])])
-    
+                       background=[('active', self.colors['border']),
+                                   ('pressed', self.colors['border'])],
+                       arrowcolor=[('active', self.colors['text_secondary']), ('pressed', self.colors['text_secondary'])])
+
     def create_modern_interface(self):
         """创建现代化界面"""
         # 主容器
         self.main_frame = tk.Frame(self.root, bg=self.colors['bg_primary'])
         self.main_frame.pack(fill=tk.BOTH, expand=True)
-        
+
         # 创建顶部导航栏
         self.create_header_bar()
-        
+
         # 创建主要内容区域
-        content_container = tk.Frame(self.main_frame, bg=self.colors['bg_primary'])
-        content_container.pack(fill=tk.BOTH, expand=True, padx=20, pady=(20, 20))
-        
+        content_container = tk.Frame(
+            self.main_frame, bg=self.colors['bg_primary'])
+        content_container.pack(fill=tk.BOTH, expand=True,
+                               padx=20, pady=(20, 20))
+
         # 创建工作区域
         self.create_workspace(content_container)
-        
+
         # 创建底部状态栏
         self.create_status_bar()
-    
+
     def create_header_bar(self):
         """创建顶部导航栏"""
         header_h = 70
@@ -357,21 +363,23 @@ class ModernDesignInstaller:
         except Exception:
             header_h = 70
 
-        header = tk.Frame(self.main_frame, bg=self.colors['bg_secondary'], height=header_h)
+        header = tk.Frame(
+            self.main_frame, bg=self.colors['bg_secondary'], height=header_h)
         header.pack(fill=tk.X)
         header.pack_propagate(False)
         self.header_frame = header
-        
+
         # 左侧标题区域
         left_section = tk.Frame(header, bg=self.colors['bg_secondary'])
         left_section.pack(side=tk.LEFT, fill=tk.Y, padx=20)
         self.header_left_section = left_section
-        
+
         # 应用图标和标题
-        title_container = tk.Frame(left_section, bg=self.colors['bg_secondary'])
+        title_container = tk.Frame(
+            left_section, bg=self.colors['bg_secondary'])
         title_container.pack(expand=True)
         title_container.grid_columnconfigure(1, weight=1)
-        
+
         # 创建圆形图标
         icon_sz = 40
         try:
@@ -380,24 +388,25 @@ class ModernDesignInstaller:
             icon_sz = 40
 
         icon_canvas = tk.Canvas(title_container, width=icon_sz, height=icon_sz,
-                              bg=self.colors['bg_secondary'], highlightthickness=0)
+                                bg=self.colors['bg_secondary'], highlightthickness=0)
         icon_canvas.grid(row=0, column=0, padx=(0, 15), sticky='w')
         self.draw_modern_icon(icon_canvas)
-        
+
         # 标题文字
         title_text = tk.Label(title_container,
-                            text="鸿蒙应用安装助手",
-                            bg=self.colors['bg_secondary'],
-                            fg=self.colors['text_primary'],
-                            font=self.fonts['title'])
+                              text="鸿蒙应用安装助手",
+                              bg=self.colors['bg_secondary'],
+                              fg=self.colors['text_primary'],
+                              font=self.fonts['title'])
         title_text.grid(row=0, column=1, sticky='w')
-        
+
         segment_container = tk.Frame(header, bg=self.colors['bg_secondary'])
         self.header_segment_container = segment_container
 
         # Create rounded segment background using Canvas
         try:
-            seg_total_w = int(round(240 * float(getattr(self, 'ui_scale', 1.0))))
+            seg_total_w = int(
+                round(240 * float(getattr(self, 'ui_scale', 1.0))))
         except Exception:
             seg_total_w = 240
         try:
@@ -409,7 +418,7 @@ class ModernDesignInstaller:
             seg_y = max(0, int((header_h - seg_h) / 2))
         except Exception:
             seg_y = 19
-            
+
         # segment_container 初始放在屏幕外(x=-1000)，但 y 坐标提前定死防止跳动
         segment_container.place(x=-1000, y=seg_y)
 
@@ -422,16 +431,19 @@ class ModernDesignInstaller:
         segment_active_bg = self.colors['hover']
         segment_active_fg = self.colors['bg_accent']
         segment_sep = '#4B5258'
-        
+
         # Draw rounded rectangle background using arcs and rectangle
         # 关键：不留左右边距，否则会露出 Canvas 背景（表现为左右黑块）
         bg_y0 = 0
         bg_y1 = seg_h
         bg_r = max(8, int(round(12 * float(getattr(self, 'ui_scale', 1.0)))))
-        segment_canvas.create_oval(0, bg_y0, bg_r * 2, bg_y1, fill=segment_bg_color, outline='')
-        segment_canvas.create_oval(seg_total_w - bg_r * 2, bg_y0, seg_total_w, bg_y1, fill=segment_bg_color, outline='')
-        segment_canvas.create_rectangle(bg_r, bg_y0, seg_total_w - bg_r, bg_y1, fill=segment_bg_color, outline='')
-        
+        segment_canvas.create_oval(
+            0, bg_y0, bg_r * 2, bg_y1, fill=segment_bg_color, outline='')
+        segment_canvas.create_oval(
+            seg_total_w - bg_r * 2, bg_y0, seg_total_w, bg_y1, fill=segment_bg_color, outline='')
+        segment_canvas.create_rectangle(
+            bg_r, bg_y0, seg_total_w - bg_r, bg_y1, fill=segment_bg_color, outline='')
+
         seg_w1 = seg_total_w // 3
         seg_w2 = seg_total_w // 3
         seg_w3 = seg_total_w - seg_w1 - seg_w2
@@ -472,9 +484,12 @@ class ModernDesignInstaller:
         _hide_hl()
 
         # clickable areas
-        segment_canvas.create_rectangle(seg_x0, seg_y0, seg_x1, seg_y0 + seg_h, fill='', outline='', tags=('seg1',))
-        segment_canvas.create_rectangle(seg_x1, seg_y0, seg_x2, seg_y0 + seg_h, fill='', outline='', tags=('seg2',))
-        segment_canvas.create_rectangle(seg_x2, seg_y0, seg_x3, seg_y0 + seg_h, fill='', outline='', tags=('seg3',))
+        segment_canvas.create_rectangle(
+            seg_x0, seg_y0, seg_x1, seg_y0 + seg_h, fill='', outline='', tags=('seg1',))
+        segment_canvas.create_rectangle(
+            seg_x1, seg_y0, seg_x2, seg_y0 + seg_h, fill='', outline='', tags=('seg2',))
+        segment_canvas.create_rectangle(
+            seg_x2, seg_y0, seg_x3, seg_y0 + seg_h, fill='', outline='', tags=('seg3',))
 
         # text
         seg_font_size = 9
@@ -493,46 +508,50 @@ class ModernDesignInstaller:
                                    fill=self.colors['text_primary'], font=seg_font, tags=('seg3',))
 
         # separators (increase contrast)
-        segment_canvas.create_line(seg_x1, seg_y0 + 5, seg_x1, seg_y0 + seg_h - 5, fill=segment_sep, width=1)
-        segment_canvas.create_line(seg_x2, seg_y0 + 5, seg_x2, seg_y0 + seg_h - 5, fill=segment_sep, width=1)
+        segment_canvas.create_line(
+            seg_x1, seg_y0 + 5, seg_x1, seg_y0 + seg_h - 5, fill=segment_sep, width=1)
+        segment_canvas.create_line(
+            seg_x2, seg_y0 + 5, seg_x2, seg_y0 + seg_h - 5, fill=segment_sep, width=1)
 
         def _bind_segment(tag, hl_tag, command):
             segment_canvas.tag_bind(tag, '<Enter>', lambda e: _show_hl(hl_tag))
             segment_canvas.tag_bind(tag, '<Leave>', lambda e: _hide_hl())
             segment_canvas.tag_bind(tag, '<Button-1>', lambda e: command())
-            segment_canvas.tag_bind(tag, '<ButtonRelease-1>', lambda e: _hide_hl())
+            segment_canvas.tag_bind(
+                tag, '<ButtonRelease-1>', lambda e: _hide_hl())
 
         _bind_segment('seg1', 'hl1', self.get_device_udid)
         _bind_segment('seg2', 'hl2', self.refresh_all)
         _bind_segment('seg3', 'hl3', self.configure_server)
-        
+
         # HDC状态指示器（初始放在屏幕外(x=-1000)，y 坐标定死防止跳动）
         status_container = tk.Frame(header, bg=self.colors['bg_secondary'])
         self.header_status_container = status_container
-        
+
         # 预计算 status_y
         try:
-            status_h = 24 # 预估高度
+            status_h = 24  # 预估高度
             status_y = max(0, int((header_h - status_h) / 2))
         except Exception:
             status_y = 23
-        
+
         # Fix logic error where status_container was placed before status_y was defined
         status_container.place(x=-1000, y=status_y)
-        
+
         self.status_indicator = tk.Canvas(status_container, width=12, height=12,
-                                        bg=self.colors['bg_secondary'], highlightthickness=0)
+                                          bg=self.colors['bg_secondary'], highlightthickness=0)
         self.status_indicator.pack(side=tk.LEFT, padx=(0, 10))
         self.update_status_indicator('warning')
-        
+
         self.status_text = tk.Label(status_container,
-                                   text="连接检测中...",
-                                   bg=self.colors['bg_secondary'],
-                                   fg=self.colors['text_secondary'],
-                                   font=self.fonts['body'])
+                                    text="连接检测中...",
+                                    bg=self.colors['bg_secondary'],
+                                    fg=self.colors['text_secondary'],
+                                    font=self.fonts['body'])
         self.status_text.pack(side=tk.LEFT)
 
-        self.root.bind('<Configure>', self.schedule_header_segment_align, add=True)
+        self.root.bind(
+            '<Configure>', self.schedule_header_segment_align, add=True)
         self.schedule_header_segment_align()
 
     def schedule_header_segment_align(self, *_):
@@ -541,7 +560,8 @@ class ModernDesignInstaller:
                 self.root.after_cancel(self._header_align_after_id)
             except Exception:
                 pass
-        self._header_align_after_id = self.root.after(30, self.align_header_segment)
+        self._header_align_after_id = self.root.after(
+            30, self.align_header_segment)
 
     def align_header_segment(self):
         self._header_align_after_id = None
@@ -558,7 +578,8 @@ class ModernDesignInstaller:
             self.header_status_container.update_idletasks()
 
             # 对齐基准：优先使用控制中心卡片面板外框，避免内容区 padx 造成视觉偏移
-            control_ref = getattr(self, 'control_panel_frame', None) or self.control_panel_content
+            control_ref = getattr(
+                self, 'control_panel_frame', None) or self.control_panel_content
             if control_ref is not None:
                 control_ref.update_idletasks()
             control_right = control_ref.winfo_rootx() + control_ref.winfo_width()
@@ -573,14 +594,17 @@ class ModernDesignInstaller:
                 status_w = self.header_status_container.winfo_reqwidth()
 
             header_h = self.header_frame.winfo_height()
-            seg_h = self.header_segment_container.winfo_height() or self.header_segment_container.winfo_reqheight()
-            status_h = self.header_status_container.winfo_height() or self.header_status_container.winfo_reqheight()
+            seg_h = self.header_segment_container.winfo_height(
+            ) or self.header_segment_container.winfo_reqheight()
+            status_h = self.header_status_container.winfo_height(
+            ) or self.header_status_container.winfo_reqheight()
             seg_y = max(0, int((header_h - seg_h) / 2))
             status_y = max(0, int((header_h - status_h) / 2))
 
             # 视觉补偿：segment Canvas 圆角背景左右各内缩约 2px，补偿后视觉右边缘更贴齐
             try:
-                visual_right_offset = int(round(2 * float(getattr(self, 'ui_scale', 1.0))))
+                visual_right_offset = int(
+                    round(2 * float(getattr(self, 'ui_scale', 1.0))))
             except Exception:
                 visual_right_offset = 2
             # 初始对齐标志
@@ -592,8 +616,9 @@ class ModernDesignInstaller:
             if x >= 0:
                 self._first_align_done = True
                 self.header_segment_container.place(x=x, y=seg_y)
-                self.header_status_container.place(x=x - 14 - status_w, y=status_y)
-            
+                self.header_status_container.place(
+                    x=x - 14 - status_w, y=status_y)
+
             # 防止覆盖左侧标题
             left_limit = 0
             if self.header_left_section is not None and self.header_left_section.winfo_ismapped():
@@ -601,7 +626,8 @@ class ModernDesignInstaller:
                     pad = int(round(12 * float(getattr(self, 'ui_scale', 1.0))))
                 except Exception:
                     pad = 12
-                left_limit = (self.header_left_section.winfo_rootx() + self.header_left_section.winfo_width()) - header_left + pad
+                left_limit = (self.header_left_section.winfo_rootx(
+                ) + self.header_left_section.winfo_width()) - header_left + pad
 
             if status_x < left_limit:
                 status_x = left_limit
@@ -611,13 +637,14 @@ class ModernDesignInstaller:
                 status_x = max(left_limit, x - gap - status_w)
 
             self.header_segment_container.place_configure(x=x, y=seg_y)
-            self.header_status_container.place_configure(x=status_x, y=status_y)
+            self.header_status_container.place_configure(
+                x=status_x, y=status_y)
 
             self.header_segment_container.lift()
             self.header_status_container.lift()
         except Exception:
             self.schedule_header_segment_align()
-    
+
     def draw_modern_icon(self, canvas):
         """显示 logo.ico 图标"""
         try:
@@ -639,20 +666,20 @@ class ModernDesignInstaller:
             import os
             import sys
             from PIL import Image, ImageTk
-            
+
             # 获取图标路径（兼容打包环境）
             if getattr(sys, 'frozen', False):
                 base_path = sys._MEIPASS
             else:
                 base_path = os.path.dirname(os.path.abspath(__file__))
-            
+
             icon_path = os.path.join(base_path, "logo.ico")
-            
+
             if os.path.exists(icon_path):
                 # 加载并调整图标大小
                 img = Image.open(icon_path)
                 img = img.resize((w-4, h-4), Image.Resampling.LANCZOS)
-                
+
                 # 创建圆形遮罩（使用抗锯齿）
                 size = min(w-4, h-4)
                 # 创建更大的遮罩用于抗锯齿
@@ -663,24 +690,25 @@ class ModernDesignInstaller:
                 # 在更大的画布上绘制圆形，然后缩小以获得抗锯齿效果
                 draw.ellipse((2, 2, mask_size-2, mask_size-2), fill=255)
                 mask = mask.resize((size, size), Image.Resampling.LANCZOS)
-                
+
                 # 创建圆形背景
                 circular_img = Image.new('RGBA', (size, size), (0, 0, 0, 0))
-                circular_img.paste(img.resize((size, size), Image.Resampling.LANCZOS), (0, 0), mask)
-                
+                circular_img.paste(img.resize(
+                    (size, size), Image.Resampling.LANCZOS), (0, 0), mask)
+
                 photo = ImageTk.PhotoImage(circular_img)
-                
+
                 # 清空画布并显示圆形图标
                 canvas.delete("all")
                 canvas.create_image(w//2, h//2, image=photo, anchor='center')
-                
+
                 # 保持引用防止垃圾回收
                 canvas.image = photo
                 return
         except Exception:
             # 如果加载失败，使用备用方案
             pass
-        
+
         # 备用方案：绘制简单的圆形图标
         canvas.delete("all")
         size = min(w, h)
@@ -691,7 +719,8 @@ class ModernDesignInstaller:
         y1 = y0 + size - margin * 2
 
         # 绘制渐变圆形背景
-        canvas.create_oval(x0, y0, x1, y1, fill=self.colors['bg_accent'], outline='')
+        canvas.create_oval(
+            x0, y0, x1, y1, fill=self.colors['bg_accent'], outline='')
 
         # 绘制鸿蒙logo简化版
         cx = int((x0 + x1) / 2)
@@ -708,105 +737,112 @@ class ModernDesignInstaller:
             right, cy,
         ]
         canvas.create_polygon(points, fill='white', outline='')
-    
+
     def update_status_indicator(self, status):
         """更新状态指示器"""
         self.status_indicator.delete("all")
-        
+
         colors = {
             'success': self.colors['bg_success'],
             'warning': self.colors['bg_warning'],
             'danger': self.colors['bg_danger']
         }
-        
+
         color = colors.get(status, self.colors['bg_warning'])
-        
+
         # 绘制圆形指示器
         self.status_indicator.create_oval(1, 1, 11, 11, fill=color, outline='')
-        
+
         # 添加脉冲效果
         if status == 'success':
             self.create_pulse_animation()
-    
+
     def create_pulse_animation(self):
         """创建脉冲动画效果"""
         # 简单的视觉反馈
         self.status_indicator.configure(bg=self.colors['bg_success'])
-        self.root.after(500, lambda: self.status_indicator.configure(bg=self.colors['bg_secondary']))
-    
+        self.root.after(500, lambda: self.status_indicator.configure(
+            bg=self.colors['bg_secondary']))
+
     def create_workspace(self, parent):
         """创建工作区域"""
         # 创建主工作区
         workspace = tk.Frame(parent, bg=self.colors['bg_primary'])
         workspace.pack(fill=tk.BOTH, expand=True)
-        
+
         # 创建网格布局容器
         grid_container = tk.Frame(workspace, bg=self.colors['bg_primary'])
         grid_container.pack(fill=tk.BOTH, expand=True)
-        
+
         # 配置网格权重
-        grid_container.grid_columnconfigure(0, weight=10, uniform='main_panels')
-        grid_container.grid_columnconfigure(1, weight=21, uniform='main_panels')
-        grid_container.grid_columnconfigure(2, weight=10, uniform='main_panels')
+        grid_container.grid_columnconfigure(
+            0, weight=10, uniform='main_panels')
+        grid_container.grid_columnconfigure(
+            1, weight=21, uniform='main_panels')
+        grid_container.grid_columnconfigure(
+            2, weight=10, uniform='main_panels')
         grid_container.grid_rowconfigure(0, weight=1)
         grid_container.grid_rowconfigure(1, weight=1)
-        
+
         # 创建三个主要面板
         self.create_app_panel(grid_container, 0, 0)
         self.create_version_panel(grid_container, 0, 1)
         self.create_control_panel(grid_container, 0, 2)
         self.create_console_panel(grid_container, 1, 0, columnspan=3)
-    
+
     def create_app_panel(self, parent, row, column, columnspan=1):
         """创建应用面板"""
         # 面板容器
         panel = self.create_card_panel(parent, row, column, columnspan)
-        
+
         # 面板头部
-        header = self.create_panel_header(panel, "应用列表", self.colors['bg_accent'])
+        header = self.create_panel_header(
+            panel, "应用列表", self.colors['bg_accent'])
         header.pack(fill=tk.X, padx=(15, 15), pady=(15, 10))
-        
+
         # 应用列表容器
         list_container = tk.Frame(panel, bg=self.colors['bg_card'])
         list_container.pack(fill=tk.BOTH, expand=True, padx=15, pady=(0, 15))
-        
+
         # 创建应用列表（使用 Treeview 以精确控制行高，与版本列表一致）
         self.app_tree = self.create_modern_app_treeview(list_container)
         self.app_tree.pack(fill=tk.BOTH, expand=True)
-        
+
         # 绑定选择事件
         self.app_tree.bind('<<TreeviewSelect>>', self.on_app_select)
-    
+
     def create_version_panel(self, parent, row, column, columnspan=1):
         """创建版本面板"""
         # 面板容器
         panel = self.create_card_panel(parent, row, column, columnspan)
-        
+
         # 面板头部
-        header = self.create_panel_header(panel, "版本列表", self.colors['bg_success'])
+        header = self.create_panel_header(
+            panel, "版本列表", self.colors['bg_success'])
         header.pack(fill=tk.X, padx=(15, 15), pady=(15, 10))
-        
+
         # 版本列表容器
         list_container = tk.Frame(panel, bg=self.colors['bg_card'])
         list_container.pack(fill=tk.BOTH, expand=True, padx=15, pady=(0, 15))
-        
+
         # 创建现代化树形视图
         self.version_tree = self.create_modern_treeview(list_container)
         self.version_tree.pack(fill=tk.BOTH, expand=True)
-        
+
         # 绑定选择事件
         self.version_tree.bind('<<TreeviewSelect>>', self.on_version_select)
-    
+
     def create_control_panel(self, parent, row, column, columnspan=1):
         """创建控制面板"""
         # 面板容器
         panel = self.create_card_panel(parent, row, column, columnspan)
         self.control_panel_frame = panel
-        
+
         # 面板头部
-        header = self.create_panel_header(panel, "版本详情", self.colors['bg_warning'])
+        header = self.create_panel_header(
+            panel, "版本详情", self.colors['bg_warning'])
         header.pack(fill=tk.X, padx=(15, 15), pady=(15, 10))
-        
+
         # 控制面板内容
         content = tk.Frame(panel, bg=self.colors['bg_card'])
         content.pack(fill=tk.BOTH, expand=True, padx=15, pady=(0, 15))
@@ -815,42 +851,44 @@ class ModernDesignInstaller:
         self.schedule_header_segment_align()
 
         self.create_app_info_section(content)
-        
+
         # 操作按钮区域
         self.create_action_buttons(content)
-    
+
     def create_console_panel(self, parent, row, column, columnspan=3):
         """创建控制台面板"""
         panel = tk.Frame(parent, bg=self.colors['bg_card'], relief='flat')
-        panel.grid(row=row, column=column, columnspan=columnspan, sticky='nsew', 
-                 padx=(0, 0), pady=(0, 10))
-        
+        panel.grid(row=row, column=column, columnspan=columnspan, sticky='nsew',
+                   padx=(0, 0), pady=(0, 10))
+
         panel.configure(highlightbackground='#2F3336', highlightthickness=1)
-        
+
         # 面板头部
-        header = self.create_panel_header(panel, "💻 控制台输出", self.colors['bg_danger'])
+        header = self.create_panel_header(
+            panel, "💻 控制台输出", self.colors['bg_danger'])
         header.pack(fill=tk.X, padx=(15, 15), pady=(15, 10))
-        
+
         # 控制台内容 - 统一内边距
         console_container = tk.Frame(panel, bg=self.colors['bg_card'])
-        console_container.pack(fill=tk.BOTH, expand=True, padx=15, pady=(0, 15))
-        
+        console_container.pack(fill=tk.BOTH, expand=True,
+                               padx=15, pady=(0, 15))
+
         # 创建现代化控制台
         self.create_modern_console(console_container)
-    
+
     def create_card_panel(self, parent, row, column, columnspan=1):
         """创建卡片面板"""
         panel = tk.Frame(parent, bg=self.colors['bg_card'], relief='flat')
         # 最后一列(版本详情)不设右边距，确保对齐底部的控制台右边缘
         right_pad = 10 if column < 2 else 0
-        panel.grid(row=row, column=column, columnspan=columnspan, sticky='nsew', 
-                 padx=(0, right_pad), pady=(0, 10))
-        
+        panel.grid(row=row, column=column, columnspan=columnspan, sticky='nsew',
+                   padx=(0, right_pad), pady=(0, 10))
+
         # 优化边框：使用更微妙的颜色和更薄的边框
         panel.configure(highlightbackground='#2F3336', highlightthickness=1)
-        
+
         return panel
-    
+
     def create_panel_header(self, parent, title, accent_color):
         """创建面板头部"""
         header = tk.Frame(parent, bg=self.colors['bg_card'])
@@ -866,10 +904,10 @@ class ModernDesignInstaller:
         title_row.pack(fill=tk.X)
 
         title_label = tk.Label(title_row,
-                              text=title,
-                              bg=self.colors['bg_card'],
-                              fg=self.colors['text_primary'],
-                              font=self.fonts['heading'])
+                               text=title,
+                               bg=self.colors['bg_card'],
+                               fg=self.colors['text_primary'],
+                               font=self.fonts['heading'])
         title_label.pack(side=tk.LEFT, padx=0)
 
         ui_scale = 1.0
@@ -911,30 +949,30 @@ class ModernDesignInstaller:
             pass
 
         return header
-    
+
     def create_modern_listbox(self, parent):
         """创建现代化列表框"""
         # 创建框架
         listbox_frame = tk.Frame(parent, bg=self.colors['bg_card'])
         listbox_frame.pack(fill=tk.BOTH, expand=True)
-        
+
         # 创建列表框
         listbox = tk.Listbox(listbox_frame,
-                            bg=self.colors['bg_primary'],
-                            fg=self.colors['text_primary'],
-                            font=self.fonts['body'],
-                            selectbackground=self.colors['bg_selection'],
-                            selectforeground=self.colors['text_primary'],
-                            relief='flat',
-                            borderwidth=0,
-                            highlightthickness=0,
-                            activestyle='none')
+                             bg=self.colors['bg_primary'],
+                             fg=self.colors['text_primary'],
+                             font=self.fonts['body'],
+                             selectbackground=self.colors['bg_selection'],
+                             selectforeground=self.colors['text_primary'],
+                             relief='flat',
+                             borderwidth=0,
+                             highlightthickness=0,
+                             activestyle='none')
         listbox.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        
+
         # 创建现代化滚动条
         scrollbar = self.create_modern_scrollbar(listbox_frame, listbox)
         scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
-        
+
         return listbox
 
     def create_modern_app_treeview(self, parent):
@@ -942,7 +980,8 @@ class ModernDesignInstaller:
         tree_frame = tk.Frame(parent, bg=self.colors['bg_card'])
         tree_frame.pack(fill=tk.BOTH, expand=True)
 
-        tree = ttk.Treeview(tree_frame, columns=(), show='tree', selectmode='browse', height=12)
+        tree = ttk.Treeview(tree_frame, columns=(),
+                            show='tree', selectmode='browse', height=12)
         tree.configure(style='Modern.Treeview')
 
         tree.column('#0', width=220, anchor='w')
@@ -956,28 +995,29 @@ class ModernDesignInstaller:
         scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
 
         return tree
-    
+
     def create_modern_treeview(self, parent):
         """创建现代化树形视图"""
         # 创建框架
         tree_frame = tk.Frame(parent, bg=self.colors['bg_card'])
         tree_frame.pack(fill=tk.BOTH, expand=True)
-        
+
         # 创建树形视图
         columns = ('version', 'date', 'action')
-        tree = ttk.Treeview(tree_frame, columns=columns, show='tree headings', height=12)
-        
+        tree = ttk.Treeview(tree_frame, columns=columns,
+                            show='tree headings', height=12)
+
         # 配置列
         tree.heading('#0', text='描述', anchor='w')
         tree.heading('version', text='版本', anchor='center')
         tree.heading('date', text='发布日期', anchor='center')
         tree.heading('action', text='操作', anchor='center')
-        
+
         tree.column('#0', width=240, anchor='w')
         tree.column('version', width=120, anchor='center')
         tree.column('date', width=160, anchor='center')
         tree.column('action', width=90, anchor='center')
-        
+
         # 设置样式
         tree.configure(style='Modern.Treeview')
 
@@ -1012,10 +1052,14 @@ class ModernDesignInstaller:
             while len(separators) < needed:
                 # 分隔线挂在 tree_frame 上（覆盖层），避免 Treeview 选中重绘影响竖线观感
                 sep = tk.Frame(tree_frame, bg=sep_color, width=1)
-                sep.bind('<ButtonPress-1>', lambda e: forward_mouse_event_to_tree(e, '<ButtonPress-1>'), add=True)
-                sep.bind('<B1-Motion>', lambda e: forward_mouse_event_to_tree(e, '<B1-Motion>'), add=True)
-                sep.bind('<ButtonRelease-1>', lambda e: forward_mouse_event_to_tree(e, '<ButtonRelease-1>'), add=True)
-                sep.bind('<MouseWheel>', lambda e: forward_mouse_event_to_tree(e, '<MouseWheel>'), add=True)
+                sep.bind(
+                    '<ButtonPress-1>', lambda e: forward_mouse_event_to_tree(e, '<ButtonPress-1>'), add=True)
+                sep.bind(
+                    '<B1-Motion>', lambda e: forward_mouse_event_to_tree(e, '<B1-Motion>'), add=True)
+                sep.bind('<ButtonRelease-1>', lambda e: forward_mouse_event_to_tree(e,
+                         '<ButtonRelease-1>'), add=True)
+                sep.bind('<MouseWheel>', lambda e: forward_mouse_event_to_tree(
+                    e, '<MouseWheel>'), add=True)
                 sep.place_forget()
                 separators.append(sep)
 
@@ -1044,58 +1088,61 @@ class ModernDesignInstaller:
                 return
 
             for i, x in enumerate(x_positions):
-                separators[i].place(x=x, y=tree.winfo_y(), width=1, height=height)
+                separators[i].place(x=x, y=tree.winfo_y(),
+                                    width=1, height=height)
                 separators[i].lift()
 
             for sep in separators:
                 sep.lift()
 
         # 初次显示/布局后绘制分隔线
-        tree.bind('<Map>', lambda e: tree.after(0, update_column_separators), add=True)
+        tree.bind('<Map>', lambda e: tree.after(
+            0, update_column_separators), add=True)
         tree.bind('<Configure>', update_column_separators, add=True)
         # 拖拽列宽结束后重绘（Treeview 原生列拖拽触发在鼠标释放时更稳定）
         tree.bind('<ButtonRelease-1>', update_column_separators, add=True)
         # 选中行时 Treeview 会重绘，强制刷新分隔线层级与颜色
         tree.bind('<<TreeviewSelect>>', update_column_separators, add=True)
         tree.after(0, update_column_separators)
-        
+
         tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        
+
         # 创建滚动条
         scrollbar = self.create_modern_scrollbar(tree_frame, tree)
         scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
 
         tree.after(0, update_column_separators)
-        
+
         return tree
-    
+
     def create_modern_scrollbar(self, parent, widget):
         """创建现代化滚动条"""
-        scrollbar = ttk.Scrollbar(parent, orient=tk.VERTICAL, command=widget.yview)
+        scrollbar = ttk.Scrollbar(
+            parent, orient=tk.VERTICAL, command=widget.yview)
         widget.config(yscrollcommand=scrollbar.set)
-        
+
         # 自定义滚动条样式
         scrollbar.configure(style='Modern.Vertical.TScrollbar')
-        
+
         return scrollbar
-    
+
     def create_app_info_section(self, parent):
         """创建应用信息区域"""
         info_frame = tk.Frame(parent,
-                             bg=self.colors['bg_card'],
-                             relief='flat',
-                             borderwidth=1)
+                              bg=self.colors['bg_card'],
+                              relief='flat',
+                              borderwidth=1)
         info_frame.pack(fill=tk.X, pady=(0, 15))
-        
+
         # 信息文本区域
         self.app_info_text = self.create_modern_text(info_frame, height=6)
         self.app_info_text._container.pack(fill=tk.X, padx=0, pady=10)
-    
+
     def create_action_buttons(self, parent):
         """创建操作按钮区域"""
         button_frame = tk.Frame(parent, bg=self.colors['bg_card'])
         button_frame.pack(fill=tk.X, pady=(0, 15))
-        
+
         # 主要操作按钮
         self.install_button = self.create_modern_button(
             button_frame,
@@ -1105,11 +1152,11 @@ class ModernDesignInstaller:
             '#0E7C4A'
         )
         self.install_button.pack(fill=tk.X, pady=(0, 8))
-        
+
         # 次要操作按钮行
         secondary_row = tk.Frame(button_frame, bg=self.colors['bg_card'])
         secondary_row.pack(fill=tk.X, pady=(0, 8))
-        
+
         self.uninstall_button = self.create_modern_button(
             secondary_row,
             "🗑️ 卸载",
@@ -1118,45 +1165,45 @@ class ModernDesignInstaller:
             '#A8193F'
         )
         self.uninstall_button.pack(fill=tk.X)
-        
+
         # 工具按钮行
         tool_row = tk.Frame(button_frame, bg=self.colors['bg_card'])
         tool_row.pack(fill=tk.X)
-    
+
     def create_modern_button(self, parent, text, command, bg_color, hover_color):
         """创建现代化按钮"""
         button = tk.Button(parent,
-                          text=text,
-                          command=command,
-                          bg=bg_color,
-                          fg='white',
-                          font=self.fonts['button'],
-                          relief='flat',
-                          borderwidth=0,
-                          cursor='hand2',
-                          padx=15,
-                          pady=12)
-        
+                           text=text,
+                           command=command,
+                           bg=bg_color,
+                           fg='white',
+                           font=self.fonts['button'],
+                           relief='flat',
+                           borderwidth=0,
+                           cursor='hand2',
+                           padx=15,
+                           pady=12)
+
         # 绑定悬停效果
         self.bind_button_hover(button, bg_color, hover_color)
-        
+
         return button
-    
+
     def bind_button_hover(self, button, normal_color, hover_color):
         """绑定按钮悬停效果"""
         def on_enter(e):
             button.config(bg=hover_color)
-        
+
         def on_leave(e):
             button.config(bg=normal_color)
-        
+
         button.bind('<Enter>', on_enter)
         button.bind('<Leave>', on_leave)
 
     def _install_spinner_start(self, base_text=None):
         # 记录当前的运行中文案（如果不传则默认为 "正在安装..."）
         _running_text = base_text if base_text else "正在安装..."
-        
+
         try:
             if not hasattr(self, 'install_button') or self.install_button is None:
                 return
@@ -1175,7 +1222,8 @@ class ModernDesignInstaller:
 
         try:
             if self._install_button_base_text is None:
-                self._install_button_base_text = str(self.install_button.cget('text'))
+                self._install_button_base_text = str(
+                    self.install_button.cget('text'))
         except Exception:
             if self._install_button_base_text is None:
                 self._install_button_base_text = "🚀 安装选中版本"
@@ -1221,24 +1269,25 @@ class ModernDesignInstaller:
         try:
             if hasattr(self, 'install_button') and self.install_button is not None:
                 if self._install_button_base_text:
-                    self.install_button.config(text=self._install_button_base_text)
+                    self.install_button.config(
+                        text=self._install_button_base_text)
         except Exception:
             pass
-    
+
     def create_modern_console(self, parent):
         """创建现代化控制台"""
         # 控制台容器
         console_frame = tk.Frame(parent, bg=self.colors['bg_card'])
         console_frame.pack(fill=tk.BOTH, expand=True)
-        
+
         # 控制台文本区域
         self.log_text = self.create_modern_text(console_frame, height=10)
         self.log_text._container.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        
+
         # 控制台按钮
         button_frame = tk.Frame(console_frame, bg=self.colors['bg_card'])
         button_frame.pack(side=tk.RIGHT, fill=tk.Y, padx=(10, 0))
-        
+
         clear_btn = self.create_modern_button(
             button_frame,
             "清除",
@@ -1247,7 +1296,7 @@ class ModernDesignInstaller:
             self.colors['text_secondary']
         )
         clear_btn.pack(pady=(0, 8))
-        
+
         save_btn = self.create_modern_button(
             button_frame,
             "保存",
@@ -1256,78 +1305,80 @@ class ModernDesignInstaller:
             self.colors['text_secondary']
         )
         save_btn.pack()
-    
+
     def create_modern_text(self, parent, height=10):
         """创建现代化文本区域"""
         text_frame = tk.Frame(parent, bg=self.colors['bg_primary'])
-        
+
         text = tk.Text(text_frame,
-                      bg='#0F1419',
-                      fg=self.colors['text_primary'],
-                      font=self.fonts['mono'],
-                      width=1,
-                      relief='flat',
-                      borderwidth=0,
-                      highlightthickness=0,
-                      padx=10,
-                      pady=10,
-                      height=height)
+                       bg='#0F1419',
+                       fg=self.colors['text_primary'],
+                       font=self.fonts['mono'],
+                       width=1,
+                       relief='flat',
+                       borderwidth=0,
+                       highlightthickness=0,
+                       padx=10,
+                       pady=10,
+                       height=height)
         text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        
-        self.create_modern_scrollbar(text_frame, text).pack(side=tk.RIGHT, fill=tk.Y)
+
+        self.create_modern_scrollbar(
+            text_frame, text).pack(side=tk.RIGHT, fill=tk.Y)
 
         text._container = text_frame
-        
+
         return text
-    
+
     def create_status_bar(self):
         """创建状态栏"""
-        status_bar = tk.Frame(self.main_frame, bg=self.colors['bg_secondary'], height=30)
+        status_bar = tk.Frame(
+            self.main_frame, bg=self.colors['bg_secondary'], height=30)
         status_bar.pack(fill=tk.X)
         status_bar.pack_propagate(False)
-        
+
         # 状态信息
         self.status_info = tk.Label(status_bar,
-                                   text="就绪",
-                                   bg=self.colors['bg_secondary'],
-                                   fg=self.colors['text_secondary'],
-                                   font=self.fonts['small'])
+                                    text="就绪",
+                                    bg=self.colors['bg_secondary'],
+                                    fg=self.colors['text_secondary'],
+                                    font=self.fonts['small'])
         self.status_info.pack(side=tk.LEFT, padx=20, pady=5)
-        
+
         # 时间显示
         self.time_label = tk.Label(status_bar,
-                                  text="",
-                                  bg=self.colors['bg_secondary'],
-                                  fg=self.colors['text_muted'],
-                                  font=self.fonts['small'])
+                                   text="",
+                                   bg=self.colors['bg_secondary'],
+                                   fg=self.colors['text_muted'],
+                                   font=self.fonts['small'])
         self.time_label.pack(side=tk.RIGHT, padx=20, pady=5)
-        
+
         # 更新时间
         self.update_time()
-    
+
     def update_time(self):
         """更新时间显示"""
         current_time = time.strftime("%H:%M:%S")
         self.time_label.config(text=current_time)
         self.root.after(1000, self.update_time)
-    
+
     def setup_window_drag(self):
         """设置窗口拖拽功能"""
         self.root.bind('<Button-1>', self.start_drag)
         self.root.bind('<B1-Motion>', self.on_drag)
         self.root.bind('<ButtonRelease-1>', self.stop_drag)
-    
+
     def start_drag(self, event):
         """开始拖拽"""
         self.drag_start_x = event.x
         self.drag_start_y = event.y
-    
+
     def on_drag(self, event):
         """拖拽中"""
         x = self.root.winfo_x() + event.x - self.drag_start_x
         y = self.root.winfo_y() + event.y - self.drag_start_y
         self.root.geometry(f"+{x}+{y}")
-    
+
     def stop_drag(self, event):
         """停止拖拽"""
         pass
@@ -1451,9 +1502,12 @@ class ModernDesignInstaller:
         except Exception:
             pass
 
-        icon_canvas = tk.Canvas(top_row, width=icon_size, height=icon_size, bg=self.colors['bg_secondary'], highlightthickness=0)
-        icon_canvas.grid(row=0, column=0, sticky='n', padx=(0, 14), pady=(2, 0))
-        icon_canvas.create_oval(2, 2, icon_size - 2, icon_size - 2, fill=icon_color, outline='')
+        icon_canvas = tk.Canvas(top_row, width=icon_size, height=icon_size,
+                                bg=self.colors['bg_secondary'], highlightthickness=0)
+        icon_canvas.grid(row=0, column=0, sticky='n',
+                         padx=(0, 14), pady=(2, 0))
+        icon_canvas.create_oval(2, 2, icon_size - 2,
+                                icon_size - 2, fill=icon_color, outline='')
 
         # Draw geometric icons instead of emoji for better DPI compatibility
         center = icon_size // 2
@@ -1463,13 +1517,14 @@ class ModernDesignInstaller:
             # Draw X
             line_width = max(2, int(round(icon_size * 0.08)))
             icon_canvas.create_line(center - padding, center - padding, center + padding, center + padding,
-                                  fill='white', width=line_width, capstyle='round')
+                                    fill='white', width=line_width, capstyle='round')
             icon_canvas.create_line(center + padding, center - padding, center - padding, center + padding,
-                                  fill='white', width=line_width, capstyle='round')
+                                    fill='white', width=line_width, capstyle='round')
         elif variant == 'warning':
             # Draw taller triangle with exclamation
             triangle_radius = int(round(icon_size * 0.4))
-            h = int(round(triangle_radius * 1.2))  # taller than equilateral triangle
+            # taller than equilateral triangle
+            h = int(round(triangle_radius * 1.2))
             points = [
                 center, center - h,
                 center - triangle_radius, center + h // 2,
@@ -1483,14 +1538,14 @@ class ModernDesignInstaller:
             line_top = center - exclamation_height // 2 - 4
             line_bottom = center + exclamation_height // 6 - 4
             icon_canvas.create_rectangle(center - exclamation_width // 2, line_top,
-                                       center + exclamation_width // 2, line_bottom,
-                                       fill=icon_color, outline='')
+                                         center + exclamation_width // 2, line_bottom,
+                                         fill=icon_color, outline='')
             # Dot at bottom (shifted up)
             dot_size = max(2, int(round(icon_size * 0.08)))
             dot_y = line_bottom + dot_size + 2
             icon_canvas.create_oval(center - dot_size, dot_y,
-                                  center + dot_size, dot_y + dot_size * 2,
-                                  fill=icon_color, outline='')
+                                    center + dot_size, dot_y + dot_size * 2,
+                                    fill=icon_color, outline='')
         elif variant == 'question':
             # Draw question mark using text (more reliable than emoji)
             font_size = int(round(icon_size * 0.28))
@@ -1499,17 +1554,17 @@ class ModernDesignInstaller:
             except Exception:
                 pass
             icon_canvas.create_text(center, center, text='?', fill='white',
-                                  font=('Segoe UI', font_size, 'bold'), anchor='center')
+                                    font=('Segoe UI', font_size, 'bold'), anchor='center')
         elif variant == 'info':
             # Draw i using text
             font_size = int(round(icon_size * 0.5))
             icon_canvas.create_text(center, center, text='i', fill='white',
-                                  font=('Segoe UI', font_size, 'bold'), anchor='center')
+                                    font=('Segoe UI', font_size, 'bold'), anchor='center')
         else:
             # Default: draw i
             font_size = int(round(icon_size * 0.5))
             icon_canvas.create_text(center, center, text='i', fill='white',
-                                  font=('Segoe UI', font_size, 'bold'), anchor='center')
+                                    font=('Segoe UI', font_size, 'bold'), anchor='center')
 
         msg_container = tk.Frame(top_row, bg=self.colors['bg_secondary'])
         msg_container.grid(row=0, column=1, sticky='nw')
@@ -1550,7 +1605,8 @@ class ModernDesignInstaller:
 
         for i, (label, value) in enumerate(reversed(btn_specs)):
             is_primary = (i == 0)
-            btn = tk.Button(btn_row, text=label, command=lambda v=value: _on_close(v))
+            btn = tk.Button(btn_row, text=label,
+                            command=lambda v=value: _on_close(v))
             if is_primary:
                 self._style_dialog_button_widget(
                     btn,
@@ -1601,37 +1657,38 @@ class ModernDesignInstaller:
         self._show_modal_dialog(title, message, 'warning', [('确定', True)])
 
     def ask_yesno(self, title, message):
-        val = self._show_modal_dialog(title, message, 'question', [('否', False), ('是', True)])
+        val = self._show_modal_dialog(title, message, 'question', [
+                                      ('否', False), ('是', True)])
         return bool(val)
-    
+
     def show_initial_config_dialog(self):
         """Show initial configuration dialog"""
         result = self.ask_yesno(
             "配置向导",
             "欢迎使用鸿蒙应用安装工具！\n\n未检测到初始配置。\n\n是否现在打开配置界面？"
         )
-        
+
         if result:
             self.configure_server()
         else:
             # User clicked "No", exit the application
             self.log("User cancelled configuration, exiting application")
             self.root.quit()
-    
+
     def log(self, message):
         """Add log message"""
         timestamp = time.strftime("%H:%M:%S")
         formatted_message = f"[{timestamp}] {message}"
         self.log_text.insert(tk.END, formatted_message + "\n")
         self.log_text.see(tk.END)
-        
+
         # Only update if window is visible to prevent flashing
         if hasattr(self.root, '_window_visible') and self.root._window_visible:
             self.root.update_idletasks()
-        
+
         # Update status bar
         self.status_info.config(text=message)
-    
+
     def clear_log(self):
         """Clear log"""
         self.log_text.delete(1.0, tk.END)
@@ -1642,7 +1699,8 @@ class ModernDesignInstaller:
         try:
             filename = filedialog.asksaveasfilename(
                 defaultextension=".log",
-                filetypes=[("日志文件", "*.log"), ("文本文件", "*.txt"), ("所有文件", "*.*")],
+                filetypes=[("日志文件", "*.log"),
+                           ("文本文件", "*.txt"), ("所有文件", "*.*")],
                 parent=self.root
             )
             if filename:
@@ -1653,14 +1711,14 @@ class ModernDesignInstaller:
         except Exception as e:
             self.log(f"❌ 保存失败: {str(e)}")
             self.show_error("错误", f"日志保存失败: {str(e)}")
-    
+
     def load_apps_config(self):
         """从服务器加载应用配置"""
         try:
             # 从服务器获取应用列表
             apps_url = f"{self.server_base_url}/api/apps"
             self.log(f"🌐 获取应用列表: {apps_url}")
-            
+
             response = requests.get(apps_url, timeout=10)
             if response.status_code == 200:
                 self.apps_config = response.json()
@@ -1668,11 +1726,11 @@ class ModernDesignInstaller:
                 self.populate_app_list()
             else:
                 raise Exception(f"服务器响应错误: {response.status_code}")
-                
+
         except requests.exceptions.RequestException as e:
             self.log(f"❌ 服务器连接失败: {str(e)}")
             self.show_error("错误", f"无法连接到服务器: {str(e)}\n\n请检查服务器地址配置或网络连接。")
-            
+
         except Exception as e:
             self.log(f"❌ 配置加载失败: {str(e)}")
             self.show_error("错误", f"配置加载失败: {str(e)}")
@@ -1687,7 +1745,8 @@ class ModernDesignInstaller:
                 appdata = home
             settings_dir = os.path.join(appdata, 'HarmonyOSInstaller')
         elif system == 'Darwin':
-            settings_dir = os.path.join(home, 'Library', 'Application Support', 'HarmonyOSInstaller')
+            settings_dir = os.path.join(
+                home, 'Library', 'Application Support', 'HarmonyOSInstaller')
         else:
             config_home = os.environ.get('XDG_CONFIG_HOME')
             if not config_home:
@@ -1713,21 +1772,22 @@ class ModernDesignInstaller:
         if not data_home:
             data_home = os.path.join(home, '.local', 'share')
         return os.path.join(data_home, 'HarmonyOSInstaller', 'downloads')
-    
+
     def check_initial_config(self):
         """检查初始配置"""
         settings_path = self._get_settings_path()
-        
+
         # 如果设置文件存在，检查配置是否完整
         if os.path.exists(settings_path):
             try:
                 with open(settings_path, 'r', encoding='utf-8') as f:
                     settings = json.load(f)
                     server_url = settings.get('server_base_url', '').strip()
-                    download_dir = (settings.get('download_dir', '') or '').strip()
+                    download_dir = (settings.get(
+                        'download_dir', '') or '').strip()
                     if not download_dir:
                         download_dir = self._get_default_download_dir()
-                    
+
                     # 检查配置是否有效
                     if server_url and download_dir:
                         return True
@@ -1740,7 +1800,7 @@ class ModernDesignInstaller:
         else:
             self.log("⚠️ 首次运行，需要配置")
             return False
-    
+
     def load_local_settings(self):
         """加载本地设置"""
         settings_path = self._get_settings_path()
@@ -1763,7 +1823,7 @@ class ModernDesignInstaller:
             # 使用空设置，强制用户配置
             self.server_base_url = ""
             self.download_dir = self._get_default_download_dir()
-    
+
     def save_local_settings(self):
         """保存本地设置"""
         settings_path = self._get_settings_path()
@@ -1778,7 +1838,7 @@ class ModernDesignInstaller:
             self.log(f"💾 设置已保存")
         except Exception as e:
             self.log(f"❌ 设置保存失败: {str(e)}")
-    
+
     def populate_app_list(self):
         """填充应用列表"""
         if not self.apps_config:
@@ -1793,10 +1853,11 @@ class ModernDesignInstaller:
         for idx, app in enumerate(self.apps_config['apps']):
             display_text = f"📱 {app['name']}"
             row_tag = 'even' if idx % 2 == 0 else 'odd'
-            self.app_tree.insert('', 'end', iid=str(idx), text=display_text, tags=(row_tag,))
-        
+            self.app_tree.insert('', 'end', iid=str(
+                idx), text=display_text, tags=(row_tag,))
+
         self.log("📋 应用列表已更新")
-    
+
     def on_app_select(self, event):
         """应用选择事件"""
         if hasattr(self, 'app_tree'):
@@ -1820,12 +1881,12 @@ class ModernDesignInstaller:
             self.load_version_list()
             # 延迟选择第一个版本，等待版本列表加载完成
             self.root.after(500, self.select_first_version)
-    
+
     def select_first_version(self):
         """选择第一个版本并显示详情"""
         if not hasattr(self, 'version_tree'):
             return
-            
+
         # 获取版本树中的所有项目
         children = self.version_tree.get_children()
         if children:
@@ -1833,7 +1894,7 @@ class ModernDesignInstaller:
             first_item = children[0]
             self.version_tree.selection_set(first_item)
             self.version_tree.see(first_item)
-            
+
             # 获取版本信息并显示
             version_values = self.version_tree.item(first_item, 'values')
             if version_values:
@@ -1843,7 +1904,7 @@ class ModernDesignInstaller:
         else:
             # 如果没有版本，显示应用基本信息
             self.show_app_info()
-    
+
     def show_app_info(self):
         """显示应用信息"""
         if not self.current_app:
@@ -1906,19 +1967,19 @@ class ModernDesignInstaller:
                 pass
 
         threading.Thread(target=_run, daemon=True).start()
-    
+
     def show_version_info(self, version):
         """显示版本特定信息"""
         if not self.current_app or not version:
             self.show_app_info()  # 回退到应用信息
             return
-        
+
         # 获取版本信息
         version_info = self.get_version_info(version)
         if not version_info:
             self.show_app_info()  # 回退到应用信息
             return
-        
+
         # 构建版本特定信息
         info = f"应用名称: {self.current_app.get('name', 'N/A')}\n"
         info += f"应用包名: {self.current_app.get('bundle_name', 'N/A')}\n"
@@ -1926,107 +1987,109 @@ class ModernDesignInstaller:
         info += f"发布日期: {version_info.get('release_date', 'N/A')}\n"
         info += f"应用入口: {self.current_app.get('main_ability', 'N/A')}\n"
         info += f"版本描述: {version_info.get('description', 'N/A')}\n"
-        
+
         # 添加文件信息（如果可用）
         files = version_info.get('files', {})
         if isinstance(files, dict):
             info += f"\n文件信息:\n"
             info += f"  HAP: {files.get('hap', 'N/A')}\n"
             info += f"  HSP: {files.get('hsp', 'N/A')}\n"
-        
+
         self.app_info_text.delete(1.0, tk.END)
         self.app_info_text.insert(1.0, info)
-    
+
     def update_control_center(self):
         """Update control center with current app info"""
         if not self.current_app:
             return
-        
+
         # Update button states
         if hasattr(self, 'install_button'):
             self.install_button.config(state='normal')
         if hasattr(self, 'uninstall_button'):
             self.uninstall_button.config(state='normal')
-        
+
         # Keep status_text/status_indicator reserved for HDC connection status
-    
+
     def on_version_select(self, event):
         """Version selection event"""
         selection = self.version_tree.selection()
         if not selection:
             return
-        
+
         # Get selected version
         item = selection[0]
         version_values = self.version_tree.item(item, 'values')
-        
+
         if version_values:
             version = version_values[0]  # First column is version
             self.log(f"Selected version: {version}")
             self.show_version_info(version)
             self.update_control_center()
-    
+
     def load_version_list(self):
         """从服务器加载版本列表"""
         if not self.current_app:
             return
-        
+
         # 清空现有版本列表
         for item in self.version_tree.get_children():
             self.version_tree.delete(item)
-        
+
         try:
             # 从服务器获取版本列表
             app_id = self.current_app['id']
             versions_url = f"{self.server_base_url}/api/apps/{app_id}/versions"
             self.log(f"🌐 正在从服务器获取版本列表: {versions_url}")
-            
+
             response = requests.get(versions_url, timeout=10)
             if response.status_code == 200:
                 versions_data = response.json()
                 versions = versions_data.get('versions', [])
-                
+
                 # 按版本号排序
                 versions.sort(key=lambda x: x.get('version', ''), reverse=True)
-                
+
                 for idx, version_info in enumerate(versions):
                     version = version_info.get('version', '')
                     description = version_info.get('description', '')
                     release_date = version_info.get('release_date', '')
                     status = '🚀'  # 可以根据版本状态显示不同图标
                     row_tag = 'even' if idx % 2 == 0 else 'odd'
-                    
+
                     self.version_tree.insert('', 'end', text=description,
-                                           values=(version, release_date, status),
-                                           tags=(row_tag,))
-                
+                                             values=(
+                                                 version, release_date, status),
+                                             tags=(row_tag,))
+
                 self.log(f"📦 已从服务器加载 {len(versions)} 个版本")
-                
+
             else:
                 raise Exception(f"服务器响应错误: {response.status_code}")
-                
+
         except requests.exceptions.RequestException as e:
             self.log(f"❌ 服务器连接失败: {str(e)}")
             self.show_error("错误", f"无法连接到服务器: {str(e)}\n\n请检查服务器地址配置或网络连接。")
-            
+
         except Exception as e:
             self.log(f"❌ 版本加载失败: {str(e)}")
             self.show_error("错误", f"版本加载失败: {str(e)}")
-    
+
     def detect_hdc_tool(self):
         """检测HDC工具"""
         try:
             # 更新状态为检测中
             if hasattr(self, 'status_text'):
-                self.status_text.config(text="HDC检测中...", fg=self.colors['text_secondary'])
+                self.status_text.config(
+                    text="HDC检测中...", fg=self.colors['text_secondary'])
             if hasattr(self, 'status_indicator'):
                 self.update_status_indicator('warning')
-            
+
             self.log("🔍 检测HDC工具...")
-            
+
             system = platform.system()
             arch = platform.machine()
-            
+
             # Get application root directory (use sys._MEIPASS for packaged app)
             if getattr(sys, 'frozen', False):
                 # Packaged application
@@ -2036,9 +2099,9 @@ class ModernDesignInstaller:
                 # Development environment
                 base_path = os.path.dirname(os.path.abspath(__file__))
                 self.log(f"🛠️ 运行在开发模式，基础路径: {base_path}")
-            
+
             self.log(f"💻 系统: {system}, 架构: {arch}")
-            
+
             # 确定HDC路径
             hdc_path = None
             if system == "Darwin":
@@ -2053,20 +2116,21 @@ class ModernDesignInstaller:
                     hdc_path = os.path.join(base_path, "hdc_arm", "hdc")
                 else:
                     hdc_path = os.path.join(base_path, "hdc_x86", "hdc_x86")
-            
+
             self.hdc_path = hdc_path
             self.log(f"🎯 预期HDC路径: {self.hdc_path}")
-            
+
             # 检查文件是否存在
             if self.hdc_path and os.path.exists(self.hdc_path):
                 self.log(f"✅ HDC工具找到: {self.hdc_path}")
-                
+
                 # 测试HDC工具是否可用
                 try:
                     _run_kwargs = {}
                     try:
                         if platform.system() == 'Windows':
-                            _run_kwargs['creationflags'] = getattr(subprocess, 'CREATE_NO_WINDOW', 0)
+                            _run_kwargs['creationflags'] = getattr(
+                                subprocess, 'CREATE_NO_WINDOW', 0)
                             si = subprocess.STARTUPINFO()
                             si.dwFlags |= subprocess.STARTF_USESHOWWINDOW
                             _run_kwargs['startupinfo'] = si
@@ -2079,23 +2143,27 @@ class ModernDesignInstaller:
                         self.log(f"✅ HDC工具可用: {result.stdout.strip()}")
                         device_ok = False
                         try:
-                            device_ok, device_out = self.run_hdc_command("list targets", show_output=False)
+                            device_ok, device_out = self.run_hdc_command(
+                                "list targets", show_output=False)
                             if device_ok:
-                                lines = [ln.strip() for ln in (device_out or '').splitlines() if ln.strip()]
+                                lines = [ln.strip() for ln in (
+                                    device_out or '').splitlines() if ln.strip()]
                                 device_ok = len(lines) > 0
                         except Exception:
                             device_ok = False
 
                         if device_ok:
                             if hasattr(self, 'status_text'):
-                                self.status_text.config(text="HDC已连接", fg=self.colors['bg_success'])
+                                self.status_text.config(
+                                    text="HDC已连接", fg=self.colors['bg_success'])
                             if hasattr(self, 'status_indicator'):
                                 self.update_status_indicator('success')
                             self.install_button.config(state='normal')
                             self.uninstall_button.config(state='normal')
                         else:
                             if hasattr(self, 'status_text'):
-                                self.status_text.config(text="设备未连接", fg=self.colors['bg_warning'])
+                                self.status_text.config(
+                                    text="设备未连接", fg=self.colors['bg_warning'])
                             if hasattr(self, 'status_indicator'):
                                 self.update_status_indicator('warning')
                             self.install_button.config(state='disabled')
@@ -2106,7 +2174,8 @@ class ModernDesignInstaller:
                 except subprocess.TimeoutExpired:
                     self.log("⚠️ HDC工具响应超时，但文件存在")
                     if hasattr(self, 'status_text'):
-                        self.status_text.config(text="HDC连接超时", fg=self.colors['bg_warning'])
+                        self.status_text.config(
+                            text="HDC连接超时", fg=self.colors['bg_warning'])
                     if hasattr(self, 'status_indicator'):
                         self.update_status_indicator('warning')
                     self.install_button.config(state='normal')
@@ -2115,7 +2184,8 @@ class ModernDesignInstaller:
                 except Exception as e:
                     self.log(f"❌ HDC工具测试失败: {str(e)}")
                     if hasattr(self, 'status_text'):
-                        self.status_text.config(text="HDC不可用", fg=self.colors['bg_danger'])
+                        self.status_text.config(
+                            text="HDC不可用", fg=self.colors['bg_danger'])
                     if hasattr(self, 'status_indicator'):
                         self.update_status_indicator('danger')
                     self.install_button.config(state='disabled')
@@ -2124,46 +2194,52 @@ class ModernDesignInstaller:
             else:
                 self.log(f"❌ HDC工具未找到: {self.hdc_path}")
                 if hasattr(self, 'status_text'):
-                    self.status_text.config(text="HDC未连接", fg=self.colors['bg_danger'])
+                    self.status_text.config(
+                        text="HDC未连接", fg=self.colors['bg_danger'])
                 if hasattr(self, 'status_indicator'):
                     self.update_status_indicator('danger')
                 self.install_button.config(state='disabled')
                 self.uninstall_button.config(state='disabled')
                 # UDID button moved to header bar
-                
+
         except Exception as e:
             self.log(f"❌ HDC检测异常: {str(e)}")
             if hasattr(self, 'status_text'):
-                self.status_text.config(text="HDC检测失败", fg=self.colors['bg_danger'])
+                self.status_text.config(
+                    text="HDC检测失败", fg=self.colors['bg_danger'])
             if hasattr(self, 'status_indicator'):
                 self.update_status_indicator('danger')
-    
+
     def run_hdc_command(self, command, show_output=True):
         """执行HDC命令"""
         if not self.hdc_path or not os.path.exists(self.hdc_path):
             return False, "HDC工具不可用"
-        
+
         try:
             self.log(f"⚡ 执行: {command}")
             self.log(f"&#x1d4cb; HDC&#x8def;&#x5f84;: {self.hdc_path}")
-            self.log(f"&#x1d4cb; HDC&#x5b58;&#x5728;: {os.path.exists(self.hdc_path)}")
+            self.log(
+                f"&#x1d4cb; HDC&#x5b58;&#x5728;: {os.path.exists(self.hdc_path)}")
 
             try:
                 import shlex
-                args = [self.hdc_path] + shlex.split(command, posix=(platform.system() != 'Windows'))
+                args = [self.hdc_path] + \
+                    shlex.split(command, posix=(
+                        platform.system() != 'Windows'))
             except Exception:
                 args = [self.hdc_path] + command.split()
 
             _run_kwargs = {}
             try:
                 if platform.system() == 'Windows':
-                    _run_kwargs['creationflags'] = getattr(subprocess, 'CREATE_NO_WINDOW', 0)
+                    _run_kwargs['creationflags'] = getattr(
+                        subprocess, 'CREATE_NO_WINDOW', 0)
                     si = subprocess.STARTUPINFO()
                     si.dwFlags |= subprocess.STARTF_USESHOWWINDOW
                     _run_kwargs['startupinfo'] = si
             except Exception:
                 _run_kwargs = {}
-            
+
             result = subprocess.run(
                 args,
                 capture_output=True,
@@ -2213,7 +2289,7 @@ class ModernDesignInstaller:
 
             if any(m in combined for m in hdc_text_error_markers):
                 return False, (stderr_text.strip() or stdout_text.strip() or 'HDC执行失败')
-            
+
             if result.returncode == 0:
                 if show_output:
                     self.log("✅ 命令执行成功")
@@ -2222,7 +2298,7 @@ class ModernDesignInstaller:
                 error_msg = stderr_text.strip() if stderr_text else "未知错误"
                 self.log(f"❌ 执行失败: {error_msg}")
                 return False, error_msg
-                
+
         except subprocess.TimeoutExpired:
             self.log("⏰ 命令超时")
             return False, "命令执行超时"
@@ -2276,12 +2352,12 @@ class ModernDesignInstaller:
             )
 
         return text if text else "HDC 执行失败，请确认设备连接与授权后重试。"
-    
+
     def get_device_udid(self):
         """获取设备UDID"""
         self.log("📱 获取设备UDID...")
         success, output = self.run_hdc_command("shell bm get --udid")
-        
+
         if success:
             udid_lines = output.strip().split('\n')
             if udid_lines:
@@ -2290,10 +2366,12 @@ class ModernDesignInstaller:
                 self.show_udid_dialog(udid)
             else:
                 self.log("⚠️ 未获取到UDID")
-                self.show_warning("警告", "未获取到设备UDID。\n\n请确认设备已连接并完成 HDC 授权，然后点击“刷新”重试。")
+                self.show_warning(
+                    "警告", "未获取到设备UDID。\n\n请确认设备已连接并完成 HDC 授权，然后点击“刷新”重试。")
         else:
-            self.show_error("错误", f"获取UDID失败:\n{self.format_hdc_error(output)}")
-    
+            self.show_error(
+                "错误", f"获取UDID失败:\n{self.format_hdc_error(output)}")
+
     def show_udid_dialog(self, udid):
         """显示带有复制按钮的 UDID 对话框"""
         # 先创建对话框
@@ -2332,7 +2410,7 @@ class ModernDesignInstaller:
             wraplength=400
         )
         udid_value.pack(fill=tk.X, padx=12, pady=12)
-        
+
         # Button frame
         button_frame = tk.Frame(content, bg=self.colors['bg_secondary'])
         button_frame.pack(fill=tk.X, pady=(16, 0))
@@ -2349,7 +2427,8 @@ class ModernDesignInstaller:
         )
         cancel_btn.pack(side='right')
 
-        copy_btn = tk.Button(button_frame, text="复制 UDID", command=lambda: self.copy_udid(udid))
+        copy_btn = tk.Button(button_frame, text="复制 UDID",
+                             command=lambda: self.copy_udid(udid))
         self._style_dialog_button_widget(
             copy_btn,
             bg=self.colors['bg_accent'],
@@ -2360,7 +2439,7 @@ class ModernDesignInstaller:
             secondary=False
         )
         copy_btn.pack(side='right', padx=(0, 10))
-        
+
         # Update window to ensure it's ready
         dialog.update_idletasks()
 
@@ -2382,11 +2461,11 @@ class ModernDesignInstaller:
             dialog.attributes('-alpha', 1.0)
         except Exception:
             pass
-        
+
         # Make modal
         dialog.grab_set()
         dialog.focus_set()
-    
+
     def copy_udid(self, udid):
         """将 UDID 复制到剪贴板，显示提示并关闭对话框"""
         try:
@@ -2401,7 +2480,7 @@ class ModernDesignInstaller:
         except Exception as e:
             self.log(f"复制 UDID 失败: {str(e)}")
             self.show_toast(f"复制 UDID 失败: {str(e)}")
-    
+
     def show_toast(self, message):
         """显示提示"""
         toast = getattr(self, '_toast_window', None)
@@ -2413,7 +2492,7 @@ class ModernDesignInstaller:
         main_y = self.root.winfo_y()
         main_width = self.root.winfo_width()
         main_height = self.root.winfo_height()
-        
+
         toast_width = 200
         toast_height = 40
         x = main_x + (main_width // 2) - (toast_width // 2)
@@ -2494,22 +2573,23 @@ class ModernDesignInstaller:
             self._toast_after_id = toast.after(2000, _hide_toast)
         except Exception:
             pass
-    
+
     def install_selected_version(self):
         """安装选中版本"""
         selection = self.version_tree.selection()
         if not selection:
             self.show_warning("警告", "请选择要安装的版本")
             return
-        
+
         if not self.current_app:
             self.show_warning("警告", "请选择应用")
             return
-        
+
         item = self.version_tree.item(selection[0])
         version = item['values'][0]
-        
-        self.log(f"&#x1d4cb; &#x9009;&#x4e2d;&#x7684;&#x7248;&#x672c;&#x53f7;: '{version}' (&#x7c7b;&#x578b;: {type(version)})")
+
+        self.log(
+            f"&#x1d4cb; &#x9009;&#x4e2d;&#x7684;&#x7248;&#x672c;&#x53f7;: '{version}' (&#x7c7b;&#x578b;: {type(version)})")
 
         try:
             self.root.after(0, self._install_spinner_start)
@@ -2518,116 +2598,135 @@ class ModernDesignInstaller:
                 self._install_spinner_start()
             except Exception:
                 pass
-        
-        thread = threading.Thread(target=self.install_app_version, args=(version,))
+
+        thread = threading.Thread(
+            target=self.install_app_version, args=(version,))
         thread.daemon = True
         thread.start()
-    
+
     def install_app_version(self, version):
         """安装应用版本"""
         try:
             self.log(f"🚀 开始安装版本 {version}")
 
             try:
-                dev_ok, dev_out = self.run_hdc_command("list targets", show_output=False)
-                lines = [ln.strip() for ln in (dev_out or '').splitlines() if ln.strip()]
+                dev_ok, dev_out = self.run_hdc_command(
+                    "list targets", show_output=False)
+                lines = [ln.strip()
+                         for ln in (dev_out or '').splitlines() if ln.strip()]
                 if not dev_ok or len(lines) == 0:
                     self.show_error("错误", "未检测到已连接设备，请通过 USB 连接鸿蒙设备后重试。")
                     return
             except Exception:
                 self.show_error("错误", "设备检测失败，请通过 USB 连接鸿蒙设备后重试。")
                 return
-            
+
             # 获取版本信息
             version_info = self.get_version_info(version)
             if not version_info:
                 return
-            
+
             # 下载文件
             if not self.download_version_files(version_info, version):
                 return
-            
+
             # 获取本地文件路径
-            app_download_dir = os.path.join(self.download_dir, str(self.current_app['id']))
-            hap_file = os.path.join(app_download_dir, version_info['files']['hap'])
-            hsp_file = os.path.join(app_download_dir, version_info['files']['hsp'])
-            
+            app_download_dir = os.path.join(
+                self.download_dir, str(self.current_app['id']))
+            hap_file = os.path.join(
+                app_download_dir, version_info['files']['hap'])
+            hsp_file = os.path.join(
+                app_download_dir, version_info['files']['hsp'])
+
             # 转换为绝对路径，避免相对路径问题
             hap_file = os.path.abspath(hap_file)
             hsp_file = os.path.abspath(hsp_file)
-            
+
             self.log(f"📁 HAP文件绝对路径: {hap_file}")
             self.log(f"📁 HSP文件绝对路径: {hsp_file}")
-            
-            deploy_path = version_info.get('deploy_path', f"data/local/tmp/{self.current_app['id']}")
-            
+
+            deploy_path = version_info.get(
+                'deploy_path', f"data/local/tmp/{self.current_app['id']}")
+
             # Ensure deploy_path uses forward slashes for Android
             deploy_path = deploy_path.replace('\\', '/')
             self.log(f"Deploy path (Android format): {deploy_path}")
-            
+
             # 检查文件是否存在
             if not os.path.exists(hap_file):
                 self.log(f"❌ HAP文件不存在: {hap_file}")
-                self.show_error("错误", f"HAP文件不存在:\n{hap_file}\n\n请检查下载是否完成或文件是否被删除。")
+                self.show_error(
+                    "错误", f"HAP文件不存在:\n{hap_file}\n\n请检查下载是否完成或文件是否被删除。")
                 return
-            
+
             if not os.path.exists(hsp_file):
                 self.log(f"❌ HSP文件不存在: {hsp_file}")
-                self.show_error("错误", f"HSP文件不存在:\n{hsp_file}\n\n请检查下载是否完成或文件是否被删除。")
+                self.show_error(
+                    "错误", f"HSP文件不存在:\n{hsp_file}\n\n请检查下载是否完成或文件是否被删除。")
                 return
-            
-            self.log(f"✅ 文件检查通过: HAP={os.path.basename(hap_file)}, HSP={os.path.basename(hsp_file)}")
-            
+
+            self.log(
+                f"✅ 文件检查通过: HAP={os.path.basename(hap_file)}, HSP={os.path.basename(hsp_file)}")
+
             # 安装步骤
             android_deploy_path = deploy_path.replace('\\', '/')
             hap_remote = f"{android_deploy_path}/{os.path.basename(hap_file)}"
             hsp_remote = f"{android_deploy_path}/{os.path.basename(hsp_file)}"
             steps = [
-                ("停止应用", f"shell aa force-stop {self.current_app['bundle_name']}"),
-                ("彻底卸载旧版本", f"shell bm uninstall -n {self.current_app['bundle_name']}"),
+                ("停止应用",
+                 f"shell aa force-stop {self.current_app['bundle_name']}"),
+                ("彻底卸载旧版本",
+                 f"shell bm uninstall -n {self.current_app['bundle_name']}"),
                 ("清理安装包缓存", f"shell rm -f {hsp_remote} {hap_remote}"),
                 ("上传HSP", f"file send {hsp_file} {android_deploy_path}"),
                 ("上传HAP", f"file send {hap_file} {android_deploy_path}"),
                 ("安装应用", f"shell bm install -p {hsp_remote} -p {hap_remote}"),
-                ("启动应用", f"shell aa start -a {self.current_app['main_ability']} -b {self.current_app['bundle_name']} -m entry")
+                ("启动应用",
+                 f"shell aa start -a {self.current_app['main_ability']} -b {self.current_app['bundle_name']} -m entry")
             ]
-            
+
             for step_name, command in steps:
                 self.log(f"&#x1f4cb; {step_name}...")
-                success, output = self.run_hdc_command(command, show_output=True)
-                
+                success, output = self.run_hdc_command(
+                    command, show_output=True)
+
                 # &#x663e;&#x793a;&#x547d;&#x4ee4;&#x8f93;&#x51fa;
                 if output:
                     self.log(f"&#x1d4cb; &#x8f93;&#x51fa;: {output.strip()}")
-                
+
                 # &#x68c0;&#x67e5;&#x662f;&#x5426;&#x5931;&#x8d25;
                 if not success:
                     self.log(f"&#x274c; {step_name}&#x5931;&#x8d25;")
-                    
+
                     # &#x5bf9;&#x4e8e;&#x67d0;&#x4e9b;&#x6b65;&#x9aa4;&#xff0c;&#x5931;&#x8d25;&#x662f;&#x53ef;&#x63a5;&#x53d7;&#x7684;
                     if step_name in ["停止应用", "彻底卸载旧版本"]:
-                        self.log(f"&#x26a0;&#xfe0f; {step_name}&#x5931;&#x8d25;&#x4f46;&#x7ee7;&#x7eed;&#x6267;&#x884c;")
+                        self.log(
+                            f"&#x26a0;&#xfe0f; {step_name}&#x5931;&#x8d25;&#x4f46;&#x7ee7;&#x7eed;&#x6267;&#x884c;")
                         continue
                     elif step_name == "启动应用":
-                        self.log(f"&#x26a0;&#xfe0f; {step_name}&#x5931;&#x8d25;&#xff0c;&#x4f46;&#x5b89;&#x88c5;&#x53ef;&#x80fd;&#x6210;&#x529f;")
+                        self.log(
+                            f"&#x26a0;&#xfe0f; {step_name}&#x5931;&#x8d25;&#xff0c;&#x4f46;&#x5b89;&#x88c5;&#x53ef;&#x80fd;&#x6210;&#x529f;")
                         continue
                     else:
                         # &#x5173;&#x952e;&#x6b65;&#x9aa4;&#x5931;&#x8d25;&#xff0c;&#x505c;&#x6b62;&#x5b89;&#x88c5;
-                        self.show_error("错误", f"{step_name}失败:\n{self.format_hdc_error(output)}")
+                        self.show_error(
+                            "错误", f"{step_name}失败:\n{self.format_hdc_error(output)}")
                         return
-            
+
             # &#x9a8c;&#x8bc1;&#x5e94;&#x7528;&#x662f;&#x5426;&#x771f;&#x6b63;&#x5b89;&#x88c5;&#x6210;&# Verify if app is truly installed successfully
             self.log("Verifying installation result...")
-            
+
             # Wait a moment for installation to complete
             time.sleep(2)
-            
+
             # Method 1: Use bm dump to check if app is installed
-            verify_success, verify_output = self.run_hdc_command(f"shell bm dump -n {self.current_app['bundle_name']}", show_output=True)
-            
+            verify_success, verify_output = self.run_hdc_command(
+                f"shell bm dump -n {self.current_app['bundle_name']}", show_output=True)
+
             # Method 2: Use bm dump -a to list all installed apps
-            list_success, list_output = self.run_hdc_command("shell bm dump -a", show_output=False)
-            
+            list_success, list_output = self.run_hdc_command(
+                "shell bm dump -a", show_output=False)
+
             app_installed = False
             verify_low = (verify_output or '').lower()
             list_low = (list_output or '').lower()
@@ -2637,27 +2736,31 @@ class ModernDesignInstaller:
             elif list_success and list_output and "[fail]" not in list_low and "need connect-key" not in list_low and self.current_app['bundle_name'] in list_output:
                 app_installed = True
                 self.log("App installation verification successful (bm dump -a)")
-            
+
             if app_installed:
                 self.log("Installation completed successfully")
-                self._show_modal_dialog("安装成功", f"应用版本 {version} 安装成功！\n\n已在设备上验证", 'info', [('确定', True)])
-                
+                self._show_modal_dialog(
+                    "安装成功", f"应用版本 {version} 安装成功！\n\n已在设备上验证", 'info', [('确定', True)])
+
                 # Try to start the app
                 self.log("Attempting to start the app...")
-                start_success, start_output = self.run_hdc_command(f"shell aa start -a {self.current_app['main_ability']} -b {self.current_app['bundle_name']} -m entry", show_output=True)
+                start_success, start_output = self.run_hdc_command(
+                    f"shell aa start -a {self.current_app['main_ability']} -b {self.current_app['bundle_name']} -m entry", show_output=True)
                 if start_success:
                     self.log("App started successfully")
                 else:
-                    self.log(f"App start failed, but installation succeeded: {start_output}")
+                    self.log(
+                        f"App start failed, but installation succeeded: {start_output}")
             else:
                 self.log("Installation verification failed")
                 self.log(f"bm dump output: {verify_output}")
                 self.log(f"bm dump -a output: {list_output}")
-                self.show_warning("安装警告", "应用安装完成但验证失败。\n\n应用可能未正确安装。\n\n请在设备上手动检查。")        
+                self.show_warning(
+                    "安装警告", "应用安装完成但验证失败。\n\n应用可能未正确安装。\n\n请在设备上手动检查。")
         except Exception as e:
             self.log(f"&#x274c; &#x5b89;&#x88c5;&#x5f02;&#x5e38;: {str(e)}")
             self.show_error("安装错误", f"安装异常：{str(e)}")
-        
+
         finally:
             try:
                 self.root.after(0, self._install_spinner_stop)
@@ -2667,12 +2770,14 @@ class ModernDesignInstaller:
                 except Exception:
                     pass
             try:
-                self.root.after(0, lambda: hasattr(self, 'install_button') and self.install_button.config(state='normal'))
+                self.root.after(0, lambda: hasattr(
+                    self, 'install_button') and self.install_button.config(state='normal'))
             except Exception:
                 try:
                     self.install_button.config(state='normal')
                 except Exception:
                     pass
+
     def get_version_info(self, version):
         """获取版本信息"""
         try:
@@ -2680,12 +2785,12 @@ class ModernDesignInstaller:
             app_id = self.current_app['id']
             versions_url = f"{self.server_base_url}/api/apps/{app_id}/versions"
             self.log(f"🌐 获取版本列表: {versions_url}")
-            
+
             response = requests.get(versions_url, timeout=10)
             if response.status_code == 200:
                 versions_data = response.json()
                 versions = versions_data.get('versions', [])
-                
+
                 # 找到匹配的版本
                 version_info = None
                 for v in versions:
@@ -2699,7 +2804,7 @@ class ModernDesignInstaller:
                             return None
                         version_info = v  # 使用整个版本信息
                         break
-                
+
                 if version_info:
                     self.log(f"📝 找到版本: {version_info.get('version')}")
                     return version_info
@@ -2708,18 +2813,17 @@ class ModernDesignInstaller:
                     return None
             else:
                 raise Exception(f"服务器响应错误: {response.status_code}")
-                
+
         except requests.exceptions.RequestException as e:
             return None
 
-            
         except Exception as e:
             self.log(f"❌ 版本信息获取失败: {str(e)}")
             import traceback
             self.log(f"✍️ 错误详细信息: {traceback.format_exc()}")
             self.show_error("错误", f"版本信息获取失败: {str(e)}")
             return None
-    
+
     def download_version_files(self, version_info, version):
         """下载版本文件"""
         try:
@@ -2728,56 +2832,63 @@ class ModernDesignInstaller:
                 self.log(f"❌ 版本信息格式错误: 期望字典，实际收到 {type(version_info)}")
                 self.show_error("错误", f"版本信息格式错误: {type(version_info)}")
                 return False
-            
+
+            version_id = version_info.get('id')
+            if not version_id:
+                self.log("❌ 版本信息中缺少 version_id，无法下载文件")
+                self.show_error("错误", "版本信息中缺少 version_id，无法下载文件")
+                return False
+
             files = version_info.get('files', {})
             if not isinstance(files, dict):
                 self.log(f"❌ 文件信息格式错误: 期望字典，实际收到 {type(files)}")
                 self.show_error("错误", f"文件信息格式错误: {type(files)}")
                 return False
-                
+
             hap_filename = files.get('hap')
             hsp_filename = files.get('hsp')
-            
+
             if not hap_filename or not hsp_filename:
                 self.log("❌ 版本信息中缺少文件信息")
                 self.show_error("错误", "版本信息中缺少文件信息")
                 return False
-            
+
             # 创建app_id对应的下载目录
-            app_download_dir = os.path.join(self.download_dir, str(self.current_app['id']))
+            app_download_dir = os.path.join(
+                self.download_dir, str(self.current_app['id']), str(version))
             if not os.path.exists(app_download_dir):
                 os.makedirs(app_download_dir)
                 self.log(f"📁 创建应用下载目录: {app_download_dir}")
-            
+
             # 下载HAP文件
-            hap_url = f"{self.server_base_url}/files/{hap_filename}"
+            hap_url = f"{self.server_base_url}/api/versions/{version_id}/files/hap/download"
             hap_local_path = os.path.join(app_download_dir, hap_filename)
-            
+
             if not os.path.exists(hap_local_path):
                 self.log(f"📥 下载HAP文件: {hap_filename}")
                 if not self.download_file(hap_url, hap_local_path):
                     return False
             else:
                 self.log(f"✅ HAP文件已存在: {hap_filename}")
-            
+
             # 下载HSP文件
-            hsp_url = f"{self.server_base_url}/files/{hsp_filename}"
+            hsp_url = f"{self.server_base_url}/api/versions/{version_id}/files/hsp/download"
             hsp_local_path = os.path.join(app_download_dir, hsp_filename)
-            
+
             if not os.path.exists(hsp_local_path):
                 self.log(f"📥 下载HSP文件: {hsp_filename}")
                 if not self.download_file(hsp_url, hsp_local_path):
                     return False
             else:
                 self.log(f"✅ HSP文件已存在: {hsp_filename}")
-            
+
             return True
-            
+
         except Exception as e:
             self.log(f"❌ 文件下载失败: {str(e)}")
             self.show_error("错误", f"文件下载失败: {str(e)}")
             return False
-    
+
     def download_file(self, url, local_path):
         """下载单个文件"""
         try:
@@ -2785,28 +2896,28 @@ class ModernDesignInstaller:
             if response.status_code == 200:
                 total_size = int(response.headers.get('content-length', 0))
                 downloaded = 0
-                
+
                 with open(local_path, 'wb') as f:
                     for chunk in response.iter_content(chunk_size=8192):
                         if chunk:
                             f.write(chunk)
                             downloaded += len(chunk)
-                            
+
                             # 更新进度（这里可以添加进度条更新）
                             if total_size > 0:
                                 progress = (downloaded / total_size) * 100
                                 self.log(f"📊 下载进度: {progress:.1f}%")
-                
+
                 self.log(f"✅ 文件下载完成: {os.path.basename(local_path)}")
                 return True
             else:
                 self.log(f"❌ 下载失败: HTTP {response.status_code}")
                 return False
-                
+
         except Exception as e:
             self.log(f"❌ 下载异常: {str(e)}")
             return False
-    
+
     def uninstall_current_app(self):
         """卸载当前应用"""
         if not self.current_app:
@@ -2814,15 +2925,18 @@ class ModernDesignInstaller:
             return
 
         try:
-            dev_ok, dev_out = self.run_hdc_command("list targets", show_output=False)
-            lines = [ln.strip() for ln in (dev_out or '').splitlines() if ln.strip()]
+            dev_ok, dev_out = self.run_hdc_command(
+                "list targets", show_output=False)
+            lines = [ln.strip()
+                     for ln in (dev_out or '').splitlines() if ln.strip()]
             if not dev_ok or len(lines) == 0:
-                self.show_error("卸载失败", "未检测到已连接设备，请通过 USB 连接鸿蒙设备并完成 HDC 授权后重试。")
+                self.show_error(
+                    "卸载失败", "未检测到已连接设备，请通过 USB 连接鸿蒙设备并完成 HDC 授权后重试。")
                 return
         except Exception:
             self.show_error("卸载失败", "设备检测失败，请通过 USB 连接鸿蒙设备并完成 HDC 授权后重试。")
             return
-        
+
         self.log(f"🗑️ 卸载应用: {self.current_app['name']}")
 
         try:
@@ -2836,25 +2950,29 @@ class ModernDesignInstaller:
                             deploy_path = vinfo.get('deploy_path')
                 if not deploy_path:
                     deploy_path = f"data/local/tmp/{self.current_app['id']}"
-                deploy_path = str(deploy_path).replace('\\\\', '/').replace('\\', '/')
+                deploy_path = str(deploy_path).replace(
+                    '\\\\', '/').replace('\\', '/')
 
                 # Best-effort remote cleanup; ignore failures
-                self.run_hdc_command(f"shell rm -rf {deploy_path}", show_output=False)
+                self.run_hdc_command(
+                    f"shell rm -rf {deploy_path}", show_output=False)
             except Exception:
                 pass
         except Exception:
             pass
 
         # Clean uninstall (do not keep data) to avoid signature conflicts
-        success, output = self.run_hdc_command(f"shell bm uninstall -n {self.current_app['bundle_name']}")
-        
+        success, output = self.run_hdc_command(
+            f"shell bm uninstall -n {self.current_app['bundle_name']}")
+
         if success:
             self.log("✅ 卸载成功")
             self._show_modal_dialog("卸载成功", "应用卸载成功", 'info', [('确定', True)])
         else:
             self.log(f"❌ 卸载失败: {output}")
-            self.show_error("卸载失败", f"应用卸载失败：\n{self.format_hdc_error(output)}")
-    
+            self.show_error(
+                "卸载失败", f"应用卸载失败：\n{self.format_hdc_error(output)}")
+
     def refresh_all(self):
         """刷新所有信息"""
         self.log("🔄 刷新中...")
@@ -2863,7 +2981,7 @@ class ModernDesignInstaller:
         if self.current_app:
             self.load_version_list()
         self.log("✅ 刷新完成")
-    
+
     def configure_server(self):
         """配置服务器地址和下载目录"""
         dialog = tk.Toplevel(self.root)
@@ -2876,18 +2994,18 @@ class ModernDesignInstaller:
             dialog.attributes('-alpha', 0.0)
         except Exception:
             pass
-        
+
         # 设为模态对话框
         dialog.transient(self.root)
         dialog.grab_set()
-        
+
         # 居中显示
         dialog.update_idletasks()
         self.center_window(dialog, 620, 520)
-        
+
         # 变量来跟踪用户选择
         config_saved = [False]
-        
+
         content = tk.Frame(dialog, bg=self.colors['bg_secondary'])
         content.pack(fill=tk.BOTH, expand=True, padx=24, pady=20)
 
@@ -2903,7 +3021,7 @@ class ModernDesignInstaller:
 
         config_frame = tk.Frame(form_card, bg=self.colors['bg_card'])
         config_frame.pack(padx=18, pady=16, fill='x')
-        
+
         # 服务器地址输入
         tk.Label(config_frame, text="🌐 服务器地址:",
                  font=self.fonts['body'],
@@ -2914,7 +3032,7 @@ class ModernDesignInstaller:
         self._style_entry_widget(url_entry)
         url_entry.pack(fill='x', ipady=6, pady=(0, 14))
         url_entry.insert(0, self.server_base_url)
-        
+
         # 下载目录输入
         tk.Label(config_frame, text="📁 下载目录:",
                  font=self.fonts['body'],
@@ -2928,7 +3046,7 @@ class ModernDesignInstaller:
         self._style_entry_widget(download_entry)
         download_entry.pack(side='left', fill='x', expand=True, ipady=6)
         download_entry.insert(0, self.download_dir)
-        
+
         def browse_directory():
             """浏览下载目录"""
             directory = filedialog.askdirectory(
@@ -2940,8 +3058,9 @@ class ModernDesignInstaller:
                 download_entry.delete(0, tk.END)
                 download_entry.insert(0, directory)
                 download_entry.focus_set()
-        
-        browse_btn = tk.Button(download_frame, text="浏览", command=browse_directory)
+
+        browse_btn = tk.Button(download_frame, text="浏览",
+                               command=browse_directory)
         self._style_dialog_button_widget(
             browse_btn,
             bg=self.colors['bg_selection'],
@@ -2952,14 +3071,14 @@ class ModernDesignInstaller:
             secondary=True
         )
         browse_btn.pack(side='right', padx=(10, 0))
-        
+
         # 说明文本
         info_text = """配置说明：
 • 服务器地址：提供应用和版本信息的API端点
 • 下载目录：存储下载的HAP/HSP文件
 • 配置会自动保存，下次启动时加载
 • 必须确保服务器地址正确且可访问"""
-        
+
         info_card = tk.Frame(content, bg=self.colors['bg_card'], highlightthickness=1,
                              highlightbackground=self.colors['border'])
         info_card.pack(fill='x', pady=(14, 0))
@@ -2973,40 +3092,40 @@ class ModernDesignInstaller:
 
         button_frame = tk.Frame(content, bg=self.colors['bg_secondary'])
         button_frame.pack(fill=tk.X, pady=(18, 0))
-        
+
         def save_config():
             new_url = url_entry.get().strip()
             new_download_dir = download_entry.get().strip()
-            
+
             if not new_url:
                 self.show_warning("警告", "请输入有效的服务器地址")
                 return
-            
+
             if not new_download_dir:
                 self.show_warning("警告", "请输入有效的下载目录")
                 return
-            
+
             self.server_base_url = new_url
             self.download_dir = new_download_dir
-            
+
             # 创建新的下载目录
             if not os.path.exists(self.download_dir):
                 os.makedirs(self.download_dir)
-            
+
             # 保存设置
             self.save_local_settings()
-            
+
             self.log(f"✅ 配置已更新")
             self.log(f"🌐 服务器地址: {new_url}")
             self.log(f"📁 下载目录: {new_download_dir}")
-            
+
             config_saved[0] = True
             dialog.destroy()
-        
+
         def cancel_config():
             # 直接关闭配置窗口
             dialog.destroy()
-        
+
         cancel_btn = tk.Button(button_frame, text="取消", command=cancel_config)
         self._style_dialog_button_widget(
             cancel_btn,
@@ -3060,20 +3179,21 @@ class ModernDesignInstaller:
             dialog.attributes('-alpha', 1.0)
         except Exception:
             pass
-        
+
         # 等待对话框关闭
         self.root.wait_window(dialog)
-        
+
         # 如果配置已保存，重新加载应用列表
         if config_saved[0]:
             self.load_apps_config_async()
-    
+
 
 def main():
     try:
         import ctypes
         try:
-            ctypes.windll.user32.SetProcessDpiAwarenessContext(ctypes.c_void_p(-4))
+            ctypes.windll.user32.SetProcessDpiAwarenessContext(
+                ctypes.c_void_p(-4))
         except Exception:
             try:
                 ctypes.windll.shcore.SetProcessDpiAwareness(2)
@@ -3118,7 +3238,7 @@ def main():
     root.withdraw()
     root.geometry("1400x900")
     root.resizable(True, True)
-    
+
     # Set dark background immediately to prevent white flash
     root.configure(bg='#0F1419')
 
@@ -3130,20 +3250,20 @@ def main():
             else:
                 # 开发环境
                 base_path = os.path.dirname(os.path.abspath(__file__))
-            
+
             # 优先尝试PNG格式
             png_path = os.path.join(base_path, 'logo.png')
-            
+
             # 尝试使用PNG图标（需要PIL库）
             if os.path.exists(png_path):
                 try:
                     from PIL import Image, ImageTk
                     img = Image.open(png_path)
-                    
+
                     # 确保图像有透明通道（RGBA）
                     if img.mode != 'RGBA':
                         img = img.convert('RGBA')
-                    
+
                     # 创建透明背景的PhotoImage
                     photo = ImageTk.PhotoImage(img)
                     root.iconphoto(True, photo)
@@ -3152,7 +3272,7 @@ def main():
                     return
                 except Exception:
                     pass
-                
+
         except Exception:
             pass
 
@@ -3182,18 +3302,20 @@ def main():
         pass
     except Exception:
         pass
-    
+
     def _get_center_xy(target_w, target_h):
         try:
             if platform.system() == 'Windows':
                 import ctypes
 
                 class _RECT(ctypes.Structure):
-                    _fields_ = [('left', ctypes.c_long), ('top', ctypes.c_long), ('right', ctypes.c_long), ('bottom', ctypes.c_long)]
+                    _fields_ = [('left', ctypes.c_long), ('top', ctypes.c_long),
+                                ('right', ctypes.c_long), ('bottom', ctypes.c_long)]
 
                 SPI_GETWORKAREA = 0x0030
                 rect = _RECT()
-                ok = ctypes.windll.user32.SystemParametersInfoW(SPI_GETWORKAREA, 0, ctypes.byref(rect), 0)
+                ok = ctypes.windll.user32.SystemParametersInfoW(
+                    SPI_GETWORKAREA, 0, ctypes.byref(rect), 0)
                 if ok:
                     wa_w = int(rect.right - rect.left)
                     wa_h = int(rect.bottom - rect.top)
@@ -3220,7 +3342,7 @@ def main():
 
     splash = None
     splash_shown_t0 = None
-    
+
     # Create app (window is already dark)
     app = ModernDesignInstaller(root)
 
@@ -3248,7 +3370,7 @@ def main():
             root.update_idletasks()
             if hasattr(app, 'align_header_segment'):
                 app.align_header_segment()
-            root.update() # Force an actual draw cycle
+            root.update()  # Force an actual draw cycle
         except Exception:
             pass
 
@@ -3291,8 +3413,9 @@ def main():
         _do_show_root()
 
     root.after(0, _show_root)
-    
+
     root.mainloop()
+
 
 if __name__ == "__main__":
     main()

@@ -1,4 +1,4 @@
-from flask import Flask, jsonify, send_from_directory, request
+from flask import Flask, jsonify, request
 from database.database import db
 from api.apps import init_apps_routes
 from api.versions import init_versions_routes
@@ -11,6 +11,7 @@ try:
     load_dotenv()
 except Exception:
     pass
+
 
 def create_app():
     app = Flask(__name__)
@@ -40,34 +41,12 @@ def create_app():
 
     # Initialize database
     db.ensure_database_exists()
-    
+
     # Initialize API routes
     init_apps_routes(app)
     init_versions_routes(app)
     init_files_routes(app)
-    
-    # File serving
-    @app.route('/files/<path:filename>')
-    def serve_file(filename):
-        """Serve uploaded files"""
-        try:
-            # Find file in database
-            with db.get_connection() as conn:
-                cursor = conn.execute("""
-                    SELECT file_path FROM files WHERE filename = ?
-                """, (filename,))
-                file_record = cursor.fetchone()
-                
-                if not file_record:
-                    return jsonify({'error': 'File not found'}), 404
-                
-                file_path = file_record['file_path']
-                directory = os.path.dirname(file_path)
-                return send_from_directory(directory, filename)
-                
-        except Exception as e:
-            return jsonify({'error': str(e)}), 500
-    
+
     @app.route('/health')
     def health_check():
         """Health check endpoint"""
@@ -75,13 +54,13 @@ def create_app():
             with db.get_connection() as conn:
                 cursor = conn.execute("SELECT COUNT(*) FROM apps")
                 app_count = cursor.fetchone()[0]
-                
+
                 cursor = conn.execute("SELECT COUNT(*) FROM versions")
                 version_count = cursor.fetchone()[0]
-                
+
                 cursor = conn.execute("SELECT COUNT(*) FROM files")
                 file_count = cursor.fetchone()[0]
-                
+
                 return jsonify({
                     'status': 'healthy',
                     'database': 'connected',
@@ -94,13 +73,13 @@ def create_app():
                 'status': 'unhealthy',
                 'error': str(e)
             }), 500
-    
+
     @app.route('/')
     def index():
         """Index page with API documentation"""
         return jsonify({
             'name': 'HarmonyOS Installer API',
-            'version': '2.0.0',
+            'version': '2.1.0',
             'description': 'API for managing HarmonyOS applications and versions',
             'endpoints': {
                 'apps': {
@@ -112,17 +91,24 @@ def create_app():
                 'versions': {
                     'GET /api/apps/{app_id}/versions': 'Get app versions',
                     'POST /api/apps/{app_id}/versions': 'Create version',
+                    'POST /api/versions/create-with-files': 'Create or overwrite version and upload HAP/HSP files (multipart)',
                     'PUT /api/versions/{id}': 'Update version',
-                    'DELETE /api/versions/{id}': 'Delete version'
+                    'DELETE /api/versions/{id}': 'Delete version',
+                    'GET /api/versions/{id}/info': 'Get version info (compat format)',
+                    'DELETE /api/versions/{version_id}/files/{file_type}': 'Delete version file by type (hap/hsp)'
                 },
                 'files': {
                     'POST /api/upload': 'Upload file',
                     'GET /api/files/{id}': 'Download file',
-                    'DELETE /api/files/{id}': 'Delete file'
+                    'DELETE /api/files/{id}': 'Delete file',
+                    'GET /api/versions/{version_id}/files/{file_type}/download': 'Download specific file for a version (hap/hsp)'
+                },
+                'auth': {
+                    'X-API-Key': 'If ADMIN_API_KEY is set, required for POST /api/versions/create-with-files, POST /api/upload, PUT /api/apps/*, PUT /api/versions/*, DELETE /api/*'
                 }
             }
         })
-    
+
     @app.route('/admin')
     def admin_panel():
         """Admin panel"""
@@ -131,8 +117,9 @@ def create_app():
                 return f.read()
         except FileNotFoundError:
             return jsonify({'error': 'Admin panel not found'}), 404
-    
+
     return app
+
 
 if __name__ == '__main__':
     app = create_app()
