@@ -1306,6 +1306,23 @@ class ModernDesignInstaller:
         dialog.transient(self.root)
         dialog.configure(bg=self.colors['bg_secondary'])
 
+        try:
+            ui_scale = float(getattr(self, 'ui_scale', 1.0))
+        except Exception:
+            ui_scale = 1.0
+
+        # Make border more visible (no layout change)
+        try:
+            border_thickness = max(1, int(round(1 * ui_scale)))
+            dialog.configure(
+                highlightthickness=border_thickness,
+                highlightbackground='#3B4045',
+                highlightcolor='#3B4045',
+                bd=0,
+            )
+        except Exception:
+            pass
+
         dialog_width = 620
 
         try:
@@ -1409,7 +1426,7 @@ class ModernDesignInstaller:
             fg=self.colors['text_primary'],
             justify='left',
             anchor='w',
-            wraplength=max(320, dialog_width - (44 + 14) - 40)
+            wraplength=max(320, dialog_width - (icon_size + 14) - 40)
         )
         msg_label.pack(anchor='w')
 
@@ -2051,13 +2068,25 @@ class ModernDesignInstaller:
             except Exception:
                 _run_kwargs = {}
             
-            result = subprocess.run(args,
-                                    capture_output=True, text=True,
-                                    timeout=30, **_run_kwargs)
+            result = subprocess.run(
+                args,
+                capture_output=True,
+                text=True,
+                encoding='utf-8',
+                errors='replace',
+                timeout=30,
+                **_run_kwargs
+            )
 
             stdout_text = result.stdout or ''
             stderr_text = result.stderr or ''
             combined = (stdout_text + "\n" + stderr_text).lower()
+
+            hdc_text_error_markers = (
+                'error:',
+                'error code:',
+                'failed to ',
+            )
 
             no_device_markers = (
                 'no device',
@@ -2084,6 +2113,9 @@ class ModernDesignInstaller:
             )
 
             if any(m in combined for m in hdc_fail_markers):
+                return False, (stderr_text.strip() or stdout_text.strip() or 'HDC执行失败')
+
+            if any(m in combined for m in hdc_text_error_markers):
                 return False, (stderr_text.strip() or stdout_text.strip() or 'HDC执行失败')
             
             if result.returncode == 0:
@@ -2117,6 +2149,35 @@ class ModernDesignInstaller:
             if cleaned:
                 return f"HDC 执行失败：{cleaned}"
             return "HDC 执行失败，请确认设备连接与授权后重试。"
+
+        if 'uninstall missing installed bundle' in low or 'failed to uninstall bundle' in low and 'missing installed bundle' in low:
+            return (
+                "卸载失败：设备上未安装该应用。\n\n"
+                "说明：当前设备找不到这个包名对应的已安装应用，所以无法卸载。\n\n"
+                "你可以：\n"
+                "1) 直接点击【安装选中版本】进行安装\n"
+                "2) 或点击【刷新】确认设备连接后再操作"
+            )
+
+        if 'failed to retrieve specified package information' in low or 'is not installed' in low:
+            return (
+                "操作失败：设备上未安装该应用。\n\n"
+                "说明：当前设备找不到该包名的应用，停止/启动等操作会失败属于正常现象。\n\n"
+                "建议：直接点击【安装选中版本】进行安装。"
+            )
+
+        if 'install sign info inconsistent' in low:
+            return (
+                "安装失败：签名不一致。\n\n"
+                "含义：设备上可能残留了同包名应用/模块，但签名与本次安装包不同；或本次 HAP/HSP 不是同一套证书签名。\n\n"
+                "建议你在客户端里按下面做（从上到下）：\n"
+                "1) 点击右侧【卸载】一次（已做彻底卸载与清理），完成后再点【安装选中版本】重试\n"
+                "2) 点击【刷新】后再重试安装（确保设备连接状态正常）\n"
+                "3) 如果仍失败：\n"
+                "   - 说明安装包签名确实不一致（HAP/HSP 不同证书或不是同一次构建）\n"
+                "   - 请让构建/打包同事确认该版本的 HAP 与 HSP 来自同一次构建、同一证书签名\n\n"
+                "如果你愿意，把客户端日志里 bm install 的完整输出发我，我可以进一步判断是哪一种冲突。"
+            )
 
         return text if text else "HDC 执行失败，请确认设备连接与授权后重试。"
     
@@ -2423,13 +2484,15 @@ class ModernDesignInstaller:
             
             # 安装步骤
             android_deploy_path = deploy_path.replace('\\', '/')
+            hap_remote = f"{android_deploy_path}/{os.path.basename(hap_file)}"
+            hsp_remote = f"{android_deploy_path}/{os.path.basename(hsp_file)}"
             steps = [
                 ("停止应用", f"shell aa force-stop {self.current_app['bundle_name']}"),
-                ("卸载旧版本", f"shell bm uninstall -n {self.current_app['bundle_name']} -k"),
+                ("彻底卸载旧版本", f"shell bm uninstall -n {self.current_app['bundle_name']}"),
+                ("清理安装包缓存", f"shell rm -f {hsp_remote} {hap_remote}"),
                 ("上传HSP", f"file send {hsp_file} {android_deploy_path}"),
                 ("上传HAP", f"file send {hap_file} {android_deploy_path}"),
-                ("安装HSP", f"shell bm install -p {android_deploy_path}/{os.path.basename(hsp_file)}"),
-                ("安装HAP", f"shell bm install -p {android_deploy_path}/{os.path.basename(hap_file)}"),
+                ("安装应用", f"shell bm install -p {hsp_remote} -p {hap_remote}"),
                 ("启动应用", f"shell aa start -a {self.current_app['main_ability']} -b {self.current_app['bundle_name']} -m entry")
             ]
             
@@ -2446,10 +2509,10 @@ class ModernDesignInstaller:
                     self.log(f"&#x274c; {step_name}&#x5931;&#x8d25;")
                     
                     # &#x5bf9;&#x4e8e;&#x67d0;&#x4e9b;&#x6b65;&#x9aa4;&#xff0c;&#x5931;&#x8d25;&#x662f;&#x53ef;&#x63a5;&#x53d7;&#x7684;
-                    if step_name in ["&#x505c;&#x6b62;&#x5e94;&#x7528;", "&#x5378;&#x8f7d;&#x65e7;&#x7248;", "Install HAP"]:
+                    if step_name in ["停止应用", "彻底卸载旧版本"]:
                         self.log(f"&#x26a0;&#xfe0f; {step_name}&#x5931;&#x8d25;&#x4f46;&#x7ee7;&#x7eed;&#x6267;&#x884c;")
                         continue
-                    elif step_name == "&#x542f;&#x52a8;&#x5e94;&#x7522;":
+                    elif step_name == "启动应用":
                         self.log(f"&#x26a0;&#xfe0f; {step_name}&#x5931;&#x8d25;&#xff0c;&#x4f46;&#x5b89;&#x88c5;&#x53ef;&#x80fd;&#x6210;&#x529f;")
                         continue
                     else:
@@ -2665,7 +2728,29 @@ class ModernDesignInstaller:
             return
         
         self.log(f"🗑️ 卸载应用: {self.current_app['name']}")
-        success, output = self.run_hdc_command(f"shell bm uninstall -n {self.current_app['bundle_name']} -k")
+
+        try:
+            try:
+                deploy_path = None
+                if isinstance(self.apps_config, dict) and self.current_app is not None:
+                    current_version = self.current_app.get('current_version')
+                    if current_version and current_version != 'N/A':
+                        vinfo = self.get_version_info(current_version)
+                        if isinstance(vinfo, dict):
+                            deploy_path = vinfo.get('deploy_path')
+                if not deploy_path:
+                    deploy_path = f"data/local/tmp/{self.current_app['id']}"
+                deploy_path = str(deploy_path).replace('\\\\', '/').replace('\\', '/')
+
+                # Best-effort remote cleanup; ignore failures
+                self.run_hdc_command(f"shell rm -rf {deploy_path}", show_output=False)
+            except Exception:
+                pass
+        except Exception:
+            pass
+
+        # Clean uninstall (do not keep data) to avoid signature conflicts
+        success, output = self.run_hdc_command(f"shell bm uninstall -n {self.current_app['bundle_name']}")
         
         if success:
             self.log("✅ 卸载成功")
