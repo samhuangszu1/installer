@@ -2546,9 +2546,9 @@ class ModernDesignInstaller:
             scale = float(getattr(self, 'ui_scale', 1.0) or 1.0)
         except Exception:
             scale = 1.0
-        toast_width = max(200, int(round(200 * scale)))
-        toast_height = max(40, int(round(40 * scale)))
-        toast_radius = max(12, int(round(12 * scale)))
+        toast_width = max(180, int(round(180 * scale)))
+        toast_height = max(36, int(round(36 * scale)))
+        toast_radius = max(18, int(round(18 * scale)))
         x = main_x + (main_width // 2) - (toast_width // 2)
         y = main_y + (main_height // 2) - (toast_height // 2)
         try:
