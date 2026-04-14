@@ -268,18 +268,11 @@ class ModernDesignInstaller:
                              darkcolor=self.colors['bg_accent'])
 
         # Treeview 样式优化
-        _tv_row_h = 40
-        try:
-            _tv_row_h = int(round(40 * float(getattr(self, 'ui_scale', 1.0))))
-        except Exception:
-            _tv_row_h = 40
-
         self.style.configure('Modern.Treeview',
                              background=self.colors['bg_card'],
                              foreground=self.colors['text_primary'],
                              fieldbackground=self.colors['bg_card'],
-                             rowheight=_tv_row_h,
-                             padding=(max(0, int(round(6 * float(getattr(self, 'ui_scale', 1.0))))), 0),
+                             rowheight=40,
                              font=self.fonts['body'],
                              borderwidth=0,
                              relief='flat')
@@ -287,13 +280,7 @@ class ModernDesignInstaller:
                        background=[('selected', self.colors['bg_selection'])],
                        foreground=[('selected', self.colors['text_primary'])])
 
-        _heading_size = 11
-        try:
-            _heading_size = max(9, int(round(11 * float(getattr(self, 'ui_scale', 1.0)))))
-        except Exception:
-            _heading_size = 11
-
-        heading_font = ('Segoe UI', _heading_size, 'bold')
+        heading_font = ('Segoe UI', 11, 'bold')
         pad_y = 4
         try:
             row_h = int(self.style.lookup(
@@ -315,17 +302,11 @@ class ModernDesignInstaller:
         except Exception:
             pad_y = 4
 
-        _heading_pad_x = 6
-        try:
-            _heading_pad_x = max(4, int(round(6 * float(getattr(self, 'ui_scale', 1.0)))))
-        except Exception:
-            _heading_pad_x = 6
-
         self.style.configure('Modern.Treeview.Heading',
                              background=self.colors['bg_secondary'],
                              foreground=self.colors['text_primary'],
                              font=heading_font,
-                             padding=(_heading_pad_x, pad_y),
+                             padding=(6, pad_y),
                              borderwidth=0,
                              relief='flat')
 
@@ -800,20 +781,8 @@ class ModernDesignInstaller:
             1, weight=21, uniform='main_panels')
         grid_container.grid_columnconfigure(
             2, weight=10, uniform='main_panels')
-        ui_scale = 1.0
-        try:
-            ui_scale = float(getattr(self, 'ui_scale', 1.0))
-        except Exception:
-            ui_scale = 1.0
-
-        # Give more space to main panels, but reserve enough height for the console
-        # so that action buttons never overflow on high DPI.
-        grid_container.grid_rowconfigure(0, weight=3)
-        try:
-            _console_min_h = max(180, int(round(200 * ui_scale)))
-        except Exception:
-            _console_min_h = 200
-        grid_container.grid_rowconfigure(1, weight=1, minsize=_console_min_h)
+        grid_container.grid_rowconfigure(0, weight=1)
+        grid_container.grid_rowconfigure(1, weight=1)
 
         # 创建三个主要面板
         self.create_app_panel(grid_container, 0, 0)
@@ -1034,17 +1003,17 @@ class ModernDesignInstaller:
         tree_frame.pack(fill=tk.BOTH, expand=True)
 
         # 创建树形视图
-        columns = ('desc', 'version', 'date', 'action')
+        columns = ('version', 'date', 'action')
         tree = ttk.Treeview(tree_frame, columns=columns,
-                            show='headings', height=12)
+                            show='tree headings', height=12)
 
         # 配置列
-        tree.heading('desc', text='描述', anchor='w')
+        tree.heading('#0', text='描述', anchor='w')
         tree.heading('version', text='版本', anchor='center')
         tree.heading('date', text='发布日期', anchor='center')
         tree.heading('action', text='操作', anchor='center')
 
-        tree.column('desc', width=240, anchor='w')
+        tree.column('#0', width=240, anchor='w')
         tree.column('version', width=120, anchor='center')
         tree.column('date', width=160, anchor='center')
         tree.column('action', width=90, anchor='center')
@@ -1102,7 +1071,7 @@ class ModernDesignInstaller:
             x_positions = []
             try:
                 base_x = tree.winfo_x()
-                x = base_x + int(tree.column('desc', 'width'))
+                x = base_x + int(tree.column('#0', 'width'))
                 x_positions.append(x)
 
                 x += int(tree.column('version', 'width'))
@@ -1319,112 +1288,23 @@ class ModernDesignInstaller:
         button_frame = tk.Frame(console_frame, bg=self.colors['bg_card'])
         button_frame.pack(side=tk.RIGHT, fill=tk.Y, padx=(10, 0))
 
-        button_inner = tk.Frame(button_frame, bg=self.colors['bg_card'])
-        button_inner.pack(expand=True)
-
         clear_btn = self.create_modern_button(
-            button_inner,
+            button_frame,
             "清除",
             self.clear_log,
             self.colors['text_muted'],
             self.colors['text_secondary']
         )
-        clear_btn.pack(pady=(0, 8), fill=tk.X)
+        clear_btn.pack(pady=(0, 8))
 
         save_btn = self.create_modern_button(
-            button_inner,
+            button_frame,
             "保存",
             self.save_log,
             self.colors['text_muted'],
             self.colors['text_secondary']
         )
-        save_btn.pack(fill=tk.X)
-
-        state = {'compact': False, 'horizontal': False, '_after_id': None}
-
-        def _set_vertical_layout():
-            try:
-                clear_btn.pack_forget()
-                save_btn.pack_forget()
-            except Exception:
-                pass
-            clear_btn.pack(pady=(0, 8), fill=tk.X)
-            save_btn.pack(fill=tk.X)
-
-        def _set_horizontal_layout():
-            try:
-                clear_btn.pack_forget()
-                save_btn.pack_forget()
-            except Exception:
-                pass
-            clear_btn.pack(side=tk.LEFT, padx=(0, 8))
-            save_btn.pack(side=tk.LEFT)
-
-        def _apply_compact(compact):
-            try:
-                if compact:
-                    clear_btn.config(padx=10, pady=6)
-                    save_btn.config(padx=10, pady=6)
-                else:
-                    clear_btn.config(padx=15, pady=12)
-                    save_btn.config(padx=15, pady=12)
-            except Exception:
-                pass
-
-        def _recalc_layout(*_):
-            try:
-                if state['_after_id'] is not None:
-                    try:
-                        self.root.after_cancel(state['_after_id'])
-                    except Exception:
-                        pass
-                state['_after_id'] = self.root.after(0, _do_recalc_layout)
-            except Exception:
-                pass
-
-        def _do_recalc_layout():
-            state['_after_id'] = None
-
-            try:
-                avail_h = int(button_frame.winfo_height() or 0)
-            except Exception:
-                avail_h = 0
-
-            try:
-                req_v = int(clear_btn.winfo_reqheight() + save_btn.winfo_reqheight() + 8)
-            except Exception:
-                req_v = 0
-
-            if avail_h <= 0 or req_v <= 0:
-                return
-
-            need_compact = req_v > avail_h
-            if need_compact != state['compact']:
-                state['compact'] = need_compact
-                _apply_compact(need_compact)
-
-            try:
-                req_v2 = int(clear_btn.winfo_reqheight() + save_btn.winfo_reqheight() + 8)
-            except Exception:
-                req_v2 = req_v
-
-            need_horizontal = req_v2 > avail_h
-            if need_horizontal != state['horizontal']:
-                state['horizontal'] = need_horizontal
-                if need_horizontal:
-                    _set_horizontal_layout()
-                else:
-                    _set_vertical_layout()
-
-        try:
-            button_frame.bind('<Configure>', _recalc_layout, add=True)
-        except Exception:
-            pass
-
-        try:
-            self.root.after(0, _do_recalc_layout)
-        except Exception:
-            pass
+        save_btn.pack()
 
     def create_modern_text(self, parent, height=10):
         """创建现代化文本区域"""
@@ -2177,9 +2057,9 @@ class ModernDesignInstaller:
                     status = '🚀'  # 可以根据版本状态显示不同图标
                     row_tag = 'even' if idx % 2 == 0 else 'odd'
 
-                    self.version_tree.insert('', 'end',
+                    self.version_tree.insert('', 'end', text=description,
                                              values=(
-                                                 description, version, release_date, status),
+                                                 version, release_date, status),
                                              tags=(row_tag,))
 
                 self.log(f"📦 已从服务器加载 {len(versions)} 个版本")
