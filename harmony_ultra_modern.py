@@ -2887,7 +2887,7 @@ class ModernDesignInstaller:
             hap_url = f"{self.server_base_url}/api/versions/{version_id}/files/hap/download"
             hap_local_path = os.path.join(app_download_dir, hap_filename)
 
-            if not os.path.exists(hap_local_path):
+            if not self._is_local_file_complete(hap_url, hap_local_path):
                 self.log(f"📥 下载HAP文件: {hap_filename}")
                 if not self.download_file(hap_url, hap_local_path):
                     return False
@@ -2898,7 +2898,7 @@ class ModernDesignInstaller:
             hsp_url = f"{self.server_base_url}/api/versions/{version_id}/files/hsp/download"
             hsp_local_path = os.path.join(app_download_dir, hsp_filename)
 
-            if not os.path.exists(hsp_local_path):
+            if not self._is_local_file_complete(hsp_url, hsp_local_path):
                 self.log(f"📥 下载HSP文件: {hsp_filename}")
                 if not self.download_file(hsp_url, hsp_local_path):
                     return False
@@ -2915,21 +2915,45 @@ class ModernDesignInstaller:
     def download_file(self, url, local_path):
         """下载单个文件"""
         try:
+            tmp_path = f"{local_path}.part"
+            try:
+                if os.path.exists(tmp_path):
+                    os.remove(tmp_path)
+            except Exception:
+                pass
+
             response = requests.get(url, stream=True, timeout=30)
             if response.status_code == 200:
-                total_size = int(response.headers.get('content-length', 0))
+                total_size = int(response.headers.get('content-length', 0) or 0)
                 downloaded = 0
 
-                with open(local_path, 'wb') as f:
+                with open(tmp_path, 'wb') as f:
                     for chunk in response.iter_content(chunk_size=8192):
                         if chunk:
                             f.write(chunk)
                             downloaded += len(chunk)
 
-                            # 更新进度（这里可以添加进度条更新）
                             if total_size > 0:
                                 progress = (downloaded / total_size) * 100
                                 self.log(f"📊 下载进度: {progress:.1f}%")
+
+                if total_size > 0 and downloaded != total_size:
+                    try:
+                        os.remove(tmp_path)
+                    except Exception:
+                        pass
+                    self.log(f"❌ 下载不完整: {os.path.basename(local_path)} ({downloaded}/{total_size})")
+                    return False
+
+                try:
+                    os.replace(tmp_path, local_path)
+                except Exception:
+                    try:
+                        if os.path.exists(local_path):
+                            os.remove(local_path)
+                    except Exception:
+                        pass
+                    os.replace(tmp_path, local_path)
 
                 self.log(f"✅ 文件下载完成: {os.path.basename(local_path)}")
                 return True
@@ -2939,7 +2963,45 @@ class ModernDesignInstaller:
 
         except Exception as e:
             self.log(f"❌ 下载异常: {str(e)}")
+            try:
+                tmp_path = f"{local_path}.part"
+                if os.path.exists(tmp_path):
+                    os.remove(tmp_path)
+            except Exception:
+                pass
             return False
+
+    def _is_local_file_complete(self, url, local_path):
+        try:
+            if not os.path.exists(local_path):
+                return False
+        except Exception:
+            return False
+
+        expected = 0
+        try:
+            r = requests.head(url, timeout=10, allow_redirects=True)
+            if r.status_code in (200, 206):
+                expected = int(r.headers.get('content-length', 0) or 0)
+        except Exception:
+            expected = 0
+
+        if expected <= 0:
+            return True
+
+        try:
+            actual = os.path.getsize(local_path)
+        except Exception:
+            return False
+
+        if actual == expected:
+            return True
+
+        try:
+            os.remove(local_path)
+        except Exception:
+            pass
+        return False
 
     def uninstall_current_app(self):
         """卸载当前应用"""
