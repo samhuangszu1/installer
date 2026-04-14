@@ -79,6 +79,13 @@ versions/local_*/
 # Local settings
 settings.json
 
+# Database
+server/database/*.db
+server/database/*.db-journal
+server/database/*.db-shm
+server/database/*.db-wal
+server/database/harmony_installer.db
+
 # HAP/HSP files (too large for GitHub)
 *.hap
 *.hsp
