@@ -132,7 +132,7 @@ class ModernDesignInstaller:
             return
 
         # 加载配置（异步，避免在启动阶段阻塞 UI 导致停留在启动页）
-        self.root.after(300, self.load_apps_config_async)
+        self.root.after(200, self.load_apps_list_async)
 
         # 设置窗口图标
         self._set_window_icon()
@@ -174,7 +174,7 @@ class ModernDesignInstaller:
         except Exception:
             pass
 
-    def load_apps_config_async(self):
+    def load_apps_list_async(self):
         """异步从服务器加载应用配置，避免阻塞 Tk 主线程"""
         try:
             apps_url = f"{self.server_base_url}/api/apps"
@@ -1853,12 +1853,25 @@ class ModernDesignInstaller:
             self.app_tree.delete(item)
 
         for idx, app in enumerate(self.apps_config['apps']):
-            display_text = f"📱 {app['name']}"
+            display_text = f" {app['name']}"
             row_tag = 'even' if idx % 2 == 0 else 'odd'
             self.app_tree.insert('', 'end', iid=str(
                 idx), text=display_text, tags=(row_tag,))
 
-        self.log("📋 应用列表已更新")
+        self.log(" 应用列表已更新")
+
+        # 自动选中第一个应用
+        if self.apps_config.get('apps') and len(self.apps_config['apps']) > 0:
+            try:
+                self.app_tree.selection_set('0')
+                self.app_tree.see('0')
+                # 模拟触发 on_app_select 事件
+                self.current_app = self.apps_config['apps'][0]
+                self.log(f" 已自动选择: {self.current_app['name']}")
+                self.update_control_center()
+                self.load_version_list_async(select_first=True)
+            except Exception:
+                pass
 
     def on_app_select(self, event):
         """应用选择事件"""
@@ -1878,7 +1891,7 @@ class ModernDesignInstaller:
 
         if index < len(self.apps_config['apps']):
             self.current_app = self.apps_config['apps'][index]
-            self.log(f"📱 已选择: {self.current_app['name']}")
+            self.log(f" 已选择: {self.current_app['name']}")
             self.update_control_center()
             self.load_version_list_async(select_first=True)
 
@@ -1895,114 +1908,39 @@ class ModernDesignInstaller:
 
         if versions and isinstance(versions[0], dict):
             version = versions[0].get('version')
-            if version:
+            version_id = versions[0].get('id')
+            if version_id is not None:
                 try:
-                    for iid, info in (getattr(self, '_version_item_map', {}) or {}).items():
-                        if isinstance(info, dict) and info.get('version') == version:
-                            self.version_tree.selection_set(iid)
-                            self.version_tree.see(iid)
-                            break
+                    iid = f"ver_{version_id}"
+                    self.version_tree.selection_set(iid)
+                    self.version_tree.see(iid)
                 except Exception:
                     pass
 
                 self.current_version = version
-                self.log(f"🎯 默认选择版本: {version}")
-                self.show_version_info(version)
+                self.log(f" 默认选择版本: {version} (version_id={version_id})")
+                self.show_version_info_by_id(version_id)
                 return
 
-        # 如果没有版本数据，显示应用基本信息（不从 UI values 反推版本号）
-        self.show_app_info()
-
-    def show_app_info(self):
-        """显示应用信息"""
-        if not self.current_app:
+    def show_version_info_by_id(self, version_id):
+        """通过 version_id 精确显示版本特定信息"""
+        if not self.current_app or not version_id:
             return
-
-        app_name = self.current_app.get('name', 'N/A')
-        bundle_name = self.current_app.get('bundle_name', 'N/A')
-        current_version = self.current_app.get('current_version', 'N/A')
-        main_ability = self.current_app.get('main_ability', 'N/A')
-
-        info = f"应用名称: {app_name}\n"
-        info += f"应用包名: {bundle_name}\n"
-        info += f"当前版本: {current_version}\n"
-        info += f"应用入口: {main_ability}\n"
-        info += f"版本描述: N/A"
-
-        self.app_info_text.delete(1.0, tk.END)
-        self.app_info_text.insert(1.0, info)
-
-        if not current_version or current_version == 'N/A':
-            return
-
-        # 异步获取“当前版本”的描述，避免服务器异常导致 UI 卡顿
-        app_snapshot = self.current_app
-
-        def _run():
-            try:
-                vinfo = self.get_version_info(current_version)
-                desc = None
-                if isinstance(vinfo, dict):
-                    desc = vinfo.get('description')
-                if not desc:
-                    desc = 'N/A'
-                ok = True
-                payload = desc
-            except Exception:
-                ok = False
-                payload = 'N/A'
-
-            def _apply():
-                try:
-                    # 避免切换应用后回写旧数据
-                    if self.current_app is not app_snapshot:
-                        return
-
-                    info2 = f"应用名称: {app_name}\n"
-                    info2 += f"应用包名: {bundle_name}\n"
-                    info2 += f"当前版本: {current_version}\n"
-                    info2 += f"应用入口: {main_ability}\n"
-                    info2 += f"版本描述: {payload}"
-
-                    self.app_info_text.delete(1.0, tk.END)
-                    self.app_info_text.insert(1.0, info2)
-                except Exception:
-                    pass
-
-            try:
-                self.root.after(0, _apply)
-            except Exception:
-                pass
-
-        threading.Thread(target=_run, daemon=True).start()
-
-    def show_version_info(self, version):
-        """显示版本特定信息"""
-        if not self.current_app or not version:
-            self.show_app_info()  # 回退到应用信息
-            return
-
-        # 获取版本信息
-        version_info = self.get_version_info(version)
+        version_info = self.get_version_info_by_id(version_id)
         if not version_info:
-            self.show_app_info()  # 回退到应用信息
             return
-
-        # 构建版本特定信息
+        version_str = version_info.get('version', 'N/A')
         info = f"应用名称: {self.current_app.get('name', 'N/A')}\n"
         info += f"应用包名: {self.current_app.get('bundle_name', 'N/A')}\n"
-        info += f"选中版本: {version}\n"
+        info += f"选中版本: {version_str}\n"
         info += f"发布日期: {version_info.get('release_date', 'N/A')}\n"
         info += f"应用入口: {self.current_app.get('main_ability', 'N/A')}\n"
         info += f"版本描述: {version_info.get('description', 'N/A')}\n"
-
-        # 添加文件信息（如果可用）
         files = version_info.get('files', {})
         if isinstance(files, dict):
             info += f"\n文件信息:\n"
             info += f"  HAP: {files.get('hap', 'N/A')}\n"
             info += f"  HSP: {files.get('hsp', 'N/A')}\n"
-
         self.app_info_text.delete(1.0, tk.END)
         self.app_info_text.insert(1.0, info)
 
@@ -2031,15 +1969,19 @@ class ModernDesignInstaller:
             info = (getattr(self, '_version_item_map', {}) or {}).get(item)
             if isinstance(info, dict) and info.get('version'):
                 version = info.get('version')
+                version_id = info.get('id')
                 self.current_version = version
-                self.log(f"Selected version: {version}")
-                self.show_version_info(version)
+                self.log(f"Selected version: {version} (version_id={version_id})")
+                if version_id:
+                    self.show_version_info_by_id(version_id)
                 self.update_control_center()
         except Exception:
             pass
 
     def load_version_list_async(self, select_first=False):
         """异步加载版本列表，避免阻塞 UI，并在加载完成后再执行默认选择。"""
+        self.log(f"📋 应用列表已更新{self.current_app['id']}")
+
         if not self.current_app:
             return
 
@@ -2073,7 +2015,7 @@ class ModernDesignInstaller:
                 versions = (data or {}).get('versions', [])
                 if not isinstance(versions, list):
                     versions = []
-                versions.sort(key=lambda x: (x or {}).get('version', ''), reverse=True)
+                versions.sort(key=lambda x: (x or {}).get('id', ''), reverse=True)
                 return True, versions
             except requests.exceptions.RequestException as e:
                 return False, f"无法连接到服务器: {str(e)}\n\n请检查服务器地址配置或网络连接。"
@@ -2087,7 +2029,6 @@ class ModernDesignInstaller:
             if not ok:
                 self.log(f"❌ 版本加载失败: {payload}")
                 self.show_error("错误", str(payload))
-                self.show_app_info()
                 return
 
             versions = payload
@@ -2646,11 +2587,28 @@ class ModernDesignInstaller:
             self.show_warning("警告", "请选择应用")
             return
 
-        item = self.version_tree.item(selection[0])
-        version = item['values'][0]
+        selected_iid = selection[0]
+        version_info = None
+        try:
+            version_info = (getattr(self, '_version_item_map', {}) or {}).get(selected_iid)
+        except Exception:
+            version_info = None
+
+        version_id = None
+        version_str = None
+        if isinstance(version_info, dict):
+            version_id = version_info.get('id')
+            version_str = version_info.get('version')
+
+        if not version_id:
+            self.show_error("错误", "无法获取选中版本，请先刷新版本列表后重试。")
+            return
+
+        if version_str is None:
+            version_str = ''
 
         self.log(
-            f"&#x1d4cb; &#x9009;&#x4e2d;&#x7684;&#x7248;&#x672c;&#x53f7;: '{version}' (&#x7c7b;&#x578b;: {type(version)})")
+            f"&#x1d4cb; &#x9009;&#x4e2d;&#x7684;&#x7248;&#x672c;&#x53f7;: '{version_str}' (version_id={version_id})")
 
         try:
             self.root.after(0, self._install_spinner_start)
@@ -2661,14 +2619,17 @@ class ModernDesignInstaller:
                 pass
 
         thread = threading.Thread(
-            target=self.install_app_version, args=(version,))
+            target=self.install_app_version, args=(version_info,))
         thread.daemon = True
         thread.start()
 
-    def install_app_version(self, version):
+    def install_app_version(self, version_info):
         """安装应用版本"""
+        if not version_info:
+            return
+        version_id = version_info.get('id')
         try:
-            self.log(f"🚀 开始安装版本 {version}")
+            self.log(f"🚀 开始安装版本ID {version_id}")
 
             try:
                 dev_ok, dev_out = self.run_hdc_command(
@@ -2680,15 +2641,10 @@ class ModernDesignInstaller:
                     return
             except Exception:
                 self.show_error("错误", "设备检测失败，请通过 USB 连接鸿蒙设备后重试。")
-                return
-
-            # 获取版本信息
-            version_info = self.get_version_info(version)
-            if not version_info:
-                return
+                return            
 
             # 下载文件
-            if not self.download_version_files(version_info, version):
+            if not self.download_version_files(version_info):
                 return
 
             # 获取本地文件路径
@@ -2762,7 +2718,7 @@ class ModernDesignInstaller:
                     # &#x5bf9;&#x4e8e;&#x67d0;&#x4e9b;&#x6b65;&#x9aa4;&#xff0c;&#x5931;&#x8d25;&#x662f;&#x53ef;&#x63a5;&#x53d7;&#x7684;
                     if step_name in ["停止应用", "彻底卸载旧版本"]:
                         self.log(
-                            f"&#x26a0;&#xfe0f; {step_name}&#x5931;&#x8d25;&#x4f46;&#x7ee7;&#x7eed;&#x6267;&#x884c;")
+                            f"&#x26a0;&#xfe0f; {step_name}&#x5931;&#x8d25;&#xff0c;&#x4f46;&#x7ee7;&#x7eed;&#x6267;&#x884c;")
                         continue
                     elif step_name == "启动应用":
                         self.log(
@@ -2801,7 +2757,7 @@ class ModernDesignInstaller:
             if app_installed:
                 self.log("Installation completed successfully")
                 self._show_modal_dialog(
-                    "安装成功", f"应用版本 {version} 安装成功！\n\n已在设备上验证", 'info', [('确定', True)])
+                    "安装成功", f"应用版本 {version_str} 安装成功！\n\n已在设备上验证", 'info', [('确定', True)])
 
                 # Try to start the app
                 self.log("Attempting to start the app...")
@@ -2839,53 +2795,34 @@ class ModernDesignInstaller:
                 except Exception:
                     pass
 
-    def get_version_info(self, version):
-        """获取版本信息"""
+    def get_version_info_by_id(self, version_id):
+        """通过 version_id 获取版本信息（精确，避免版本号重复歧义）"""
         try:
-            # 首先获取所有版本，找到匹配的版本
-            app_id = self.current_app['id']
-            versions_url = f"{self.server_base_url}/api/apps/{app_id}/versions"
-            self.log(f"🌐 获取版本列表: {versions_url}")
-
-            response = requests.get(versions_url, timeout=10)
-            if response.status_code == 200:
-                versions_data = response.json()
-                versions = versions_data.get('versions', [])
-
-                # 找到匹配的版本
-                version_info = None
-                for v in versions:
-                    if v.get('version') == version:
-                        version_info = v
-                        # 从版本信息中提取文件信息
-                        files = v.get('files', {})
-                        if not isinstance(files, dict):
-                            self.log(f"❌ 版本文件信息格式错误: 期望字典，实际收到 {type(files)}")
-                            self.show_error("错误", f"版本文件信息格式错误: {type(files)}")
-                            return None
-                        version_info = v  # 使用整个版本信息
-                        break
-
-                if version_info:
-                    self.log(f"📝 找到版本: {version_info.get('version')}")
-                    return version_info
-                else:
-                    self.log(f"❌ 未找到版本: {version}")
-                    return None
-            else:
-                raise Exception(f"服务器响应错误: {response.status_code}")
-
-        except requests.exceptions.RequestException as e:
+            vid = int(version_id)
+        except Exception:
             return None
 
+        try:
+            url = f"{self.server_base_url}/api/versions/{vid}/info"
+            self.log(f"🌐 获取版本信息: {url}")
+
+            response = requests.get(url, timeout=10)
+            if response.status_code == 200:
+                data = response.json()
+                if isinstance(data, dict):
+                    # /info 为兼容旧格式可能不带 id，这里补齐，供下载/安装流程使用
+                    data['id'] = vid
+                return data
+            else:
+                self.log(f"❌ 版本信息获取失败: HTTP {response.status_code}")
+                return None
+        except requests.exceptions.RequestException:
+            return None
         except Exception as e:
             self.log(f"❌ 版本信息获取失败: {str(e)}")
-            import traceback
-            self.log(f"✍️ 错误详细信息: {traceback.format_exc()}")
-            self.show_error("错误", f"版本信息获取失败: {str(e)}")
             return None
 
-    def download_version_files(self, version_info, version):
+    def download_version_files(self, version_info):
         """下载版本文件"""
         try:
             # 检查version_info是否为字典类型
@@ -3000,28 +2937,6 @@ class ModernDesignInstaller:
 
         self.log(f"🗑️ 卸载应用: {self.current_app['name']}")
 
-        try:
-            try:
-                deploy_path = None
-                if isinstance(self.apps_config, dict) and self.current_app is not None:
-                    current_version = self.current_app.get('current_version')
-                    if current_version and current_version != 'N/A':
-                        vinfo = self.get_version_info(current_version)
-                        if isinstance(vinfo, dict):
-                            deploy_path = vinfo.get('deploy_path')
-                if not deploy_path:
-                    deploy_path = f"data/local/tmp/{self.current_app['id']}"
-                deploy_path = str(deploy_path).replace(
-                    '\\\\', '/').replace('\\', '/')
-
-                # Best-effort remote cleanup; ignore failures
-                self.run_hdc_command(
-                    f"shell rm -rf {deploy_path}", show_output=False)
-            except Exception:
-                pass
-        except Exception:
-            pass
-
         # Clean uninstall (do not keep data) to avoid signature conflicts
         success, output = self.run_hdc_command(
             f"shell bm uninstall -n {self.current_app['bundle_name']}")
@@ -3038,7 +2953,7 @@ class ModernDesignInstaller:
         """刷新所有信息"""
         self.log("🔄 刷新中...")
         self.detect_hdc_tool()
-        self.load_apps_config_async()
+        self.load_apps_list_async()
         if self.current_app:
             self.load_version_list_async(select_first=False)
         self.log("✅ 刷新完成")
@@ -3246,7 +3161,7 @@ class ModernDesignInstaller:
 
         # 如果配置已保存，重新加载应用列表
         if config_saved[0]:
-            self.load_apps_config_async()
+            self.load_apps_list_async()
 
 
 def main():
@@ -3400,9 +3315,6 @@ def main():
     height = int(screen_height * 4 / 5)
     x, y = _get_center_xy(width, height)
     root.geometry(f'{width}x{height}+{x}+{y}')
-
-    splash = None
-    splash_shown_t0 = None
 
     # Create app (window is already dark)
     app = ModernDesignInstaller(root)
