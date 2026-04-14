@@ -1372,18 +1372,40 @@ class ModernDesignInstaller:
 
     def start_drag(self, event):
         """开始拖拽"""
+        allow_drag = False
+        try:
+            header = getattr(self, 'header_frame', None)
+            if header is not None:
+                w = event.widget
+                while w is not None:
+                    if w is header:
+                        allow_drag = True
+                        break
+                    try:
+                        w = w.master
+                    except Exception:
+                        break
+        except Exception:
+            allow_drag = False
+
+        self._window_drag_active = bool(allow_drag)
+        if not self._window_drag_active:
+            return
+
         self.drag_start_x = event.x
         self.drag_start_y = event.y
 
     def on_drag(self, event):
         """拖拽中"""
+        if not getattr(self, '_window_drag_active', False):
+            return
         x = self.root.winfo_x() + event.x - self.drag_start_x
         y = self.root.winfo_y() + event.y - self.drag_start_y
         self.root.geometry(f"+{x}+{y}")
 
     def stop_drag(self, event):
         """停止拖拽"""
-        pass
+        self._window_drag_active = False
 
     def center_window(self, window, width, height):
         window.update_idletasks()
@@ -1858,7 +1880,7 @@ class ModernDesignInstaller:
             self.app_tree.insert('', 'end', iid=str(
                 idx), text=display_text, tags=(row_tag,))
 
-        self.log(" 应用列表已更新")
+        self.log("🚀 应用列表已更新")
 
         # 自动选中第一个应用
         if self.apps_config.get('apps') and len(self.apps_config['apps']) > 0:
@@ -1867,7 +1889,7 @@ class ModernDesignInstaller:
                 self.app_tree.see('0')
                 # 模拟触发 on_app_select 事件
                 self.current_app = self.apps_config['apps'][0]
-                self.log(f" 已自动选择: {self.current_app['name']}")
+                self.log(f"📝 已自动选择: {self.current_app['name']}")
                 self.update_control_center()
                 self.load_version_list_async(select_first=True)
             except Exception:
@@ -1891,7 +1913,7 @@ class ModernDesignInstaller:
 
         if index < len(self.apps_config['apps']):
             self.current_app = self.apps_config['apps'][index]
-            self.log(f" 已选择: {self.current_app['name']}")
+            self.log(f"📝 已选择: {self.current_app['name']}")
             self.update_control_center()
             self.load_version_list_async(select_first=True)
 
@@ -1918,7 +1940,7 @@ class ModernDesignInstaller:
                     pass
 
                 self.current_version = version
-                self.log(f" 默认选择版本: {version} (version_id={version_id})")
+                self.log(f"📝 默认选择版本: {version} (version_id={version_id})")
                 self.show_version_info_by_id(version_id)
                 return
 
@@ -1961,7 +1983,7 @@ class ModernDesignInstaller:
         """Version selection event"""
         selection = self.version_tree.selection()
         if not selection:
-            return
+            return "break"
 
         # Get selected version
         item = selection[0]
@@ -1971,16 +1993,18 @@ class ModernDesignInstaller:
                 version = info.get('version')
                 version_id = info.get('id')
                 self.current_version = version
-                self.log(f"Selected version: {version} (version_id={version_id})")
+                self.log(f"📝 Selected version: {version} (version_id={version_id})")
                 if version_id:
                     self.show_version_info_by_id(version_id)
                 self.update_control_center()
         except Exception:
             pass
 
+        return "break"
+
     def load_version_list_async(self, select_first=False):
         """异步加载版本列表，避免阻塞 UI，并在加载完成后再执行默认选择。"""
-        self.log(f"📋 应用列表已更新{self.current_app['id']}")
+        self.log(f"🚀 应用列表已更新{self.current_app['id']}")
 
         if not self.current_app:
             return
@@ -2628,8 +2652,9 @@ class ModernDesignInstaller:
         if not version_info:
             return
         version_id = version_info.get('id')
+        version_str = version_info.get('version')
         try:
-            self.log(f"🚀 开始安装版本ID {version_id}")
+            self.log(f"🚀 开始安装版本ID {version_id} 版本号 {version_str}")
 
             try:
                 dev_ok, dev_out = self.run_hdc_command(
@@ -2757,7 +2782,7 @@ class ModernDesignInstaller:
             if app_installed:
                 self.log("Installation completed successfully")
                 self._show_modal_dialog(
-                    "安装成功", f"应用版本 {version_str} 安装成功！\n\n已在设备上验证", 'info', [('确定', True)])
+                    "安装成功", f"应用版本 {version_str} 安装成功！\n\n请在设备上验证", 'info', [('确定', True)])
 
                 # Try to start the app
                 self.log("Attempting to start the app...")
