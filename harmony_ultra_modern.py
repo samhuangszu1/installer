@@ -1482,6 +1482,10 @@ class ModernDesignInstaller:
 
     def _show_modal_dialog(self, title, message, variant, buttons):
         dialog = tk.Toplevel(self.root)
+        try:
+            dialog.attributes('-alpha', 0.0)
+        except Exception:
+            pass
         dialog.withdraw()
         dialog.title(title)
         dialog.resizable(False, False)
@@ -2422,6 +2426,10 @@ class ModernDesignInstaller:
         """显示带有复制按钮的 UDID 对话框"""
         # 先创建对话框
         dialog = tk.Toplevel(self.root)
+        try:
+            dialog.attributes('-alpha', 0.0)
+        except Exception:
+            pass
         dialog.withdraw()
         dialog.title("设备 UDID")
         dialog.resizable(False, False)
