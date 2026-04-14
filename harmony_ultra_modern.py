@@ -2512,6 +2512,8 @@ class ModernDesignInstaller:
         toast = getattr(self, '_toast_window', None)
         toast_label = getattr(self, '_toast_label', None)
         toast_after_id = getattr(self, '_toast_after_id', None)
+        toast_canvas = getattr(self, '_toast_canvas', None)
+        toast_text_id = getattr(self, '_toast_text_id', None)
 
         # Calculate position before creating window
         main_x = self.root.winfo_x()
@@ -2522,25 +2524,81 @@ class ModernDesignInstaller:
         toast_width = 200
         toast_height = 40
         x = main_x + (main_width // 2) - (toast_width // 2)
-        y = main_y + main_height - toast_height - 50  # 50px margin from bottom
+        y = main_y + (main_height // 2) - (toast_height // 2)
+        try:
+            header = getattr(self, 'header_frame', None)
+            if header is not None and header.winfo_exists():
+                header_y = int(header.winfo_rooty())
+                header_h = int(header.winfo_height())
+                if header_h > 0:
+                    y = header_y + (header_h // 2) - (toast_height // 2)
+        except Exception:
+            pass
 
         try:
             if toast is None or not toast.winfo_exists():
                 toast = tk.Toplevel(self.root)
                 toast.overrideredirect(True)
-                toast.configure(bg='#2F3336')
+                transparent_key = '#010203'
+                toast.configure(bg=transparent_key)
                 toast.withdraw()
                 try:
                     toast.attributes('-alpha', 0.0)
                 except Exception:
                     pass
+                try:
+                    toast.attributes('-topmost', True)
+                except Exception:
+                    pass
 
-                toast_label = tk.Label(toast, text='', bg='#2F3336', fg='#E7E9EA',
-                                       font=('Segoe UI', 10))
-                toast_label.pack(fill='both', expand=True, padx=10, pady=10)
+                try:
+                    toast.attributes('-transparentcolor', transparent_key)
+                except Exception:
+                    pass
+
+                def _round_rect(canvas, x1, y1, x2, y2, r, **kwargs):
+                    points = [
+                        x1 + r, y1,
+                        x2 - r, y1,
+                        x2, y1,
+                        x2, y1 + r,
+                        x2, y2 - r,
+                        x2, y2,
+                        x2 - r, y2,
+                        x1 + r, y2,
+                        x1, y2,
+                        x1, y2 - r,
+                        x1, y1 + r,
+                        x1, y1,
+                    ]
+                    return canvas.create_polygon(points, smooth=True, **kwargs)
+
+                toast_canvas = tk.Canvas(
+                    toast,
+                    width=toast_width,
+                    height=toast_height,
+                    bg=transparent_key,
+                    highlightthickness=0,
+                    bd=0,
+                )
+                toast_canvas.pack(fill='both', expand=True)
+
+                _round_rect(toast_canvas, 0, 0, toast_width, toast_height, 12,
+                            fill='#2F3336', outline='')
+                toast_text_id = toast_canvas.create_text(
+                    toast_width // 2,
+                    toast_height // 2,
+                    text='',
+                    fill='#E7E9EA',
+                    font=('Segoe UI', 10),
+                )
+
+                toast_label = None
 
                 self._toast_window = toast
                 self._toast_label = toast_label
+                self._toast_canvas = toast_canvas
+                self._toast_text_id = toast_text_id
                 self._toast_after_id = None
         except Exception:
             return
@@ -2551,7 +2609,12 @@ class ModernDesignInstaller:
             pass
 
         try:
-            if toast_label is not None:
+            if toast_canvas is not None and toast_text_id is not None:
+                try:
+                    toast_canvas.itemconfigure(toast_text_id, text=message)
+                except Exception:
+                    pass
+            elif toast_label is not None:
                 toast_label.configure(text=message)
         except Exception:
             pass
@@ -2574,6 +2637,10 @@ class ModernDesignInstaller:
             pass
 
         try:
+            try:
+                toast.attributes('-topmost', True)
+            except Exception:
+                pass
             toast.attributes('-alpha', 1.0)
         except Exception:
             pass
@@ -2596,7 +2663,7 @@ class ModernDesignInstaller:
             self._toast_after_id = None
 
         try:
-            self._toast_after_id = toast.after(2000, _hide_toast)
+            self._toast_after_id = toast.after(3000, _hide_toast)
         except Exception:
             pass
 
@@ -3030,7 +3097,8 @@ class ModernDesignInstaller:
 
         if success:
             self.log("✅ 卸载成功")
-            self._show_modal_dialog("卸载成功", "应用卸载成功", 'info', [('确定', True)])
+            # self._show_modal_dialog("卸载成功", "应用卸载成功", 'info', [('确定', True)])
+            self.show_toast("应用卸载成功")
         else:
             self.log(f"❌ 卸载失败: {output}")
             self.show_error(
