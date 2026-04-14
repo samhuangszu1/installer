@@ -2632,7 +2632,7 @@ class ModernDesignInstaller:
 
             # 获取本地文件路径
             app_download_dir = os.path.join(
-                self.download_dir, str(self.current_app['id']))
+                self.download_dir, str(self.current_app['id']), str(version_info['id']))
             hap_file = os.path.join(
                 app_download_dir, version_info['files']['hap'])
             hsp_file = os.path.join(
@@ -2855,7 +2855,7 @@ class ModernDesignInstaller:
 
             # 创建app_id对应的下载目录
             app_download_dir = os.path.join(
-                self.download_dir, str(self.current_app['id']), str(version))
+                self.download_dir, str(self.current_app['id']), str(version_id))
             if not os.path.exists(app_download_dir):
                 os.makedirs(app_download_dir)
                 self.log(f"📁 创建应用下载目录: {app_download_dir}")
