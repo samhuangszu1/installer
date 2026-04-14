@@ -182,6 +182,10 @@ class ModernDesignInstaller:
             apps_url = None
 
         self.log(f"🌐 获取应用列表: {apps_url}")
+        try:
+            self.show_toast("应用加载中...")
+        except Exception:
+            pass
 
         def _worker():
             try:
@@ -203,12 +207,20 @@ class ModernDesignInstaller:
                     self.apps_config = payload
                     apps = (self.apps_config or {}).get('apps', [])
                     self.log(f"📱 已从服务器加载 {len(apps)} 个应用")
+                    try:
+                        self.show_toast("应用加载完成")
+                    except Exception:
+                        pass
                     self.populate_app_list()
                 except Exception as e:
                     self.log(f"❌ 配置加载失败: {str(e)}")
                     self.show_error("错误", f"配置加载失败: {str(e)}")
             else:
                 self.log(f"❌ 服务器连接失败: {payload}")
+                try:
+                    self.show_toast("应用加载失败")
+                except Exception:
+                    pass
                 self.show_error("错误", str(payload))
 
         def _run():
@@ -2021,6 +2033,10 @@ class ModernDesignInstaller:
             versions_url = None
 
         self.log(f"🌐 正在从服务器获取版本列表: {versions_url}")
+        try:
+            self.show_toast("版本加载中...")
+        except Exception:
+            pass
 
         def _worker():
             try:
@@ -2047,6 +2063,10 @@ class ModernDesignInstaller:
 
             if not ok:
                 self.log(f"❌ 版本加载失败: {payload}")
+                try:
+                    self.show_toast("版本加载失败")
+                except Exception:
+                    pass
                 self.show_error("错误", str(payload))
                 return
 
@@ -2086,6 +2106,10 @@ class ModernDesignInstaller:
                     pass
 
             self.log(f"📦 已从服务器加载 {len(versions)} 个版本")
+            try:
+                self.show_toast("版本加载完成")
+            except Exception:
+                pass
 
             if select_first:
                 try:
@@ -2517,8 +2541,14 @@ class ModernDesignInstaller:
         main_width = self.root.winfo_width()
         main_height = self.root.winfo_height()
 
-        toast_width = 200
-        toast_height = 40
+        scale = 1.0
+        try:
+            scale = float(getattr(self, 'ui_scale', 1.0) or 1.0)
+        except Exception:
+            scale = 1.0
+        toast_width = max(200, int(round(200 * scale)))
+        toast_height = max(40, int(round(40 * scale)))
+        toast_radius = max(12, int(round(12 * scale)))
         x = main_x + (main_width // 2) - (toast_width // 2)
         y = main_y + (main_height // 2) - (toast_height // 2)
         try:
@@ -2579,14 +2609,15 @@ class ModernDesignInstaller:
                 )
                 toast_canvas.pack(fill='both', expand=True)
 
-                _round_rect(toast_canvas, 0, 0, toast_width, toast_height, 12,
+                _round_rect(toast_canvas, 0, 0, toast_width, toast_height, toast_radius,
                             fill='#2F3336', outline='')
                 toast_text_id = toast_canvas.create_text(
                     toast_width // 2,
                     toast_height // 2,
                     text='',
                     fill='#E7E9EA',
-                    font=('Segoe UI', 10),
+                    font=getattr(self, 'fonts', {}).get(
+                        'body', ('Segoe UI', 10)),
                 )
 
                 toast_label = None
