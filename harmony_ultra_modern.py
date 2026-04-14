@@ -80,6 +80,8 @@ class ModernDesignInstaller:
         self.apps_config = None
         self.current_app = None
         self.current_version = None
+        self.current_versions = []
+        self._version_item_map = {}
 
         self.control_panel_content = None
         self.header_segment_container = None
@@ -1878,32 +1880,38 @@ class ModernDesignInstaller:
             self.current_app = self.apps_config['apps'][index]
             self.log(f"📱 已选择: {self.current_app['name']}")
             self.update_control_center()
-            self.load_version_list()
-            # 延迟选择第一个版本，等待版本列表加载完成
-            self.root.after(500, self.select_first_version)
+            self.load_version_list_async(select_first=True)
 
     def select_first_version(self):
         """选择第一个版本并显示详情"""
         if not hasattr(self, 'version_tree'):
             return
 
-        # 获取版本树中的所有项目
-        children = self.version_tree.get_children()
-        if children:
-            # 选择第一个版本
-            first_item = children[0]
-            self.version_tree.selection_set(first_item)
-            self.version_tree.see(first_item)
+        versions = []
+        try:
+            versions = list(getattr(self, 'current_versions', []) or [])
+        except Exception:
+            versions = []
 
-            # 获取版本信息并显示
-            version_values = self.version_tree.item(first_item, 'values')
-            if version_values:
-                version = version_values[0]  # 第一列是版本号
+        if versions and isinstance(versions[0], dict):
+            version = versions[0].get('version')
+            if version:
+                try:
+                    for iid, info in (getattr(self, '_version_item_map', {}) or {}).items():
+                        if isinstance(info, dict) and info.get('version') == version:
+                            self.version_tree.selection_set(iid)
+                            self.version_tree.see(iid)
+                            break
+                except Exception:
+                    pass
+
+                self.current_version = version
                 self.log(f"🎯 默认选择版本: {version}")
                 self.show_version_info(version)
-        else:
-            # 如果没有版本，显示应用基本信息
-            self.show_app_info()
+                return
+
+        # 如果没有版本数据，显示应用基本信息（不从 UI values 反推版本号）
+        self.show_app_info()
 
     def show_app_info(self):
         """显示应用信息"""
@@ -2019,71 +2027,124 @@ class ModernDesignInstaller:
 
         # Get selected version
         item = selection[0]
-        version_values = self.version_tree.item(item, 'values')
+        try:
+            info = (getattr(self, '_version_item_map', {}) or {}).get(item)
+            if isinstance(info, dict) and info.get('version'):
+                version = info.get('version')
+                self.current_version = version
+                self.log(f"Selected version: {version}")
+                self.show_version_info(version)
+                self.update_control_center()
+        except Exception:
+            pass
 
-        if version_values:
-            version = version_values[0]  # First column is version
-            self.log(f"Selected version: {version}")
-            self.show_version_info(version)
-            self.update_control_center()
-
-    def load_version_list(self):
-        """从服务器加载版本列表"""
+    def load_version_list_async(self, select_first=False):
+        """异步加载版本列表，避免阻塞 UI，并在加载完成后再执行默认选择。"""
         if not self.current_app:
             return
 
-        # 清空现有版本列表
-        for item in self.version_tree.get_children():
-            self.version_tree.delete(item)
+        app_snapshot = self.current_app
 
         try:
-            # 从服务器获取版本列表
-            app_id = self.current_app['id']
+            for iid in self.version_tree.get_children():
+                self.version_tree.delete(iid)
+        except Exception:
+            pass
+
+        self.current_versions = []
+        self._version_item_map = {}
+
+        try:
+            app_id = app_snapshot['id']
             versions_url = f"{self.server_base_url}/api/apps/{app_id}/versions"
-            self.log(f"🌐 正在从服务器获取版本列表: {versions_url}")
+        except Exception:
+            versions_url = None
 
-            response = requests.get(versions_url, timeout=10)
-            if response.status_code == 200:
-                versions_data = response.json()
-                versions = versions_data.get('versions', [])
+        self.log(f"🌐 正在从服务器获取版本列表: {versions_url}")
 
-                # 按版本号排序
-                versions.sort(key=lambda x: x.get('version', ''), reverse=True)
+        def _worker():
+            try:
+                if not versions_url:
+                    raise Exception("服务器地址无效")
+                response = requests.get(versions_url, timeout=10)
+                if response.status_code != 200:
+                    raise Exception(f"服务器响应错误: {response.status_code}")
+                data = response.json()
+                versions = (data or {}).get('versions', [])
+                if not isinstance(versions, list):
+                    versions = []
+                versions.sort(key=lambda x: (x or {}).get('version', ''), reverse=True)
+                return True, versions
+            except requests.exceptions.RequestException as e:
+                return False, f"无法连接到服务器: {str(e)}\n\n请检查服务器地址配置或网络连接。"
+            except Exception as e:
+                return False, f"版本加载失败: {str(e)}"
 
-                for idx, version_info in enumerate(versions):
-                    version = version_info.get('version', '')
-                    description = version_info.get('description', '')
-                    release_date = version_info.get('release_date', '')
-                    status = '🚀'  # 可以根据版本状态显示不同图标
-                    row_tag = 'even' if idx % 2 == 0 else 'odd'
+        def _on_done(ok, payload):
+            if self.current_app is not app_snapshot:
+                return
 
-                    self.version_tree.insert('', 'end', text=description,
-                                             values=(
-                                                 version, release_date, status),
+            if not ok:
+                self.log(f"❌ 版本加载失败: {payload}")
+                self.show_error("错误", str(payload))
+                self.show_app_info()
+                return
+
+            versions = payload
+            self.current_versions = list(versions)
+
+            for idx, version_info in enumerate(versions):
+                if not isinstance(version_info, dict):
+                    continue
+                version = version_info.get('version', '')
+                description = version_info.get('description', '')
+                release_date = version_info.get('release_date', '')
+                status = '🚀'
+                row_tag = 'even' if idx % 2 == 0 else 'odd'
+
+                iid = None
+                try:
+                    vid = version_info.get('id')
+                    if vid is not None and str(vid):
+                        iid = f"ver_{vid}"
+                except Exception:
+                    iid = None
+                if not iid:
+                    iid = f"ver_{idx}"
+
+                try:
+                    self._version_item_map[iid] = version_info
+                except Exception:
+                    pass
+
+                try:
+                    self.version_tree.insert('', 'end', iid=iid, text=description,
+                                             values=(version, release_date, status),
                                              tags=(row_tag,))
+                except Exception:
+                    pass
 
-                self.log(f"📦 已从服务器加载 {len(versions)} 个版本")
+            self.log(f"📦 已从服务器加载 {len(versions)} 个版本")
 
-            else:
-                raise Exception(f"服务器响应错误: {response.status_code}")
+            if select_first:
+                try:
+                    self.select_first_version()
+                except Exception:
+                    pass
 
-        except requests.exceptions.RequestException as e:
-            self.log(f"❌ 服务器连接失败: {str(e)}")
-            self.show_error("错误", f"无法连接到服务器: {str(e)}\n\n请检查服务器地址配置或网络连接。")
+        def _run():
+            ok, payload = _worker()
+            try:
+                self.root.after(0, lambda: _on_done(ok, payload))
+            except Exception:
+                pass
 
-        except Exception as e:
-            self.log(f"❌ 版本加载失败: {str(e)}")
-            self.show_error("错误", f"版本加载失败: {str(e)}")
+        threading.Thread(target=_run, daemon=True).start()
 
     def detect_hdc_tool(self):
         """检测HDC工具"""
         try:
             # 更新状态为检测中
-            if hasattr(self, 'status_text'):
-                self.status_text.config(
-                    text="HDC检测中...", fg=self.colors['text_secondary'])
-            if hasattr(self, 'status_indicator'):
-                self.update_status_indicator('warning')
 
             self.log("🔍 检测HDC工具...")
 
@@ -2979,7 +3040,7 @@ class ModernDesignInstaller:
         self.detect_hdc_tool()
         self.load_apps_config_async()
         if self.current_app:
-            self.load_version_list()
+            self.load_version_list_async(select_first=False)
         self.log("✅ 刷新完成")
 
     def configure_server(self):
