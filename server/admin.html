@@ -181,6 +181,59 @@
         .file-upload:hover {
             border-color: #2196F3;
         }
+
+        .file-upload.dragover {
+            border-color: #2196F3;
+            background: #f0f7ff;
+        }
+
+        .upload-progress {
+            margin-top: 12px;
+        }
+
+        .upload-item {
+            background: #fff;
+            border: 1px solid #eee;
+            border-radius: 6px;
+            padding: 10px 12px;
+            margin-top: 10px;
+        }
+
+        .upload-item-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .upload-filename {
+            font-weight: 600;
+            color: #333;
+            max-width: 70%;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .upload-status {
+            font-size: 12px;
+            color: #666;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 10px;
+            background: #f1f3f5;
+            border-radius: 999px;
+            overflow: hidden;
+        }
+
+        .progress-bar-fill {
+            height: 100%;
+            width: 0%;
+            background: #2196F3;
+            transition: width 0.1s linear;
+        }
         
         .status {
             padding: 10px;
@@ -338,7 +391,7 @@
                         </select>
                     </div>
 
-                    <div class="file-upload"
+                    <div class="file-upload" id="file-upload-area"
                         onclick="document.getElementById('file-input').click()">
                         <p>Click to select files or drag and drop (HAP/HSP
                             files)</p>
@@ -346,6 +399,8 @@
                             style="display: none;" multiple accept=".hap,.hsp"
                             onchange="uploadFile()">
                     </div>
+
+                    <div id="upload-progress" class="upload-progress" style="display:none;"></div>
                 </div>
 
                 <div class="card">
@@ -911,6 +966,7 @@
         // Update version select
         function updateVersionSelect(versions) {
             const select = document.getElementById('version-select');
+            const prevValue = select.value;
             select.innerHTML = '<option value="">Select a version...</option>';
             
             versions.forEach(version => {
@@ -919,6 +975,13 @@
                 option.textContent = `${version.version} - ${version.description || 'No description'}`;
                 select.appendChild(option);
             });
+
+            if (prevValue) {
+                try {
+                    select.value = prevValue;
+                } catch (e) {
+                }
+            }
         }
         
         // Modal management
@@ -1011,16 +1074,18 @@
         });
         
         // File upload
-        function uploadFile() {
+        function uploadFile(filesOverride) {
             const fileInput = document.getElementById('file-input');
             const versionId = document.getElementById('version-select').value;
+            const progressContainer = document.getElementById('upload-progress');
+            const filesToUpload = filesOverride && filesOverride.length ? filesOverride : fileInput.files;
             
             if (!versionId) {
                 showStatus('Please select a version first', 'error');
                 return;
             }
             
-            if (!fileInput.files.length) {
+            if (!filesToUpload || !filesToUpload.length) {
                 showStatus('Please select files', 'error');
                 return;
             }
@@ -1029,7 +1094,7 @@
             const validFiles = [];
             const invalidFiles = [];
             
-            Array.from(fileInput.files).forEach(file => {
+            Array.from(filesToUpload).forEach(file => {
                 const extension = file.name.toLowerCase().split('.').pop();
                 if (extension === 'hap' || extension === 'hsp') {
                     validFiles.push(file);
@@ -1047,48 +1112,157 @@
                 showStatus('No valid HAP/HSP files found', 'error');
                 return;
             }
+
+            progressContainer.innerHTML = '';
+            progressContainer.style.display = 'block';
             
             // Upload each file
             let uploadedCount = 0;
             let totalCount = validFiles.length;
-            
-            validFiles.forEach(file => {
-                const formData = new FormData();
-                formData.append('file', file);
-                formData.append('version_id', versionId);
-                
-                // Auto-detect file type from extension
-                const extension = file.name.toLowerCase().split('.').pop();
-                formData.append('file_type', extension);
-                
-                fetch(`${API_BASE}/upload`, {
-                    method: 'POST',
-                    headers: (() => {
-                        const k = getApiKey();
-                        return k ? { 'X-API-Key': k } : {};
-                    })(),
-                    body: formData
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.error) {
-                        showStatus(`Error uploading ${file.name}: ${data.error}`, 'error');
-                    } else {
-                        uploadedCount++;
-                        if (uploadedCount === totalCount) {
-                            showToast(`${uploadedCount} files uploaded successfully`, 'success');
-                            fileInput.value = '';
-                            loadFiles(versionId);  // Refresh file list
-                            loadVersions();  // Refresh versions list
-                            loadStats();
-                        }
+
+            const makeUploadItem = (file) => {
+                const item = document.createElement('div');
+                item.className = 'upload-item';
+
+                const header = document.createElement('div');
+                header.className = 'upload-item-header';
+
+                const name = document.createElement('div');
+                name.className = 'upload-filename';
+                name.textContent = file.name;
+
+                const status = document.createElement('div');
+                status.className = 'upload-status';
+                status.textContent = 'Waiting...';
+
+                header.appendChild(name);
+                header.appendChild(status);
+
+                const bar = document.createElement('div');
+                bar.className = 'progress-bar';
+
+                const fill = document.createElement('div');
+                fill.className = 'progress-bar-fill';
+                bar.appendChild(fill);
+
+                item.appendChild(header);
+                item.appendChild(bar);
+                progressContainer.appendChild(item);
+
+                return { item, status, fill };
+            };
+
+            const uploadSingleFileWithProgress = (file) => {
+                const ui = makeUploadItem(file);
+
+                return new Promise((resolve) => {
+                    const formData = new FormData();
+                    formData.append('file', file);
+                    formData.append('version_id', versionId);
+
+                    const extension = file.name.toLowerCase().split('.').pop();
+                    formData.append('file_type', extension);
+
+                    const xhr = new XMLHttpRequest();
+                    xhr.open('POST', `${API_BASE}/upload`);
+                    const k = getApiKey();
+                    if (k) {
+                        xhr.setRequestHeader('X-API-Key', k);
                     }
-                })
-                .catch(error => {
-                    showStatus(`Error uploading ${file.name}: ${error.message}`, 'error');
+
+                    ui.status.textContent = 'Uploading... 0%';
+                    xhr.upload.onprogress = (e) => {
+                        if (e.lengthComputable) {
+                            const pct = Math.round((e.loaded / e.total) * 100);
+                            ui.fill.style.width = `${pct}%`;
+                            ui.status.textContent = `Uploading... ${pct}%`;
+                        } else {
+                            ui.status.textContent = 'Uploading...';
+                        }
+                    };
+
+                    xhr.onreadystatechange = () => {
+                        if (xhr.readyState !== 4) return;
+                        let data = null;
+                        try {
+                            data = JSON.parse(xhr.responseText || '{}');
+                        } catch (e) {
+                            data = { error: 'Invalid server response' };
+                        }
+
+                        if (xhr.status >= 200 && xhr.status < 300 && !data.error) {
+                            ui.fill.style.width = '100%';
+                            ui.status.textContent = 'Uploaded';
+                            resolve({ ok: true, data });
+                        } else {
+                            ui.status.textContent = `Failed${data && data.error ? ': ' + data.error : ''}`;
+                            ui.fill.style.background = '#e53935';
+                            resolve({ ok: false, data });
+                        }
+                    };
+
+                    xhr.onerror = () => {
+                        ui.status.textContent = 'Failed: network error';
+                        ui.fill.style.background = '#e53935';
+                        resolve({ ok: false, data: { error: 'Network error' } });
+                    };
+
+                    xhr.send(formData);
                 });
+            };
+
+            Promise.all(validFiles.map(uploadSingleFileWithProgress)).then(results => {
+                const okCount = results.filter(r => r && r.ok).length;
+                const failCount = results.length - okCount;
+
+                if (failCount === 0) {
+                    showToast(`${okCount} files uploaded successfully`, 'success');
+                } else {
+                    showToast(`${okCount} uploaded, ${failCount} failed`, 'error');
+                }
+
+                fileInput.value = '';
+                loadFiles(versionId);
+                loadVersions();
+                loadStats();
             });
         }
+
+        // Drag & drop support for upload area
+        (function initUploadDragDrop() {
+            const area = document.getElementById('file-upload-area');
+            if (!area) return;
+
+            const prevent = (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+            };
+
+            area.addEventListener('dragenter', (e) => {
+                prevent(e);
+                area.classList.add('dragover');
+            });
+            area.addEventListener('dragover', (e) => {
+                prevent(e);
+                area.classList.add('dragover');
+            });
+            area.addEventListener('dragleave', (e) => {
+                prevent(e);
+                area.classList.remove('dragover');
+            });
+            area.addEventListener('drop', (e) => {
+                prevent(e);
+                area.classList.remove('dragover');
+
+                const dt = e.dataTransfer;
+                const files = dt && dt.files ? dt.files : null;
+                if (!files || !files.length) {
+                    showStatus('No files detected in drop', 'error');
+                    return;
+                }
+                uploadFile(files);
+            });
+        })();
         
         async function deleteApp(appId) {
             if (!confirm('Are you sure you want to delete this application? This will also delete all its versions and files.')) return;
