@@ -1887,11 +1887,6 @@ class ModernDesignInstaller:
             try:
                 self.app_tree.selection_set('0')
                 self.app_tree.see('0')
-                # 模拟触发 on_app_select 事件
-                self.current_app = self.apps_config['apps'][0]
-                self.log(f"📝 已自动选择: {self.current_app['name']}")
-                self.update_control_center()
-                self.load_version_list_async(select_first=True)
             except Exception:
                 pass
 
@@ -1940,8 +1935,6 @@ class ModernDesignInstaller:
                     pass
 
                 self.current_version = version
-                self.log(f"📝 默认选择版本: {version} (version_id={version_id})")
-                self.show_version_info_by_id(version_id)
                 return
 
     def show_version_info_by_id(self, version_id):
@@ -1993,7 +1986,8 @@ class ModernDesignInstaller:
                 version = info.get('version')
                 version_id = info.get('id')
                 self.current_version = version
-                self.log(f"📝 Selected version: {version} (version_id={version_id})")
+                self.log(
+                    f"📝 Selected version: {version} (version_id={version_id})")
                 if version_id:
                     self.show_version_info_by_id(version_id)
                 self.update_control_center()
@@ -2039,7 +2033,8 @@ class ModernDesignInstaller:
                 versions = (data or {}).get('versions', [])
                 if not isinstance(versions, list):
                     versions = []
-                versions.sort(key=lambda x: (x or {}).get('id', ''), reverse=True)
+                versions.sort(key=lambda x: (
+                    x or {}).get('id', ''), reverse=True)
                 return True, versions
             except requests.exceptions.RequestException as e:
                 return False, f"无法连接到服务器: {str(e)}\n\n请检查服务器地址配置或网络连接。"
@@ -2084,7 +2079,8 @@ class ModernDesignInstaller:
 
                 try:
                     self.version_tree.insert('', 'end', iid=iid, text=description,
-                                             values=(version, release_date, status),
+                                             values=(
+                                                 version, release_date, status),
                                              tags=(row_tag,))
                 except Exception:
                     pass
@@ -2681,7 +2677,8 @@ class ModernDesignInstaller:
         selected_iid = selection[0]
         version_info = None
         try:
-            version_info = (getattr(self, '_version_item_map', {}) or {}).get(selected_iid)
+            version_info = (getattr(self, '_version_item_map',
+                            {}) or {}).get(selected_iid)
         except Exception:
             version_info = None
 
@@ -2733,7 +2730,7 @@ class ModernDesignInstaller:
                     return
             except Exception:
                 self.show_error("错误", "设备检测失败，请通过 USB 连接鸿蒙设备后重试。")
-                return            
+                return
 
             # 下载文件
             if not self.download_version_files(version_info):
@@ -2991,7 +2988,8 @@ class ModernDesignInstaller:
 
             response = requests.get(url, stream=True, timeout=30)
             if response.status_code == 200:
-                total_size = int(response.headers.get('content-length', 0) or 0)
+                total_size = int(response.headers.get(
+                    'content-length', 0) or 0)
                 downloaded = 0
 
                 with open(tmp_path, 'wb') as f:
@@ -3009,7 +3007,8 @@ class ModernDesignInstaller:
                         os.remove(tmp_path)
                     except Exception:
                         pass
-                    self.log(f"❌ 下载不完整: {os.path.basename(local_path)} ({downloaded}/{total_size})")
+                    self.log(
+                        f"❌ 下载不完整: {os.path.basename(local_path)} ({downloaded}/{total_size})")
                     return False
 
                 try:
@@ -3108,10 +3107,26 @@ class ModernDesignInstaller:
         """刷新所有信息"""
         self.log("🔄 刷新中...")
         self.detect_hdc_tool()
+        try:
+            if hasattr(self, 'app_tree'):
+                sel = self.app_tree.selection()
+                if sel:
+                    self.app_tree.selection_remove(sel)
+        except Exception:
+            pass
+        try:
+            if hasattr(self, 'version_tree'):
+                sel = self.version_tree.selection()
+                if sel:
+                    self.version_tree.selection_remove(sel)
+        except Exception:
+            pass
+        try:
+            self.current_app = None
+            self.current_version = None
+        except Exception:
+            pass
         self.load_apps_list_async()
-        if self.current_app:
-            self.load_version_list_async(select_first=False)
-        self.log("✅ 刷新完成")
 
     def configure_server(self):
         """配置服务器地址和下载目录"""
