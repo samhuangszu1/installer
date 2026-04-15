@@ -525,7 +525,7 @@ class ModernDesignInstaller:
                                    fill=self.colors['text_primary'], font=seg_font, tags=('seg1',))
         segment_canvas.create_text((seg_x1 + seg_x2) / 2, seg_y0 + seg_h / 2, text='刷新',
                                    fill=self.colors['text_primary'], font=seg_font, tags=('seg2',))
-        segment_canvas.create_text((seg_x2 + seg_x3) / 2, seg_y0 + seg_h / 2, text='服务器',
+        segment_canvas.create_text((seg_x2 + seg_x3) / 2, seg_y0 + seg_h / 2, text='设置',
                                    fill=self.colors['text_primary'], font=seg_font, tags=('seg3',))
 
         # separators (increase contrast)
@@ -3269,7 +3269,7 @@ class ModernDesignInstaller:
         """配置服务器地址和下载目录"""
         dialog = tk.Toplevel(self.root)
         dialog.withdraw()
-        dialog.title("配置设置")
+        dialog.title("设置")
         dialog.configure(bg=self.colors['bg_secondary'])
         dialog.resizable(True, True)
 
@@ -3292,7 +3292,7 @@ class ModernDesignInstaller:
         content = tk.Frame(dialog, bg=self.colors['bg_secondary'])
         content.pack(fill=tk.BOTH, expand=True, padx=24, pady=20)
 
-        title_label = tk.Label(content, text="⚙️ 配置设置",
+        title_label = tk.Label(content, text="⚙️ 设置",
                                font=self.fonts['title'],
                                fg=self.colors['text_primary'],
                                bg=self.colors['bg_secondary'])
