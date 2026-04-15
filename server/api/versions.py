@@ -8,20 +8,48 @@ def init_versions_routes(app):
     
     @app.route('/api/apps/<int:app_id>/versions', methods=['GET'])
     def get_app_versions(app_id):
-        """Get all versions for an app"""
+        """Get versions for an app with optional pagination"""
         try:
+            # Parse pagination parameters
+            page = request.args.get('page', type=int)
+            page_size = request.args.get('page_size', type=int)
+            
+            # Default values if not provided (backward compatible: no pagination = return all)
+            if page is None:
+                page = 1
+            if page_size is None:
+                page_size = 20
+            
+            # Validate parameters
+            if page < 1:
+                page = 1
+            if page_size < 1 or page_size > 100:
+                page_size = 20
+            
             with db.get_connection() as conn:
                 # Check if app exists
                 cursor = conn.execute("SELECT * FROM apps WHERE id = ?", (app_id,))
                 if not cursor.fetchone():
                     return jsonify({'error': 'App not found'}), 404
                 
-                # Get versions
+                # Get total count
+                cursor = conn.execute(
+                    "SELECT COUNT(*) as total FROM versions WHERE app_id = ?",
+                    (app_id,)
+                )
+                total = cursor.fetchone()['total']
+                
+                # Calculate offset
+                offset = (page - 1) * page_size
+                
+                # Get paginated versions (ordered by id DESC, largest version_id first)
                 cursor = conn.execute("""
                     SELECT * FROM versions 
                     WHERE app_id = ? 
-                    ORDER BY version DESC
-                """, (app_id,))
+                    ORDER BY id DESC
+                    LIMIT ? OFFSET ?
+                """, (app_id, page_size, offset))
+                
                 versions = []
                 for row in cursor.fetchall():
                     version_data = dict(row)
@@ -36,10 +64,18 @@ def init_versions_routes(app):
                         files[file_row['file_type']] = file_row['filename']
                     
                     version_data['files'] = files
-                    
                     versions.append(version_data)
                 
-                return jsonify({'versions': versions})
+                # Check if there are more pages
+                has_more = (page * page_size) < total
+                
+                return jsonify({
+                    'versions': versions,
+                    'total': total,
+                    'has_more': has_more,
+                    'page': page,
+                    'page_size': page_size
+                })
                 
         except Exception as e:
             return jsonify({'error': str(e)}), 500

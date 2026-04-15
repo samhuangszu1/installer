@@ -83,6 +83,13 @@ class ModernDesignInstaller:
         self.current_versions = []
         self._version_item_map = {}
 
+        # 版本列表分页状态
+        self._ver_page = 1
+        self._ver_page_size = 20
+        self._ver_has_more = True
+        self._ver_loading = False
+        self._ver_app_id = None
+
         self.control_panel_content = None
         self.header_segment_container = None
         self.header_frame = None
@@ -1149,7 +1156,10 @@ class ModernDesignInstaller:
         # 初次显示/布局后绘制分隔线
         tree.bind('<Map>', lambda e: tree.after(
             0, update_column_separators), add=True)
-        tree.bind('<Configure>', update_column_separators, add=True)
+        # Configure 事件在缩放时触发，但布局可能还没稳定，延迟执行
+        def _on_configure(*_):
+            tree.after(50, update_column_separators)
+        tree.bind('<Configure>', _on_configure, add=True)
         # 拖拽列宽结束后重绘（Treeview 原生列拖拽触发在鼠标释放时更稳定）
         tree.bind('<ButtonRelease-1>', update_column_separators, add=True)
         # 选中行时 Treeview 会重绘，强制刷新分隔线层级与颜色
@@ -1167,6 +1177,24 @@ class ModernDesignInstaller:
             tree._container = tree_frame
             tree._vscrollbar = scrollbar
             scrollbar.lift()
+        except Exception:
+            pass
+
+        # 包装 yscrollcommand 以检测滚动到底部（用于分页加载）
+        try:
+            def _on_tree_scroll(first, last):
+                # 先调用 scrollbar.set 更新滚动条位置
+                scrollbar.set(first, last)
+                # 检测是否滚动到底部（last > 0.95 表示接近底部）
+                try:
+                    if float(last) > 0.95:
+                        self._on_version_tree_scroll()
+                except Exception:
+                    pass
+
+            # 只对版本列表（有 'version' 列的 tree）设置分页滚动检测
+            if hasattr(tree, 'column') and 'version' in tree['columns']:
+                tree.config(yscrollcommand=_on_tree_scroll)
         except Exception:
             pass
 
@@ -2057,70 +2085,78 @@ class ModernDesignInstaller:
 
         return "break"
 
-    def load_version_list_async(self, select_first=False):
-        """异步加载版本列表，避免阻塞 UI，并在加载完成后再执行默认选择。"""
-        self.log(f"🚀 应用列表已更新{self.current_app['id']}")
-
+    def load_version_list_async(self, select_first=False, page=1, append=False):
+        """异步加载版本列表，支持分页加载。"""
         if not self.current_app:
             return
 
         app_snapshot = self.current_app
+        app_id = app_snapshot.get('id')
 
-        try:
-            for iid in self.version_tree.get_children():
-                self.version_tree.delete(iid)
-        except Exception:
-            pass
+        # 检查是否切换了应用
+        if self._ver_app_id != app_id:
+            self._ver_app_id = app_id
+            self._ver_page = 1
+            self._ver_has_more = True
+            append = False
 
-        self.current_versions = []
-        self._version_item_map = {}
+        # 防止重复加载
+        if self._ver_loading:
+            return
+        if page > 1 and not self._ver_has_more:
+            return
 
-        try:
-            app_id = app_snapshot['id']
-            versions_url = f"{self.server_base_url}/api/apps/{app_id}/versions"
-        except Exception:
-            versions_url = None
+        self._ver_loading = True
+        self._ver_page = page
 
-        self.log(f"🌐 正在从服务器获取版本列表: {versions_url}")
-        try:
-            self.show_toast("版本加载中...")
-        except Exception:
-            pass
+        # 如果不是追加模式，清空列表
+        if not append:
+            try:
+                for iid in self.version_tree.get_children():
+                    self.version_tree.delete(iid)
+            except Exception:
+                pass
+            self.current_versions = []
+            self._version_item_map = {}
+
+        versions_url = f"{self.server_base_url}/api/apps/{app_id}/versions?page={page}&page_size={self._ver_page_size}"
+        self.log(f"🌐 正在加载第 {page} 页版本列表")
 
         def _worker():
             try:
-                if not versions_url:
-                    raise Exception("服务器地址无效")
                 response = requests.get(versions_url, timeout=10)
                 if response.status_code != 200:
                     raise Exception(f"服务器响应错误: {response.status_code}")
                 data = response.json()
                 versions = (data or {}).get('versions', [])
+                has_more = (data or {}).get('has_more', False)
+                total = (data or {}).get('total', 0)
                 if not isinstance(versions, list):
                     versions = []
-                versions.sort(key=lambda x: (
-                    x or {}).get('id', ''), reverse=True)
-                return True, versions
+                return True, {'versions': versions, 'has_more': has_more, 'total': total, 'page': page}
             except requests.exceptions.RequestException as e:
-                return False, f"无法连接到服务器: {str(e)}\n\n请检查服务器地址配置或网络连接。"
+                return False, f"无法连接到服务器: {str(e)}"
             except Exception as e:
                 return False, f"版本加载失败: {str(e)}"
 
         def _on_done(ok, payload):
+            self._ver_loading = False
+
             if self.current_app is not app_snapshot:
                 return
 
             if not ok:
                 self.log(f"❌ 版本加载失败: {payload}")
-                try:
-                    self.show_toast("版本加载失败")
-                except Exception:
-                    pass
                 self.show_error("错误", str(payload))
                 return
 
-            versions = payload
-            self.current_versions = list(versions)
+            versions = payload.get('versions', [])
+            self._ver_has_more = payload.get('has_more', False)
+            total = payload.get('total', 0)
+
+            # 计算起始索引用于斑马纹
+            start_idx = len(self.current_versions)
+            self.current_versions.extend(versions)
 
             for idx, version_info in enumerate(versions):
                 if not isinstance(version_info, dict):
@@ -2129,7 +2165,7 @@ class ModernDesignInstaller:
                 description = version_info.get('description', '')
                 release_date = version_info.get('release_date', '')
                 status = '🚀'
-                row_tag = 'even' if idx % 2 == 0 else 'odd'
+                row_tag = 'even' if (start_idx + idx) % 2 == 0 else 'odd'
 
                 iid = None
                 try:
@@ -2139,7 +2175,7 @@ class ModernDesignInstaller:
                 except Exception:
                     iid = None
                 if not iid:
-                    iid = f"ver_{idx}"
+                    iid = f"ver_{start_idx + idx}"
 
                 try:
                     self._version_item_map[iid] = version_info
@@ -2148,19 +2184,14 @@ class ModernDesignInstaller:
 
                 try:
                     self.version_tree.insert('', 'end', iid=iid, text=description,
-                                             values=(
-                                                 version, release_date, status),
+                                             values=(version, release_date, status),
                                              tags=(row_tag,))
                 except Exception:
                     pass
 
-            self.log(f"📦 已从服务器加载 {len(versions)} 个版本")
-            try:
-                self.show_toast("版本加载完成")
-            except Exception:
-                pass
+            self.log(f"📦 已加载第 {page} 页，共 {len(versions)} 个版本 (总计 {len(self.current_versions)}/{total})")
 
-            if select_first:
+            if select_first and page == 1:
                 try:
                     self.select_first_version()
                 except Exception:
@@ -2174,6 +2205,28 @@ class ModernDesignInstaller:
                 pass
 
         threading.Thread(target=_run, daemon=True).start()
+
+    def _on_version_tree_scroll(self, *args):
+        """检测 Treeview 滚动到底部，触发加载下一页。"""
+        if self._ver_loading or not self._ver_has_more:
+            return
+
+        try:
+            # 获取滚动位置
+            tree = self.version_tree
+            first, last = tree.yview()
+            # 如果滚动到底部 (last > 0.95 表示接近底部)
+            if last > 0.95:
+                self._load_next_versions_page()
+        except Exception:
+            pass
+
+    def _load_next_versions_page(self):
+        """加载下一页版本。"""
+        if self._ver_loading or not self._ver_has_more:
+            return
+        next_page = self._ver_page + 1
+        self.load_version_list_async(select_first=False, page=next_page, append=True)
 
     def detect_hdc_tool(self):
         """检测HDC工具"""
