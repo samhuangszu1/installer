@@ -85,10 +85,21 @@ def init_versions_routes(app):
         try:
             app_id = request.form.get('app_id')
             version_number = request.form.get('version')
+            version_no_raw = request.form.get('version_no')
             description = request.form.get('description', '')
             release_date = request.form.get('release_date')
             deploy_path = request.form.get('deploy_path', '/data/local/tmp')
             set_as_current_raw = request.form.get('set_as_current', 'false')
+
+            # Validate version_no is required
+            if not version_no_raw:
+                return jsonify({'error': 'Missing required field: version_no'}), 400
+            
+            # Parse version_no as int
+            try:
+                version_no = int(version_no_raw)
+            except ValueError:
+                return jsonify({'error': 'Invalid version_no, must be an integer'}), 400
 
             hap_file = request.files.get('hap_file')
             hsp_file = request.files.get('hsp_file')
@@ -134,13 +145,15 @@ def init_versions_routes(app):
                     if not cursor.fetchone():
                         return jsonify({'error': 'App not found'}), 404
 
+                    # Check if version with same version + version_no exists
                     cursor = conn.execute(
-                        "SELECT id FROM versions WHERE app_id = ? AND version = ?",
-                        (app_id_int, version_number),
+                        "SELECT id FROM versions WHERE app_id = ? AND version = ? AND version_no = ?",
+                        (app_id_int, version_number, version_no),
                     )
                     existing = cursor.fetchone()
 
                     if existing:
+                        # Update existing version
                         version_id = int(existing['id'])
                         conn.execute(
                             """
@@ -151,12 +164,13 @@ def init_versions_routes(app):
                             (description, release_date, deploy_path, version_id),
                         )
                     else:
+                        # Create new version
                         cursor = conn.execute(
                             """
-                            INSERT INTO versions (app_id, version, description, release_date, deploy_path)
-                            VALUES (?, ?, ?, ?, ?)
+                            INSERT INTO versions (app_id, version, version_no, description, release_date, deploy_path)
+                            VALUES (?, ?, ?, ?, ?, ?)
                             """,
-                            (app_id_int, version_number, description, release_date, deploy_path),
+                            (app_id_int, version_number, version_no, description, release_date, deploy_path),
                         )
                         version_id = int(cursor.lastrowid)
 
@@ -264,6 +278,14 @@ def init_versions_routes(app):
             # Validate required fields
             if 'version' not in data:
                 return jsonify({'error': 'Missing required field: version'}), 400
+            if 'version_no' not in data:
+                return jsonify({'error': 'Missing required field: version_no'}), 400
+            
+            # Parse version_no as int
+            try:
+                version_no = int(data['version_no'])
+            except (ValueError, TypeError):
+                return jsonify({'error': 'Invalid version_no, must be an integer'}), 400
             
             with db.get_connection() as conn:
                 # Check if app exists
@@ -271,13 +293,24 @@ def init_versions_routes(app):
                 if not cursor.fetchone():
                     return jsonify({'error': 'App not found'}), 404
                 
+                # Check if version with same version + version_no exists
+                cursor = conn.execute(
+                    "SELECT id FROM versions WHERE app_id = ? AND version = ? AND version_no = ?",
+                    (app_id, data.get('version'), version_no),
+                )
+                existing = cursor.fetchone()
+                
+                if existing:
+                    return jsonify({'error': 'Version with same version_no already exists'}), 409
+                
                 # Create version
                 cursor = conn.execute("""
-                    INSERT INTO versions (app_id, version, description, release_date, deploy_path)
-                    VALUES (?, ?, ?, ?, ?)
+                    INSERT INTO versions (app_id, version, version_no, description, release_date, deploy_path)
+                    VALUES (?, ?, ?, ?, ?, ?)
                 """, (
                     app_id,
                     data.get('version'),
+                    version_no,
                     data.get('description', ''),
                     data.get('release_date'),
                     data.get('deploy_path', '/data/local/tmp')
@@ -310,22 +343,57 @@ def init_versions_routes(app):
             with db.get_connection() as conn:
                 # Check if version exists
                 cursor = conn.execute("SELECT * FROM versions WHERE id = ?", (version_id,))
-                if not cursor.fetchone():
+                version_row = cursor.fetchone()
+                if not version_row:
                     return jsonify({'error': 'Version not found'}), 404
                 
-                # Update version
-                cursor = conn.execute("""
-                    UPDATE versions 
-                    SET version = ?, description = ?, release_date = ?, deploy_path = ?
-                    WHERE id = ?
-                """, (
-                    data.get('version'),
-                    data.get('description'),
-                    data.get('release_date'),
-                    data.get('deploy_path'),
-                    version_id
-                ))
-                conn.commit()
+                # Parse version_no if provided
+                version_no = data.get('version_no')
+                if version_no is not None:
+                    try:
+                        version_no = int(version_no)
+                    except (ValueError, TypeError):
+                        return jsonify({'error': 'Invalid version_no, must be an integer'}), 400
+                    
+                    # Check for duplicate if version_no is being changed
+                    current_version_no = version_row['version_no']
+                    current_version = version_row['version']
+                    app_id = version_row['app_id']
+                    
+                    if version_no != current_version_no:
+                        cursor = conn.execute(
+                            "SELECT id FROM versions WHERE app_id = ? AND version = ? AND version_no = ? AND id != ?",
+                            (app_id, current_version, version_no, version_id),
+                        )
+                        if cursor.fetchone():
+                            return jsonify({'error': 'Version with same version_no already exists'}), 409
+                
+                # Build update fields dynamically
+                update_fields = []
+                params = []
+                
+                if 'version' in data:
+                    update_fields.append('version = ?')
+                    params.append(data.get('version'))
+                if 'version_no' in data:
+                    update_fields.append('version_no = ?')
+                    params.append(version_no)
+                if 'description' in data:
+                    update_fields.append('description = ?')
+                    params.append(data.get('description'))
+                if 'release_date' in data:
+                    update_fields.append('release_date = ?')
+                    params.append(data.get('release_date'))
+                if 'deploy_path' in data:
+                    update_fields.append('deploy_path = ?')
+                    params.append(data.get('deploy_path'))
+                
+                if update_fields:
+                    cursor = conn.execute(f"""
+                        UPDATE versions 
+                        SET {', '.join(update_fields)}
+                        WHERE id = ?
+                    """, params + [version_id])
                 
                 # Return updated version with files
                 cursor = conn.execute("SELECT * FROM versions WHERE id = ?", (version_id,))
@@ -351,17 +419,42 @@ def init_versions_routes(app):
     
     @app.route('/api/versions/<int:version_id>', methods=['DELETE'])
     def delete_version(version_id):
-        """Delete version"""
+        """Delete version and associated files"""
         try:
             with db.get_connection() as conn:
-                # Check if version exists
+                # Check if version exists and get app_id
                 cursor = conn.execute("SELECT * FROM versions WHERE id = ?", (version_id,))
-                if not cursor.fetchone():
+                version = cursor.fetchone()
+                if not version:
                     return jsonify({'error': 'Version not found'}), 404
                 
-                # Delete version (cascade will delete files)
+                app_id = version['app_id']
+                
+                # Get all associated files to delete physical files
+                files_cursor = conn.execute(
+                    "SELECT file_path FROM files WHERE version_id = ?", (version_id,)
+                )
+                file_paths = [row['file_path'] for row in files_cursor.fetchall() if row['file_path']]
+                
+                # Delete version (cascade will delete files records)
                 conn.execute("DELETE FROM versions WHERE id = ?", (version_id,))
                 conn.commit()
+                
+                # Delete physical files after successful DB delete
+                for file_path in file_paths:
+                    try:
+                        if file_path and os.path.exists(file_path):
+                            os.remove(file_path)
+                    except Exception:
+                        pass
+                
+                # Try to remove empty upload directory
+                try:
+                    upload_dir = os.path.join('uploads', 'apps', str(app_id), str(version_id))
+                    if os.path.exists(upload_dir) and not os.listdir(upload_dir):
+                        os.rmdir(upload_dir)
+                except Exception:
+                    pass
                 
                 return jsonify({'message': 'Version deleted successfully'})
                 

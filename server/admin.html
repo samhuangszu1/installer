@@ -379,6 +379,7 @@
                         <thead>
                             <tr>
                                 <th>Version</th>
+                                <th>Version No</th>
                                 <th>Description</th>
                                 <th>Release Date</th>
                                 <th>Files</th>
@@ -480,6 +481,10 @@
                         <input type="text" id="edit-version-number" required>
                     </div>
                     <div class="form-group">
+                        <label for="edit-version-no">Version No:</label>
+                        <input type="number" id="edit-version-no" min="1" required>
+                    </div>
+                    <div class="form-group">
                         <label
                             for="edit-version-description">Description:</label>
                         <textarea id="edit-version-description"></textarea>
@@ -547,6 +552,10 @@
                     <div class="form-group">
                         <label for="version-number">Version:</label>
                         <input type="text" id="version-number" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="version-no">Version No:</label>
+                        <input type="number" id="version-no" min="1" value="1" required>
                     </div>
                     <div class="form-group">
                         <label for="version-description">Description:</label>
@@ -617,6 +626,7 @@
 
             editingVersionId = versionId;
             document.getElementById('edit-version-number').value = version.version || '';
+            document.getElementById('edit-version-no').value = version.version_no || 1;
             document.getElementById('edit-version-description').value = version.description || '';
             document.getElementById('edit-version-release-date').value = version.release_date || '';
             document.getElementById('edit-version-deploy-path').value = version.deploy_path || '/data/local/tmp';
@@ -703,6 +713,7 @@
 
             const formData = {
                 version: document.getElementById('edit-version-number').value,
+                version_no: parseInt(document.getElementById('edit-version-no').value, 10),
                 description: document.getElementById('edit-version-description').value,
                 release_date: document.getElementById('edit-version-release-date').value,
                 deploy_path: document.getElementById('edit-version-deploy-path').value
@@ -956,6 +967,7 @@
                     
                     row.innerHTML = `
                         <td>${version.version}</td>
+                        <td>${version.version_no || '-'}</td>
                         <td>${version.description || '-'}</td>
                         <td>${version.release_date || '-'}</td>
                         <td>${files}</td>
@@ -984,7 +996,8 @@
             versions.forEach(version => {
                 const option = document.createElement('option');
                 option.value = version.id;
-                option.textContent = `${version.version} - ${version.description || 'No description'}`;
+                const verNo = version.version_no ? `(#${version.version_no}) ` : '';
+                option.textContent = `${version.version} ${verNo}- ${version.description || 'No description'}`;
                 select.appendChild(option);
             });
 
@@ -1016,6 +1029,10 @@
                 const mm = String(today.getMonth() + 1).padStart(2, '0');
                 const dd = String(today.getDate()).padStart(2, '0');
                 document.getElementById('version-release-date').value = `${yyyy}-${mm}-${dd}`;
+            } catch (e) {
+            }
+            try {
+                document.getElementById('version-no').value = '1';
             } catch (e) {
             }
             document.getElementById('create-version-modal').style.display = 'block';
@@ -1067,6 +1084,7 @@
             
             const formData = {
                 version: document.getElementById('version-number').value,
+                version_no: parseInt(document.getElementById('version-no').value, 10),
                 description: document.getElementById('version-description').value,
                 release_date: document.getElementById('version-release-date').value,
                 deploy_path: document.getElementById('version-deploy-path').value,
@@ -1098,6 +1116,10 @@
                         const mm = String(today.getMonth() + 1).padStart(2, '0');
                         const dd = String(today.getDate()).padStart(2, '0');
                         document.getElementById('version-release-date').value = `${yyyy}-${mm}-${dd}`;
+                    } catch (e) {
+                    }
+                    try {
+                        document.getElementById('version-no').value = '1';
                     } catch (e) {
                     }
                 } else {

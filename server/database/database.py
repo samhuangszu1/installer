@@ -31,6 +31,7 @@ class Database:
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     app_id INTEGER NOT NULL,
                     version VARCHAR(50) NOT NULL,
+                    version_no INTEGER,
                     description TEXT,
                     release_date DATE,
                     deploy_path VARCHAR(500) DEFAULT '/data/local/tmp',
@@ -92,11 +93,12 @@ class Database:
                             
                             # Insert version
                             cursor = conn.execute("""
-                                INSERT INTO versions (app_id, version, description, release_date, deploy_path)
-                                VALUES (?, ?, ?, ?, ?)
+                                INSERT INTO versions (app_id, version, version_no, description, release_date, deploy_path)
+                                VALUES (?, ?, ?, ?, ?, ?)
                             """, (
                                 app_id,
                                 version_info.get('version'),
+                                version_info.get('version_no'),
                                 version_info.get('description'),
                                 version_info.get('release_date'),
                                 version_info.get('deploy_path', '/data/local/tmp')
