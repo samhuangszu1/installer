@@ -235,13 +235,6 @@ def init_versions_routes(app):
                 if not cursor.fetchone():
                     return jsonify({'error': 'App not found'}), 404
                 
-                # Check if version already exists
-                cursor = conn.execute("""
-                    SELECT * FROM versions WHERE app_id = ? AND version = ?
-                """, (app_id, data['version']))
-                if cursor.fetchone():
-                    return jsonify({'error': 'Version already exists'}), 400
-                
                 # Create version
                 cursor = conn.execute("""
                     INSERT INTO versions (app_id, version, description, release_date, deploy_path)

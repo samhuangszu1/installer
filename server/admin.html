@@ -65,6 +65,18 @@
             margin-bottom: 15px;
         }
 
+        .checkbox-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-weight: bold;
+        }
+
+        .checkbox-row input[type="checkbox"] {
+            width: auto;
+            margin: 0;
+        }
+
         .inline-row {
             display: flex;
             gap: 10px;
@@ -550,9 +562,9 @@
                             value="/data/local/tmp">
                     </div>
                     <div class="form-group">
-                        <label>
-                            <input type="checkbox" id="set-as-current"> Set as
-                            current version
+                        <label class="checkbox-row" for="set-as-current">
+                            <input type="checkbox" id="set-as-current" checked>
+                            <span>Set as current version</span>
                         </label>
                     </div>
                     <button type="submit" class="btn">Create Version</button>
@@ -994,6 +1006,18 @@
                 showStatus('Please select an application first', 'error');
                 return;
             }
+            try {
+                document.getElementById('set-as-current').checked = true;
+            } catch (e) {
+            }
+            try {
+                const today = new Date();
+                const yyyy = today.getFullYear();
+                const mm = String(today.getMonth() + 1).padStart(2, '0');
+                const dd = String(today.getDate()).padStart(2, '0');
+                document.getElementById('version-release-date').value = `${yyyy}-${mm}-${dd}`;
+            } catch (e) {
+            }
             document.getElementById('create-version-modal').style.display = 'block';
         }
         
@@ -1064,6 +1088,18 @@
                     loadVersions();
                     loadStats();
                     this.reset();
+                    try {
+                        document.getElementById('set-as-current').checked = true;
+                    } catch (e) {
+                    }
+                    try {
+                        const today = new Date();
+                        const yyyy = today.getFullYear();
+                        const mm = String(today.getMonth() + 1).padStart(2, '0');
+                        const dd = String(today.getDate()).padStart(2, '0');
+                        document.getElementById('version-release-date').value = `${yyyy}-${mm}-${dd}`;
+                    } catch (e) {
+                    }
                 } else {
                     const error = await response.json();
                     showStatus('Error creating version: ' + error.error, 'error');
