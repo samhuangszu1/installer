@@ -820,7 +820,11 @@ class ModernDesignInstaller:
 
         # 创建应用列表（使用 Treeview 以精确控制行高，与版本列表一致）
         self.app_tree = self.create_modern_app_treeview(list_container)
-        self.app_tree.pack(fill=tk.BOTH, expand=True)
+        try:
+            # Treeview and scrollbar are packed inside its own container
+            self.app_tree._container.pack(fill=tk.BOTH, expand=True)
+        except Exception:
+            pass
 
         # 绑定选择事件
         self.app_tree.bind('<<TreeviewSelect>>', self.on_app_select)
@@ -841,7 +845,11 @@ class ModernDesignInstaller:
 
         # 创建现代化树形视图
         self.version_tree = self.create_modern_treeview(list_container)
-        self.version_tree.pack(fill=tk.BOTH, expand=True)
+        try:
+            # Treeview and scrollbar are packed inside its own container
+            self.version_tree._container.pack(fill=tk.BOTH, expand=True)
+        except Exception:
+            pass
 
         # 绑定选择事件
         self.version_tree.bind('<<TreeviewSelect>>', self.on_version_select)
@@ -992,7 +1000,7 @@ class ModernDesignInstaller:
     def create_modern_app_treeview(self, parent):
         """创建应用列表 Treeview（单列，无表头，行高与版本列表一致）"""
         tree_frame = tk.Frame(parent, bg=self.colors['bg_card'])
-        tree_frame.pack(fill=tk.BOTH, expand=True)
+        # packed by caller via tree._container
 
         tree = ttk.Treeview(tree_frame, columns=(),
                             show='tree', selectmode='browse', height=12)
@@ -1003,10 +1011,19 @@ class ModernDesignInstaller:
         tree.tag_configure('odd', background=self.colors['bg_card'])
         tree.tag_configure('even', background=self.colors['bg_secondary'])
 
-        tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-
+        # 先 pack 滚动条
         scrollbar = self.create_modern_scrollbar(tree_frame, tree)
         scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+
+        # 再 pack Treeview
+        tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+
+        try:
+            tree._container = tree_frame
+            tree._vscrollbar = scrollbar
+            scrollbar.lift()
+        except Exception:
+            pass
 
         return tree
 
@@ -1014,7 +1031,7 @@ class ModernDesignInstaller:
         """创建现代化树形视图"""
         # 创建框架
         tree_frame = tk.Frame(parent, bg=self.colors['bg_card'])
-        tree_frame.pack(fill=tk.BOTH, expand=True)
+        # packed by caller via tree._container
 
         # 创建树形视图
         columns = ('version', 'date', 'action')
@@ -1030,7 +1047,7 @@ class ModernDesignInstaller:
         tree.column('#0', width=240, anchor='w')
         tree.column('version', width=120, anchor='center')
         tree.column('date', width=160, anchor='center')
-        tree.column('action', width=90, anchor='center')
+        tree.column('action', width=70, anchor='center')
 
         # 设置样式
         tree.configure(style='Modern.Treeview')
@@ -1101,13 +1118,33 @@ class ModernDesignInstaller:
                 tree.after(50, update_column_separators)
                 return
 
+            try:
+                sb = getattr(tree, '_vscrollbar', None)
+                sb_x = sb.winfo_x() if sb is not None else None
+            except Exception:
+                sb_x = None
+
             for i, x in enumerate(x_positions):
+                try:
+                    if sb_x is not None and x >= sb_x:
+                        separators[i].place_forget()
+                        continue
+                except Exception:
+                    pass
+
                 separators[i].place(x=x, y=tree.winfo_y(),
                                     width=1, height=height)
                 separators[i].lift()
 
             for sep in separators:
                 sep.lift()
+
+            try:
+                sb = getattr(tree, '_vscrollbar', None)
+                if sb is not None:
+                    sb.lift()
+            except Exception:
+                pass
 
         # 初次显示/布局后绘制分隔线
         tree.bind('<Map>', lambda e: tree.after(
@@ -1119,11 +1156,19 @@ class ModernDesignInstaller:
         tree.bind('<<TreeviewSelect>>', update_column_separators, add=True)
         tree.after(0, update_column_separators)
 
-        tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-
-        # 创建滚动条
+        # 创建滚动条（先 pack，确保获得固定宽度）
         scrollbar = self.create_modern_scrollbar(tree_frame, tree)
         scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+
+        # 再 pack Treeview（占据剩余空间）
+        tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+
+        try:
+            tree._container = tree_frame
+            tree._vscrollbar = scrollbar
+            scrollbar.lift()
+        except Exception:
+            pass
 
         tree.after(0, update_column_separators)
 
