@@ -22,33 +22,33 @@ def create_app():
     @app.before_request
     def _require_api_key_for_endpoints():
         # Skip health check and public endpoints
-        if request.path in ('/health', '/', '/admin'):
+        if request.path in ('/health', '/', '/admin', '/company/admin'):
             return None
-        
+
         # Skip admin management endpoints (they have their own auth)
         if request.path.startswith('/api/admin/'):
             return None
-        
+
         # Check if this endpoint requires API key
         protected = False
-        
+
         # Read operations that need company isolation
         if request.method == 'GET' and (
-            request.path == '/api/apps' or 
+            request.path == '/api/apps' or
             request.path.startswith('/api/apps/')
         ):
             protected = True
-        
+
         # Write operations
         if request.method == 'POST' and (
             request.path == '/api/apps' or
             request.path.startswith('/api/apps/') or
-            request.path == '/api/versions/create-with-files' or 
+            request.path == '/api/versions/create-with-files' or
             request.path == '/api/upload'
         ):
             protected = True
         elif request.method == 'PUT' and (
-            request.path.startswith('/api/apps/') or 
+            request.path.startswith('/api/apps/') or
             request.path.startswith('/api/versions/')
         ):
             protected = True
@@ -60,20 +60,20 @@ def create_app():
 
         # Validate authentication - try X-API-Key first, then JWT token
         provided_key = request.headers.get('X-API-Key')
-        
+
         # Try company API key first
         if provided_key:
             is_valid, company_id, error = validate_api_key(provided_key)
             if is_valid:
                 g.company_id = company_id
                 return None
-        
+
         # Fall back to admin API key for backward compatibility
         if admin_api_key and provided_key == admin_api_key:
             # For admin key, company_id will be None (access all)
             g.company_id = None
             return None
-        
+
         # Try JWT token as fallback
         auth_header = request.headers.get('Authorization')
         if auth_header and auth_header.startswith('Bearer '):
@@ -85,13 +85,13 @@ def create_app():
                 g.company_id = payload.get('company_id')
                 g.user = payload  # Store user info for potential use
                 return None
-        
+
         # If we get here, authentication failed
         return jsonify({'error': 'Unauthorized - Valid X-API-Key or JWT token required'}), 401
 
     # Initialize database
     db.ensure_database_exists()
-    
+
     # Initialize auth routes
     init_auth_routes(app)
 
@@ -112,14 +112,14 @@ def create_app():
                 token = auth_header.split(' ')[1]
             if not token:
                 token = request.cookies.get('auth_token')
-            
+
             if token:
                 # Import here to avoid circular dependency
                 from api.auth import verify_token
                 payload, error = verify_token(token)
                 if payload:
                     user = payload
-            
+
             with db.get_connection() as conn:
                 # Build queries based on user role
                 if user and user.get('role') == 'admin' and user.get('company_id') is None:
@@ -135,8 +135,9 @@ def create_app():
                 elif user and user.get('company_id'):
                     # Company admin - count only their company's data
                     company_id = user.get('company_id')
-                    
-                    cursor = conn.execute("SELECT COUNT(*) FROM apps WHERE company_id = ?", (company_id,))
+
+                    cursor = conn.execute(
+                        "SELECT COUNT(*) FROM apps WHERE company_id = ?", (company_id,))
                     app_count = cursor.fetchone()[0]
 
                     cursor = conn.execute("""
@@ -226,6 +227,15 @@ def create_app():
     @app.route('/admin')
     def admin_panel():
         """Admin panel"""
+        try:
+            with open(os.path.join(os.path.dirname(__file__), 'admin.html'), 'r', encoding='utf-8') as f:
+                return f.read()
+        except FileNotFoundError:
+            return jsonify({'error': 'Admin panel not found'}), 404
+
+    @app.route('/company/admin')
+    def company_admin_panel():
+        """Company admin panel"""
         try:
             with open(os.path.join(os.path.dirname(__file__), 'admin.html'), 'r', encoding='utf-8') as f:
                 return f.read()

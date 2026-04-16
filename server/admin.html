@@ -4,6 +4,11 @@
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>HarmonyOS Installer - Admin Panel</title>
+        <script>
+            if (window.location.pathname === '/company/admin') {
+                document.title = 'HarmonyOS Installer - Company Admin';
+            }
+        </script>
         <style>
         * {
             margin: 0;
@@ -316,13 +321,14 @@
 
         .login-header {
             text-align: center;
-            margin-bottom: 30px;
+            margin-bottom: 20px;
         }
 
         .login-header h1 {
             color: #333;
             font-size: 24px;
             margin-bottom: 10px;
+            white-space: nowrap;
         }
 
         .login-header p {
@@ -479,7 +485,7 @@
         <div id="login-page">
             <div class="login-container">
                 <div class="login-header">
-                    <h1>🔐 Admin Login</h1>
+                    <h1 id="login-title">🔐 Admin Login</h1>
                     <p>HarmonyOS Installer Management Panel</p>
                 </div>
                 <div class="login-error" id="login-error"></div>
@@ -1144,8 +1150,8 @@
             }
         }
 
-        // Login type state
-        let currentLoginType = 'admin';
+        // Login type state - auto-detect from URL path
+        let currentLoginType = window.location.pathname === '/company/admin' ? 'company' : 'admin';
 
         function setLoginType(type) {
             currentLoginType = type;
@@ -1153,6 +1159,7 @@
             const companyBtn = document.getElementById('toggle-company');
             const apiKeyGroup = document.getElementById('api-key-group');
             const apiKeyInput = document.getElementById('login-api-key');
+            const toggleContainer = document.querySelector('.login-type-toggle');
             
             if (type === 'admin') {
                 adminBtn.classList.add('active');
@@ -1166,6 +1173,19 @@
                 apiKeyInput.setAttribute('required', 'required');
             }
         }
+
+        // Auto-apply login type based on URL on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            const toggleContainer = document.querySelector('.login-type-toggle');
+            const loginTitle = document.getElementById('login-title');
+            if (window.location.pathname === '/company/admin') {
+                setLoginType('company');
+                if (toggleContainer) toggleContainer.style.display = 'none';
+                if (loginTitle) loginTitle.textContent = '🔐 Company Manager Login';
+            } else {
+                setLoginType('admin');
+            }
+        });
 
         async function login(email, password, apiKey = null) {
             try {
