@@ -100,6 +100,7 @@ class ModernDesignInstaller:
         # 服务器配置
         self.server_base_url = ""  # 服务器地址
         self.download_dir = ""  # 下载目录
+        self.api_key = ""  # API Key for SaaS authentication
 
         self._install_spinner_after_id = None
         self._install_spinner_idx = 0
@@ -198,7 +199,16 @@ class ModernDesignInstaller:
             try:
                 if not apps_url:
                     raise Exception("服务器地址无效")
-                response = requests.get(apps_url, timeout=10)
+                response = requests.get(apps_url, headers=self._get_api_headers(), timeout=10)
+                if response.status_code == 401:
+                    error_msg = 'API Key 无效或已过期'
+                    try:
+                        error_data = response.json()
+                        if error_data.get('error'):
+                            error_msg = error_data.get('error')
+                    except Exception:
+                        pass
+                    return False, f"认证失败: {error_msg}\n\n请在设置中更新有效的 API Key。"
                 if response.status_code != 200:
                     raise Exception(f"服务器响应错误: {response.status_code}")
                 data = response.json()
@@ -1832,7 +1842,16 @@ class ModernDesignInstaller:
             apps_url = f"{self.server_base_url}/api/apps"
             self.log(f"🌐 获取应用列表: {apps_url}")
 
-            response = requests.get(apps_url, timeout=10)
+            response = requests.get(apps_url, headers=self._get_api_headers(), timeout=10)
+            if response.status_code == 401:
+                error_msg = 'API Key 无效或已过期'
+                try:
+                    error_data = response.json()
+                    if error_data.get('error'):
+                        error_msg = error_data.get('error')
+                except Exception:
+                    pass
+                raise Exception(f"认证失败: {error_msg}\n\n请在设置中更新有效的 API Key。")
             if response.status_code == 200:
                 self.apps_config = response.json()
                 self.log(f"📱 已从服务器加载 {len(self.apps_config['apps'])} 个应用")
@@ -1923,6 +1942,7 @@ class ModernDesignInstaller:
                     settings = json.load(f)
                     self.server_base_url = settings.get('server_base_url', "")
                     self.download_dir = settings.get('download_dir', "")
+                    self.api_key = settings.get('api_key', "")
                     if not self.download_dir:
                         self.download_dir = self._get_default_download_dir()
                     self.log(f"⚙️ 已加载本地设置")
@@ -1930,12 +1950,14 @@ class ModernDesignInstaller:
                 # 使用空设置，强制用户配置
                 self.server_base_url = ""
                 self.download_dir = self._get_default_download_dir()
+                self.api_key = ""
                 self.log(f"📝 首次运行，需要配置")
         except Exception as e:
             self.log(f"⚠️ 设置加载失败，需要重新配置: {str(e)}")
             # 使用空设置，强制用户配置
             self.server_base_url = ""
             self.download_dir = self._get_default_download_dir()
+            self.api_key = ""
 
     def save_local_settings(self):
         """保存本地设置"""
@@ -1944,13 +1966,21 @@ class ModernDesignInstaller:
             os.makedirs(os.path.dirname(settings_path), exist_ok=True)
             settings = {
                 'server_base_url': self.server_base_url,
-                'download_dir': self.download_dir
+                'download_dir': self.download_dir,
+                'api_key': self.api_key
             }
             with open(settings_path, 'w', encoding='utf-8') as f:
                 json.dump(settings, f, ensure_ascii=False, indent=2)
             self.log(f"💾 设置已保存")
         except Exception as e:
             self.log(f"❌ 设置保存失败: {str(e)}")
+
+    def _get_api_headers(self):
+        """Get API request headers with X-API-Key if available"""
+        headers = {}
+        if self.api_key:
+            headers['X-API-Key'] = self.api_key
+        return headers
 
     def populate_app_list(self):
         """填充应用列表"""
@@ -2124,7 +2154,16 @@ class ModernDesignInstaller:
 
         def _worker():
             try:
-                response = requests.get(versions_url, timeout=10)
+                response = requests.get(versions_url, headers=self._get_api_headers(), timeout=10)
+                if response.status_code == 401:
+                    error_msg = 'API Key 无效或已过期'
+                    try:
+                        error_data = response.json()
+                        if error_data.get('error'):
+                            error_msg = error_data.get('error')
+                    except Exception:
+                        pass
+                    raise Exception(f"认证失败: {error_msg}\n\n请在设置中更新有效的 API Key。")
                 if response.status_code != 200:
                     raise Exception(f"服务器响应错误: {response.status_code}")
                 data = response.json()
@@ -3032,7 +3071,17 @@ class ModernDesignInstaller:
             url = f"{self.server_base_url}/api/versions/{vid}/info"
             self.log(f"🌐 获取版本信息: {url}")
 
-            response = requests.get(url, timeout=10)
+            response = requests.get(url, headers=self._get_api_headers(), timeout=10)
+            if response.status_code == 401:
+                error_msg = 'API Key 无效或已过期'
+                try:
+                    error_data = response.json()
+                    if error_data.get('error'):
+                        error_msg = error_data.get('error')
+                except Exception:
+                    pass
+                self.log(f"❌ 认证失败: {error_msg}")
+                return None
             if response.status_code == 200:
                 data = response.json()
                 if isinstance(data, dict):
@@ -3123,7 +3172,17 @@ class ModernDesignInstaller:
             except Exception:
                 pass
 
-            response = requests.get(url, stream=True, timeout=30)
+            response = requests.get(url, headers=self._get_api_headers(), stream=True, timeout=30)
+            if response.status_code == 401:
+                error_msg = 'API Key 无效或已过期'
+                try:
+                    error_data = response.json()
+                    if error_data.get('error'):
+                        error_msg = error_data.get('error')
+                except Exception:
+                    pass
+                self.log(f"❌ 下载失败 - 认证失败: {error_msg}")
+                return False
             if response.status_code == 200:
                 total_size = int(response.headers.get(
                     'content-length', 0) or 0)
@@ -3316,6 +3375,17 @@ class ModernDesignInstaller:
         url_entry.pack(fill='x', ipady=6, pady=(0, 14))
         url_entry.insert(0, self.server_base_url)
 
+        # API Key 输入
+        tk.Label(config_frame, text="🔑 API Key:",
+                 font=self.fonts['body'],
+                 fg=self.colors['text_secondary'],
+                 bg=self.colors['bg_card']).pack(anchor='w', pady=(0, 6))
+
+        api_key_entry = tk.Entry(config_frame, show='*')
+        self._style_entry_widget(api_key_entry)
+        api_key_entry.pack(fill='x', ipady=6, pady=(0, 14))
+        api_key_entry.insert(0, self.api_key)
+
         # 下载目录输入
         tk.Label(config_frame, text="📁 下载目录:",
                  font=self.fonts['body'],
@@ -3358,9 +3428,11 @@ class ModernDesignInstaller:
         # 说明文本
         info_text = """配置说明：
 • 服务器地址：提供应用和版本信息的API端点
+• API Key：SaaS系统认证密钥，由管理员分配
 • 下载目录：存储下载的HAP/HSP文件
 • 配置会自动保存，下次启动时加载
-• 必须确保服务器地址正确且可访问"""
+• 必须确保服务器地址正确且可访问
+• 未设置API Key将无法访问受保护的API端点"""
 
         info_card = tk.Frame(content, bg=self.colors['bg_card'], highlightthickness=1,
                              highlightbackground=self.colors['border'])
@@ -3379,6 +3451,7 @@ class ModernDesignInstaller:
         def save_config():
             new_url = url_entry.get().strip()
             new_download_dir = download_entry.get().strip()
+            new_api_key = api_key_entry.get().strip()
 
             if not new_url:
                 self.show_warning("警告", "请输入有效的服务器地址")
@@ -3390,6 +3463,7 @@ class ModernDesignInstaller:
 
             self.server_base_url = new_url
             self.download_dir = new_download_dir
+            self.api_key = new_api_key
 
             # 创建新的下载目录
             if not os.path.exists(self.download_dir):
@@ -3401,6 +3475,10 @@ class ModernDesignInstaller:
             self.log(f"✅ 配置已更新")
             self.log(f"🌐 服务器地址: {new_url}")
             self.log(f"📁 下载目录: {new_download_dir}")
+            if new_api_key:
+                self.log(f"🔑 API Key 已设置")
+            else:
+                self.log(f"⚠️ 未设置 API Key")
 
             config_saved[0] = True
             dialog.destroy()

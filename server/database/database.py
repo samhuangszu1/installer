@@ -16,15 +16,38 @@ class Database:
         
         with sqlite3.connect(self.db_path) as conn:
             conn.executescript("""
+                CREATE TABLE IF NOT EXISTS companies (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    name VARCHAR(255) NOT NULL,
+                    code VARCHAR(100) UNIQUE NOT NULL,
+                    description TEXT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+                
+                CREATE TABLE IF NOT EXISTS api_keys (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    company_id INTEGER NOT NULL,
+                    key_hash VARCHAR(255) UNIQUE NOT NULL,
+                    name VARCHAR(100),
+                    expires_at TIMESTAMP,
+                    last_used_at TIMESTAMP,
+                    is_active BOOLEAN DEFAULT 1,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE CASCADE
+                );
+                
                 CREATE TABLE IF NOT EXISTS apps (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    company_id INTEGER,
                     name VARCHAR(255) NOT NULL,
                     description TEXT,
                     bundle_name VARCHAR(255) NOT NULL,
                     main_ability VARCHAR(255) NOT NULL,
                     current_version VARCHAR(50),
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE CASCADE
                 );
                 
                 CREATE TABLE IF NOT EXISTS versions (
@@ -38,6 +61,11 @@ class Database:
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     FOREIGN KEY (app_id) REFERENCES apps(id) ON DELETE CASCADE
                 );
+                
+                -- Create indexes for performance
+                CREATE INDEX IF NOT EXISTS idx_apps_company_id ON apps(company_id);
+                CREATE INDEX IF NOT EXISTS idx_api_keys_key_hash ON api_keys(key_hash);
+                CREATE INDEX IF NOT EXISTS idx_api_keys_company_id ON api_keys(company_id);
                 
                 CREATE TABLE IF NOT EXISTS files (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,

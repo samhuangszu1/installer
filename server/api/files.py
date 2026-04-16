@@ -1,8 +1,40 @@
-from flask import request, jsonify, send_file
+from flask import request, jsonify, send_file, g
 from database.database import db
 from werkzeug.utils import secure_filename
 import os
 import uuid
+
+
+def _get_company_id():
+    """Get company_id from request context (set by auth middleware)"""
+    return getattr(g, 'company_id', None)
+
+
+def _verify_version_ownership(conn, version_id, company_id):
+    """Verify version belongs to company through its app, returns version data or None"""
+    if company_id is None:
+        cursor = conn.execute("SELECT * FROM versions WHERE id = ?", (version_id,))
+    else:
+        cursor = conn.execute("""
+            SELECT v.* FROM versions v
+            JOIN apps a ON v.app_id = a.id
+            WHERE v.id = ? AND a.company_id = ?
+        """, (version_id, company_id))
+    return cursor.fetchone()
+
+
+def _verify_file_ownership(conn, file_id, company_id):
+    """Verify file belongs to company through its version's app, returns file data or None"""
+    if company_id is None:
+        cursor = conn.execute("SELECT * FROM files WHERE id = ?", (file_id,))
+    else:
+        cursor = conn.execute("""
+            SELECT f.* FROM files f
+            JOIN versions v ON f.version_id = v.id
+            JOIN apps a ON v.app_id = a.id
+            WHERE f.id = ? AND a.company_id = ?
+        """, (file_id, company_id))
+    return cursor.fetchone()
 
 def init_files_routes(app):
     
@@ -26,12 +58,13 @@ def init_files_routes(app):
             if file.filename == '':
                 return jsonify({'error': 'No file selected'}), 400
             
-            # Check if version exists
+            company_id = _get_company_id()
+            
+            # Check if version exists and belongs to company
             with db.get_connection() as conn:
-                cursor = conn.execute("SELECT * FROM versions WHERE id = ?", (version_id,))
-                version = cursor.fetchone()
+                version = _verify_version_ownership(conn, version_id, company_id)
                 if not version:
-                    return jsonify({'error': 'Version not found'}), 400
+                    return jsonify({'error': 'Version not found or access denied'}), 400
                 
                 # Create upload directory
                 upload_dir = os.path.join('uploads', 'apps', str(version['app_id']), version_id)
@@ -81,12 +114,13 @@ def init_files_routes(app):
     def download_file(file_id):
         """Download file"""
         try:
+            company_id = _get_company_id()
+            
             with db.get_connection() as conn:
-                cursor = conn.execute("SELECT * FROM files WHERE id = ?", (file_id,))
-                file_record = cursor.fetchone()
+                file_record = _verify_file_ownership(conn, file_id, company_id)
                 
                 if not file_record:
-                    return jsonify({'error': 'File not found'}), 404
+                    return jsonify({'error': 'File not found or access denied'}), 404
                 
                 if not os.path.exists(file_record['file_path']):
                     return jsonify({'error': 'File not found on disk'}), 404
@@ -104,12 +138,13 @@ def init_files_routes(app):
     def delete_file(file_id):
         """Delete file"""
         try:
+            company_id = _get_company_id()
+            
             with db.get_connection() as conn:
-                cursor = conn.execute("SELECT * FROM files WHERE id = ?", (file_id,))
-                file_record = cursor.fetchone()
+                file_record = _verify_file_ownership(conn, file_id, company_id)
                 
                 if not file_record:
-                    return jsonify({'error': 'File not found'}), 404
+                    return jsonify({'error': 'File not found or access denied'}), 404
                 
                 # Delete file from disk
                 if os.path.exists(file_record['file_path']):
@@ -128,15 +163,27 @@ def init_files_routes(app):
     def download_version_file(version_id, file_type):
         """Download specific file for a version"""
         try:
+            company_id = _get_company_id()
+            
             with db.get_connection() as conn:
-                cursor = conn.execute("""
-                    SELECT * FROM files 
-                    WHERE version_id = ? AND file_type = ?
-                """, (version_id, file_type))
+                # Verify version ownership and get file
+                if company_id is None:
+                    cursor = conn.execute("""
+                        SELECT f.* FROM files f
+                        WHERE f.version_id = ? AND f.file_type = ?
+                    """, (version_id, file_type))
+                else:
+                    cursor = conn.execute("""
+                        SELECT f.* FROM files f
+                        JOIN versions v ON f.version_id = v.id
+                        JOIN apps a ON v.app_id = a.id
+                        WHERE f.version_id = ? AND f.file_type = ? AND a.company_id = ?
+                    """, (version_id, file_type, company_id))
+                
                 file_record = cursor.fetchone()
                 
                 if not file_record:
-                    return jsonify({'error': 'File not found'}), 404
+                    return jsonify({'error': 'File not found or access denied'}), 404
                 
                 if not os.path.exists(file_record['file_path']):
                     return jsonify({'error': 'File not found on disk'}), 404

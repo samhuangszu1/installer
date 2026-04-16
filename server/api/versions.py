@@ -1,8 +1,46 @@
-from flask import request, jsonify
+from flask import request, jsonify, g
 from database.database import db
 from werkzeug.utils import secure_filename
 import os
 import uuid
+
+
+def _get_company_id():
+    """Get company_id from request context (set by auth middleware)"""
+    return getattr(g, 'company_id', None)
+
+
+def _verify_app_ownership(conn, app_id, company_id):
+    """Verify app belongs to company, returns app data or None"""
+    if company_id is None:
+        # Admin access - no filtering
+        cursor = conn.execute("SELECT * FROM apps WHERE id = ?", (app_id,))
+    else:
+        cursor = conn.execute(
+            "SELECT * FROM apps WHERE id = ? AND company_id = ?",
+            (app_id, company_id)
+        )
+    return cursor.fetchone()
+
+
+def _verify_version_ownership(conn, version_id, company_id):
+    """Verify version belongs to company through its app, returns version data or None"""
+    if company_id is None:
+        # Admin access - no filtering
+        cursor = conn.execute("""
+            SELECT v.*, a.company_id 
+            FROM versions v 
+            JOIN apps a ON v.app_id = a.id 
+            WHERE v.id = ?
+        """, (version_id,))
+    else:
+        cursor = conn.execute("""
+            SELECT v.*, a.company_id 
+            FROM versions v 
+            JOIN apps a ON v.app_id = a.id 
+            WHERE v.id = ? AND a.company_id = ?
+        """, (version_id, company_id))
+    return cursor.fetchone()
 
 def init_versions_routes(app):
     
@@ -10,6 +48,8 @@ def init_versions_routes(app):
     def get_app_versions(app_id):
         """Get versions for an app with optional pagination"""
         try:
+            company_id = _get_company_id()
+            
             # Parse pagination parameters
             page = request.args.get('page', type=int)
             page_size = request.args.get('page_size', type=int)
@@ -27,10 +67,10 @@ def init_versions_routes(app):
                 page_size = 20
             
             with db.get_connection() as conn:
-                # Check if app exists
-                cursor = conn.execute("SELECT * FROM apps WHERE id = ?", (app_id,))
-                if not cursor.fetchone():
-                    return jsonify({'error': 'App not found'}), 404
+                # Check if app exists and belongs to company
+                app = _verify_app_ownership(conn, app_id, company_id)
+                if not app:
+                    return jsonify({'error': 'App not found or access denied'}), 404
                 
                 # Get total count
                 cursor = conn.execute(
@@ -136,14 +176,17 @@ def init_versions_routes(app):
             hap_tmp_path = os.path.join(tmp_root, f"{uuid.uuid4().hex}_{hap_name}")
             hsp_tmp_path = os.path.join(tmp_root, f"{uuid.uuid4().hex}_{hsp_name}")
 
+            company_id = _get_company_id()
+            
             created_tmp_paths = []
             created_final_paths = []
             cleanup_old_paths = []
             with db.get_connection() as conn:
                 try:
-                    cursor = conn.execute("SELECT 1 FROM apps WHERE id = ?", (app_id_int,))
-                    if not cursor.fetchone():
-                        return jsonify({'error': 'App not found'}), 404
+                    # Verify app exists and belongs to company
+                    app = _verify_app_ownership(conn, app_id_int, company_id)
+                    if not app:
+                        return jsonify({'error': 'App not found or access denied'}), 404
 
                     # Check if version with same version + version_no exists
                     cursor = conn.execute(
@@ -287,11 +330,13 @@ def init_versions_routes(app):
             except (ValueError, TypeError):
                 return jsonify({'error': 'Invalid version_no, must be an integer'}), 400
             
+            company_id = _get_company_id()
+            
             with db.get_connection() as conn:
-                # Check if app exists
-                cursor = conn.execute("SELECT * FROM apps WHERE id = ?", (app_id,))
-                if not cursor.fetchone():
-                    return jsonify({'error': 'App not found'}), 404
+                # Check if app exists and belongs to company
+                app = _verify_app_ownership(conn, app_id, company_id)
+                if not app:
+                    return jsonify({'error': 'App not found or access denied'}), 404
                 
                 # Check if version with same version + version_no exists
                 cursor = conn.execute(
@@ -339,13 +384,13 @@ def init_versions_routes(app):
         """Update version"""
         try:
             data = request.get_json()
+            company_id = _get_company_id()
             
             with db.get_connection() as conn:
-                # Check if version exists
-                cursor = conn.execute("SELECT * FROM versions WHERE id = ?", (version_id,))
-                version_row = cursor.fetchone()
+                # Check if version exists and belongs to company
+                version_row = _verify_version_ownership(conn, version_id, company_id)
                 if not version_row:
-                    return jsonify({'error': 'Version not found'}), 404
+                    return jsonify({'error': 'Version not found or access denied'}), 404
                 
                 # Parse version_no if provided
                 version_no = data.get('version_no')
@@ -421,12 +466,13 @@ def init_versions_routes(app):
     def delete_version(version_id):
         """Delete version and associated files"""
         try:
+            company_id = _get_company_id()
+            
             with db.get_connection() as conn:
-                # Check if version exists and get app_id
-                cursor = conn.execute("SELECT * FROM versions WHERE id = ?", (version_id,))
-                version = cursor.fetchone()
+                # Check if version exists and belongs to company
+                version = _verify_version_ownership(conn, version_id, company_id)
                 if not version:
-                    return jsonify({'error': 'Version not found'}), 404
+                    return jsonify({'error': 'Version not found or access denied'}), 404
                 
                 app_id = version['app_id']
                 
@@ -465,18 +511,30 @@ def init_versions_routes(app):
     def get_version_info(version_id):
         """Get version info in the old format for compatibility"""
         try:
+            company_id = _get_company_id()
+            
             with db.get_connection() as conn:
-                # Get version
-                cursor = conn.execute("""
-                    SELECT v.*, a.bundle_name, a.main_ability 
-                    FROM versions v
-                    JOIN apps a ON v.app_id = a.id
-                    WHERE v.id = ?
-                """, (version_id,))
+                # Get version and verify company ownership
+                if company_id is None:
+                    # Admin access
+                    cursor = conn.execute("""
+                        SELECT v.*, a.bundle_name, a.main_ability 
+                        FROM versions v
+                        JOIN apps a ON v.app_id = a.id
+                        WHERE v.id = ?
+                    """, (version_id,))
+                else:
+                    cursor = conn.execute("""
+                        SELECT v.*, a.bundle_name, a.main_ability 
+                        FROM versions v
+                        JOIN apps a ON v.app_id = a.id
+                        WHERE v.id = ? AND a.company_id = ?
+                    """, (version_id, company_id))
+                
                 version = cursor.fetchone()
                 
                 if not version:
-                    return jsonify({'error': 'Version not found'}), 404
+                    return jsonify({'error': 'Version not found or access denied'}), 404
                 
                 # Get files
                 cursor = conn.execute("""
@@ -504,18 +562,29 @@ def init_versions_routes(app):
     def delete_version_file(version_id, file_type):
         """Delete specific file type from a version"""
         try:
+            company_id = _get_company_id()
+            
             with db.get_connection() as conn:
-                # Get version info
-                cursor = conn.execute("""
-                    SELECT v.*, a.name as app_name, a.bundle_name
-                    FROM versions v
-                    JOIN apps a ON v.app_id = a.id
-                    WHERE v.id = ?
-                """, (version_id,))
+                # Get version info and verify company ownership
+                if company_id is None:
+                    cursor = conn.execute("""
+                        SELECT v.*, a.name as app_name, a.bundle_name
+                        FROM versions v
+                        JOIN apps a ON v.app_id = a.id
+                        WHERE v.id = ?
+                    """, (version_id,))
+                else:
+                    cursor = conn.execute("""
+                        SELECT v.*, a.name as app_name, a.bundle_name
+                        FROM versions v
+                        JOIN apps a ON v.app_id = a.id
+                        WHERE v.id = ? AND a.company_id = ?
+                    """, (version_id, company_id))
+                
                 version_data = cursor.fetchone()
 
                 if not version_data:
-                    return jsonify({'error': 'Version not found'}), 404
+                    return jsonify({'error': 'Version not found or access denied'}), 404
 
                 # Get file info before deletion
                 cursor = conn.execute("SELECT filename FROM files WHERE version_id = ? AND file_type = ?", 

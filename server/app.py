@@ -1,8 +1,9 @@
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, g
 from database.database import db
 from api.apps import init_apps_routes
 from api.versions import init_versions_routes
 from api.files import init_files_routes
+from api.auth import init_auth_routes, validate_api_key, hash_api_key
 import os
 
 try:
@@ -19,12 +20,37 @@ def create_app():
     admin_api_key = os.environ.get('ADMIN_API_KEY')
 
     @app.before_request
-    def _require_api_key_for_upload_endpoints():
+    def _require_api_key_for_endpoints():
+        # Skip health check and public endpoints
+        if request.path in ('/health', '/', '/admin'):
+            return None
+        
+        # Skip admin management endpoints (they have their own auth)
+        if request.path.startswith('/api/admin/'):
+            return None
+        
+        # Check if this endpoint requires API key
         protected = False
-
-        if request.method == 'POST' and request.path in ('/api/versions/create-with-files', '/api/upload'):
+        
+        # Read operations that need company isolation
+        if request.method == 'GET' and (
+            request.path == '/api/apps' or 
+            request.path.startswith('/api/apps/')
+        ):
             protected = True
-        elif request.method == 'PUT' and (request.path.startswith('/api/apps/') or request.path.startswith('/api/versions/')):
+        
+        # Write operations
+        if request.method == 'POST' and (
+            request.path == '/api/apps' or
+            request.path.startswith('/api/apps/') or
+            request.path == '/api/versions/create-with-files' or 
+            request.path == '/api/upload'
+        ):
+            protected = True
+        elif request.method == 'PUT' and (
+            request.path.startswith('/api/apps/') or 
+            request.path.startswith('/api/versions/')
+        ):
             protected = True
         elif request.method == 'DELETE' and request.path.startswith('/api/'):
             protected = True
@@ -32,15 +58,30 @@ def create_app():
         if not protected:
             return None
 
-        if not admin_api_key:
+        # Validate company API key
+        provided_key = request.headers.get('X-API-Key')
+        
+        # Try company API key first
+        if provided_key:
+            is_valid, company_id, error = validate_api_key(provided_key)
+            if is_valid:
+                g.company_id = company_id
+                return None
+        
+        # Fall back to admin API key for backward compatibility
+        if admin_api_key and provided_key == admin_api_key:
+            # For admin key, company_id will be None (access all)
+            g.company_id = None
             return None
-
-        provided = request.headers.get('X-API-Key')
-        if not provided or provided != admin_api_key:
-            return jsonify({'error': 'Unauthorized'}), 401
+        
+        # If we get here, authentication failed
+        return jsonify({'error': 'Unauthorized - Valid X-API-Key header required'}), 401
 
     # Initialize database
     db.ensure_database_exists()
+    
+    # Initialize auth routes
+    init_auth_routes(app)
 
     # Initialize API routes
     init_apps_routes(app)
@@ -79,11 +120,11 @@ def create_app():
         """Index page with API documentation"""
         return jsonify({
             'name': 'HarmonyOS Installer API',
-            'version': '2.1.0',
-            'description': 'API for managing HarmonyOS applications and versions',
+            'version': '3.0.0',
+            'description': 'API for managing HarmonyOS applications and versions (SaaS Multi-tenant)',
             'endpoints': {
                 'apps': {
-                    'GET /api/apps': 'Get all apps',
+                    'GET /api/apps': 'Get all apps for your company',
                     'POST /api/apps': 'Create new app',
                     'PUT /api/apps/{id}': 'Update app',
                     'DELETE /api/apps/{id}': 'Delete app'
@@ -104,7 +145,16 @@ def create_app():
                     'GET /api/versions/{version_id}/files/{file_type}/download': 'Download specific file for a version (hap/hsp)'
                 },
                 'auth': {
-                    'X-API-Key': 'If ADMIN_API_KEY is set, required for POST /api/versions/create-with-files, POST /api/upload, PUT /api/apps/*, PUT /api/versions/*, DELETE /api/*'
+                    'X-API-Key': 'Required for all protected endpoints. Format: X-API-Key: <your_api_key>',
+                    'note': 'Each company has isolated data. Use admin endpoints to manage companies and API keys.'
+                },
+                'admin': {
+                    'GET /api/admin/companies': 'List all companies (admin only)',
+                    'POST /api/admin/companies': 'Create company with API key (admin only)',
+                    'GET /api/admin/companies/{id}/api-keys': 'List company API keys (admin only)',
+                    'POST /api/admin/companies/{id}/api-keys': 'Create API key for company (admin only)',
+                    'DELETE /api/admin/api-keys/{id}': 'Revoke API key (admin only)',
+                    'POST /api/admin/api-keys/{id}/toggle': 'Toggle API key active status (admin only)'
                 }
             }
         })

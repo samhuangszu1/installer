@@ -301,10 +301,10 @@
 
             <div class="card">
                 <div class="form-group">
-                    <label for="api-key-input">API Key (for upload)</label>
+                    <label for="api-key-input">API Key (Admin or Company)</label>
                     <div class="inline-row">
                         <input type="password" id="api-key-input"
-                            placeholder="Set X-API-Key for uploads">
+                            placeholder="Enter X-API-Key for authentication">
                         <button class="btn" type="button"
                             onclick="saveApiKey()">Save</button>
                     </div>
@@ -327,17 +327,47 @@
             </div>
 
             <div class="tabs">
-                <button class="tab active"
-                    onclick="showTab('apps')">Applications</button>
-                <button class="tab"
-                    onclick="showTab('versions')">Versions</button>
+                <button class="tab active" onclick="showTab('companies')">Companies</button>
+                <button class="tab" onclick="showTab('apps')">Applications</button>
+                <button class="tab" onclick="showTab('versions')">Versions</button>
                 <button class="tab" onclick="showTab('files')">Files</button>
             </div>
 
+            <!-- Companies Tab -->
+            <div id="companies-tab" class="tab-content active">
+                <div class="card">
+                    <h2>Company Management (SaaS)</h2>
+                    <button class="btn" onclick="showCreateCompanyModal()">Create Company</button>
+                    <button class="btn" onclick="loadCompanies()">Refresh</button>
+
+                    <table class="table" id="companies-table">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Name</th>
+                                <th>Code</th>
+                                <th>Description</th>
+                                <th>Created</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <!-- Companies will be loaded here -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
             <!-- Applications Tab -->
-            <div id="apps-tab" class="tab-content active">
+            <div id="apps-tab" class="tab-content">
                 <div class="card">
                     <h2>Applications</h2>
+                    <div class="form-group">
+                        <label for="apps-company-select">Select Company:</label>
+                        <select id="apps-company-select" onchange="loadApps()">
+                            <option value="">All Companies</option>
+                        </select>
+                    </div>
                     <button class="btn" onclick="showCreateAppModal()">Create
                         New App</button>
                     <button class="btn" onclick="loadApps()">Refresh</button>
@@ -583,6 +613,130 @@
             </div>
         </div>
 
+        <!-- Create Company Modal -->
+        <div id="create-company-modal" class="modal">
+            <div class="modal-content">
+                <span class="close" onclick="closeModal('create-company-modal')">&times;</span>
+                <h2>Create New Company</h2>
+                <form id="create-company-form">
+                    <div class="form-group">
+                        <label for="company-name">Company Name:</label>
+                        <input type="text" id="company-name" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="company-code">Company Code (unique):</label>
+                        <input type="text" id="company-code" required placeholder="e.g., huawei">
+                    </div>
+                    <div class="form-group">
+                        <label for="company-description">Description:</label>
+                        <textarea id="company-description"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="api-key-expires">API Key Expires (days, optional):</label>
+                        <input type="number" id="api-key-expires" min="1" placeholder="Leave empty for no expiration">
+                    </div>
+                    <button type="submit" class="btn">Create Company</button>
+                    <button type="button" class="btn" onclick="closeModal('create-company-modal')">Cancel</button>
+                </form>
+            </div>
+        </div>
+
+        <!-- API Key Modal -->
+        <div id="api-key-modal" class="modal">
+            <div class="modal-content">
+                <span class="close" onclick="closeModal('api-key-modal')">&times;</span>
+                <h2>API Key Created</h2>
+                <div class="form-group">
+                    <label>Company:</label>
+                    <div id="api-key-company-name" style="font-weight: bold; margin-bottom: 10px;"></div>
+                </div>
+                <div class="form-group">
+                    <label>API Key (save this - shown only once):</label>
+                    <textarea id="api-key-display" readonly style="width: 100%; font-family: monospace; background: #f5f5f5; padding: 10px; border: 1px solid #ddd;"></textarea>
+                </div>
+                <div class="form-group">
+                    <label>Expires At:</label>
+                    <div id="api-key-expires-display"></div>
+                </div>
+                <button type="button" class="btn" onclick="copyApiKey()">Copy to Clipboard</button>
+                <button type="button" class="btn" onclick="closeModal('api-key-modal')">Close</button>
+            </div>
+        </div>
+
+        <!-- Edit Company Modal -->
+        <div id="edit-company-modal" class="modal">
+            <div class="modal-content">
+                <span class="close" onclick="closeModal('edit-company-modal')">&times;</span>
+                <h2>Edit Company</h2>
+                <form id="edit-company-form">
+                    <input type="hidden" id="edit-company-id">
+                    <div class="form-group">
+                        <label for="edit-company-name">Company Name:</label>
+                        <input type="text" id="edit-company-name" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="edit-company-code">Company Code (unique):</label>
+                        <input type="text" id="edit-company-code" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="edit-company-description">Description:</label>
+                        <textarea id="edit-company-description"></textarea>
+                    </div>
+                    <button type="submit" class="btn">Update Company</button>
+                    <button type="button" class="btn" onclick="closeModal('edit-company-modal')">Cancel</button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Create API Key Modal -->
+        <div id="create-api-key-modal" class="modal">
+            <div class="modal-content">
+                <span class="close" onclick="closeModal('create-api-key-modal')">&times;</span>
+                <h2>Create New API Key</h2>
+                <div id="create-api-key-company-name" style="font-weight: bold; margin-bottom: 15px; color: #666;"></div>
+                <form id="create-api-key-form">
+                    <input type="hidden" id="create-api-key-company-id">
+                    <div class="form-group">
+                        <label for="create-api-key-name">Key Name:</label>
+                        <input type="text" id="create-api-key-name" placeholder="e.g., Production Key">
+                    </div>
+                    <div class="form-group">
+                        <label for="create-api-key-expires">Expires In (days, optional):</label>
+                        <input type="number" id="create-api-key-expires" min="1" placeholder="Leave empty for no expiration">
+                    </div>
+                    <button type="submit" class="btn">Create Key</button>
+                    <button type="button" class="btn" onclick="closeModal('create-api-key-modal')">Cancel</button>
+                </form>
+            </div>
+        </div>
+
+        <!-- API Keys List Modal -->
+        <div id="api-keys-list-modal" class="modal">
+            <div class="modal-content" style="max-width: 800px;">
+                <span class="close" onclick="closeModal('api-keys-list-modal')">&times;</span>
+                <h2>API Keys for Company</h2>
+                <div id="api-keys-company-name" style="font-weight: bold; margin-bottom: 15px; color: #666;"></div>
+                
+                <table class="table" id="api-keys-table">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Name</th>
+                            <th>Status</th>
+                            <th>Expires</th>
+                            <th>Last Used</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+                
+                <div style="margin-top: 15px; padding: 10px; background: #fff3cd; border-radius: 4px; font-size: 12px; color: #856404;">
+                    【Note: For security, API Key values are only shown once when created.】
+                </div>
+            </div>
+        </div>
+
         <div id="status-message"></div>
 
         <script>
@@ -592,13 +746,23 @@
         let versionsById = {};
         let editingAppId = null;
         let editingVersionId = null;
+        let editingCompanyId = null;
 
         function getApiKey() {
             try {
-                return localStorage.getItem('ADMIN_API_KEY') || '';
+                return localStorage.getItem('API_KEY') || '';
             } catch (e) {
                 return '';
             }
+        }
+
+        function getFetchHeaders() {
+            const headers = {};
+            const apiKey = getApiKey();
+            if (apiKey) {
+                headers['X-API-Key'] = apiKey;
+            }
+            return headers;
         }
 
         function editApp(appId) {
@@ -635,7 +799,7 @@
 
         function setApiKey(value) {
             try {
-                localStorage.setItem('ADMIN_API_KEY', value || '');
+                localStorage.setItem('API_KEY', value || '');
             } catch (e) {
             }
         }
@@ -657,8 +821,8 @@
                 apiKeyInput.value = getApiKey();
             }
             loadStats();
-            loadApps();
-            loadAppSelect();
+            loadCompanies();  // Load companies for default tab
+            loadAppsCompanySelect();  // Load company select for Apps tab
         });
 
         document.getElementById('edit-app-form').addEventListener('submit', async function(e) {
@@ -682,7 +846,7 @@
                     method: 'PUT',
                     headers: {
                         'Content-Type': 'application/json',
-                        ...(getApiKey() ? { 'X-API-Key': getApiKey() } : {})
+                        ...getFetchHeaders()
                     },
                     body: JSON.stringify(formData)
                 });
@@ -724,7 +888,7 @@
                     method: 'PUT',
                     headers: {
                         'Content-Type': 'application/json',
-                        ...(getApiKey() ? { 'X-API-Key': getApiKey() } : {})
+                        ...getFetchHeaders()
                     },
                     body: JSON.stringify(formData)
                 });
@@ -757,6 +921,12 @@
             // Show selected tab
             document.getElementById(tabName + '-tab').classList.add('active');
             event.target.classList.add('active');
+            
+            // Scroll to tabs section (focus on content)
+            const tabsSection = document.querySelector('.tabs');
+            if (tabsSection) {
+                tabsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
         }
         
         // Load statistics
@@ -776,7 +946,36 @@
         // Load applications
         async function loadApps() {
             try {
-                const response = await fetch(`${API_BASE}/apps`);
+                // Get selected company filter
+                const companySelect = document.getElementById('apps-company-select');
+                const companyId = companySelect ? companySelect.value : '';
+                
+                // Build URL with company filter if selected
+                let url = `${API_BASE}/apps`;
+                if (companyId) {
+                    url += `?company_id=${companyId}`;
+                }
+                
+                const response = await fetch(url, {
+                    headers: getFetchHeaders()
+                });
+                
+                if (!response.ok) {
+                    const text = await response.text();
+                    let errorMsg = `Server error: ${response.status}`;
+                    try {
+                        // Try to parse as JSON
+                        const errorData = JSON.parse(text);
+                        errorMsg = errorData.error || errorMsg;
+                    } catch (e) {
+                        // Not JSON, use text if short enough
+                        if (text && text.length < 100) {
+                            errorMsg = text;
+                        }
+                    }
+                    throw new Error(errorMsg);
+                }
+                
                 const data = await response.json();
 
                 appsById = {};
@@ -788,6 +987,10 @@
                 
                 const tbody = document.querySelector('#apps-table tbody');
                 tbody.innerHTML = '';
+                
+                if (!data.apps) {
+                    throw new Error(data.error || 'Invalid response from server');
+                }
                 
                 data.apps.forEach(app => {
                     const row = tbody.insertRow();
@@ -816,8 +1019,26 @@
             document.getElementById('app-select').value = appId;
             currentAppId = appId;
             
-            // Switch to versions tab
-            showTab('versions');
+            // Switch to versions tab content
+            document.querySelectorAll('.tab-content').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            document.getElementById('versions-tab').classList.add('active');
+            
+            // Activate the Versions tab button
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            const versionsTabButton = document.querySelector('.tab[onclick="showTab(\'versions\')"]');
+            if (versionsTabButton) {
+                versionsTabButton.classList.add('active');
+            }
+            
+            // Scroll to tabs section
+            const tabsSection = document.querySelector('.tabs');
+            if (tabsSection) {
+                tabsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
             
             // Load versions for this app
             loadVersions();
@@ -829,8 +1050,26 @@
             // Set the version select value
             document.getElementById('version-select').value = versionId;
             
-            // Switch to files tab
-            showTab('files');
+            // Switch to files tab content
+            document.querySelectorAll('.tab-content').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            document.getElementById('files-tab').classList.add('active');
+            
+            // Activate the Files tab button
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            const filesTabButton = document.querySelector('.tab[onclick="showTab(\'files\')"]');
+            if (filesTabButton) {
+                filesTabButton.classList.add('active');
+            }
+            
+            // Scroll to tabs section
+            const tabsSection = document.querySelector('.tabs');
+            if (tabsSection) {
+                tabsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
             
             // Load files for this version
             loadFiles(versionId);
@@ -840,7 +1079,9 @@
             if (!versionId) return;
             
             try {
-                const response = await fetch(`${API_BASE}/versions/${versionId}/info`);
+                const response = await fetch(`${API_BASE}/versions/${versionId}/info`, {
+                    headers: getFetchHeaders()
+                });
                 const data = await response.json();
                 
                 const tbody = document.querySelector('#files-table tbody');
@@ -883,9 +1124,7 @@
             try {
                 const response = await fetch(`${API_BASE}/versions/${versionId}/files/${fileType}`, {
                     method: 'DELETE',
-                    headers: {
-                        ...(getApiKey() ? { 'X-API-Key': getApiKey() } : {})
-                    }
+                    headers: getFetchHeaders()
                 });
                 
                 if (response.ok) {
@@ -906,7 +1145,9 @@
         // Load app select
         async function loadAppSelect() {
             try {
-                const response = await fetch(`${API_BASE}/apps`);
+                const response = await fetch(`${API_BASE}/apps`, {
+                    headers: getFetchHeaders()
+                });
                 const data = await response.json();
                 
                 const select = document.getElementById('app-select');
@@ -925,6 +1166,44 @@
                 
             } catch (error) {
                 console.error('Error loading app select:', error);
+            }
+        }
+        
+        // Load company select for Apps tab
+        async function loadAppsCompanySelect() {
+            try {
+                const response = await fetch(`${API_BASE}/admin/companies`, {
+                    headers: getFetchHeaders()
+                });
+                
+                if (!response.ok) {
+                    console.error('Error loading companies for Apps tab:', response.status);
+                    return;
+                }
+                
+                const data = await response.json();
+                const select = document.getElementById('apps-company-select');
+                if (!select) return;
+                
+                // Keep "All Companies" option
+                const allOption = select.querySelector('option[value=""]');
+                select.innerHTML = '';
+                if (allOption) {
+                    select.appendChild(allOption);
+                } else {
+                    select.innerHTML = '<option value="">All Companies</option>';
+                }
+                
+                if (data.companies) {
+                    data.companies.forEach(company => {
+                        const option = document.createElement('option');
+                        option.value = company.id;
+                        option.textContent = `${company.name} (${company.code})`;
+                        select.appendChild(option);
+                    });
+                }
+            } catch (error) {
+                console.error('Error loading companies for Apps tab:', error);
             }
         }
         
@@ -948,7 +1227,9 @@
             currentAppId = appId;
             
             try {
-                const response = await fetch(`${API_BASE}/apps/${appId}/versions`);
+                const response = await fetch(`${API_BASE}/apps/${appId}/versions`, {
+                    headers: getFetchHeaders()
+                });
                 const data = await response.json();
 
                 versionsById = {};
@@ -1011,6 +1292,23 @@
         
         // Modal management
         function showCreateAppModal() {
+            // Check if a company is selected
+            const companySelect = document.getElementById('apps-company-select');
+            const companyId = companySelect ? companySelect.value : '';
+            
+            if (!companyId) {
+                showToast('Please select a company first', 'error');
+                // Highlight the company select
+                if (companySelect) {
+                    companySelect.focus();
+                    companySelect.style.borderColor = '#e74c3c';
+                    setTimeout(() => {
+                        companySelect.style.borderColor = '';
+                    }, 2000);
+                }
+                return;
+            }
+            
             document.getElementById('create-app-modal').style.display = 'block';
         }
         
@@ -1046,19 +1344,25 @@
         document.getElementById('create-app-form').addEventListener('submit', async function(e) {
             e.preventDefault();
             
+            // Get selected company
+            const companySelect = document.getElementById('apps-company-select');
+            const companyId = companySelect ? companySelect.value : '';
+            
             const formData = {
                 name: document.getElementById('app-name').value,
                 description: document.getElementById('app-description').value,
                 bundle_name: document.getElementById('app-bundle-name').value,
                 main_ability: document.getElementById('app-main-ability').value,
-                current_version: document.getElementById('app-current-version').value
+                current_version: document.getElementById('app-current-version').value,
+                company_id: companyId || null  // Add company_id to associate app with company
             };
             
             try {
                 const response = await fetch(`${API_BASE}/apps`, {
                     method: 'POST',
                     headers: {
-                        'Content-Type': 'application/json'
+                        'Content-Type': 'application/json',
+                        ...getFetchHeaders()
                     },
                     body: JSON.stringify(formData)
                 });
@@ -1095,7 +1399,8 @@
                 const response = await fetch(`${API_BASE}/apps/${currentAppId}/versions`, {
                     method: 'POST',
                     headers: {
-                        'Content-Type': 'application/json'
+                        'Content-Type': 'application/json',
+                        ...getFetchHeaders()
                     },
                     body: JSON.stringify(formData)
                 });
@@ -1328,10 +1633,7 @@
             try {
                 const response = await fetch(`${API_BASE}/apps/${appId}`, {
                     method: 'DELETE',
-                    headers: (() => {
-                        const k = getApiKey();
-                        return k ? { 'X-API-Key': k } : {};
-                    })()
+                    headers: getFetchHeaders()
                 });
                 
                 if (response.ok) {
@@ -1355,9 +1657,7 @@
             try {
                 const response = await fetch(`${API_BASE}/versions/${versionId}`, {
                     method: 'DELETE',
-                    headers: {
-                        ...(getApiKey() ? { 'X-API-Key': getApiKey() } : {})
-                    }
+                    headers: getFetchHeaders()
                 });
                 
                 if (response.ok) {
@@ -1440,6 +1740,517 @@
                     }
                 }, 300);
             }, 3000);
+        }
+        
+        // ==================== Company Management Functions ====================
+        
+        let companiesById = {};
+        let currentApiKey = null;
+        let isAdminUser = false;  // Track if user is admin
+        
+        function showCreateCompanyModal() {
+            document.getElementById('create-company-form').reset();
+            document.getElementById('create-company-modal').style.display = 'block';
+        }
+        
+        async function checkIsAdmin() {
+            // Check if current user is admin by analyzing returned companies
+            try {
+                const response = await fetch(`${API_BASE}/admin/companies`, {
+                    headers: getFetchHeaders()
+                });
+                if (response.ok) {
+                    const data = await response.json();
+                    // If returns multiple companies or empty, likely admin
+                    // If returns exactly one company, likely company user
+                    if (data.companies && data.companies.length > 1) {
+                        isAdminUser = true;
+                    } else if (data.companies && data.companies.length === 1) {
+                        // Could be admin with one company or company user
+                        // Try another way - check if we can see all keys
+                        isAdminUser = false;  // Assume not admin for safety
+                    } else {
+                        isAdminUser = true;  // Empty list, probably admin
+                    }
+                }
+            } catch (e) {
+                isAdminUser = false;
+            }
+            
+            // Show/hide Create Company button based on admin status
+            const createBtn = document.querySelector('#companies-tab button[onclick="showCreateCompanyModal()"]');
+            if (createBtn) {
+                createBtn.style.display = isAdminUser ? 'inline-block' : 'none';
+            }
+        }
+        
+        async function loadCompanies() {
+            try {
+                const response = await fetch(`${API_BASE}/admin/companies`, {
+                    headers: getFetchHeaders()
+                });
+                
+                if (response.status === 401) {
+                    showStatus('Unauthorized: Please set a valid Admin API Key', 'error');
+                    const tbody = document.querySelector('#companies-table tbody');
+                    tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: #e74c3c;">Unauthorized: Please set a valid API Key and refresh</td></tr>`;
+                    return;
+                }
+                
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    showStatus(`Error ${response.status}: ${errorText}`, 'error');
+                    return;
+                }
+                
+                const data = await response.json();
+                
+                companiesById = {};
+                if (data.companies) {
+                    data.companies.forEach(c => {
+                        companiesById[c.id] = c;
+                    });
+                }
+                
+                const tbody = document.querySelector('#companies-table tbody');
+                tbody.innerHTML = '';
+                
+                // Check for API error
+                if (data.error) {
+                    const row = tbody.insertRow();
+                    row.innerHTML = `<td colspan="6" style="text-align: center; color: #e74c3c;">Error: ${data.error}</td>`;
+                    return;
+                }
+                
+                // Check admin status from backend response first
+                isAdminUser = data.is_admin === true;
+                
+                // Update Create Company button visibility (even for empty list)
+                const createBtn = document.querySelector('#companies-tab button[onclick="showCreateCompanyModal()"]');
+                if (createBtn) {
+                    createBtn.style.display = isAdminUser ? 'inline-block' : 'none';
+                }
+                
+                if (!data.companies || data.companies.length === 0) {
+                    const row = tbody.insertRow();
+                    row.innerHTML = `<td colspan="6" style="text-align: center; color: #999;">No companies found. Create one to get started.</td>`;
+                    return;
+                }
+                
+                data.companies.forEach(company => {
+                    const row = tbody.insertRow();
+                    // Show different buttons based on user type
+                    let actionButtons = `<button class="btn" onclick="viewCompanyApiKeys(${company.id})">View API Keys</button>`;
+                    actionButtons += ` <button class="btn btn-primary" onclick="goToCompanyApps(${company.id})">View Apps</button>`;
+                    if (isAdminUser) {
+                        actionButtons += ` <button class="btn btn-success" onclick="showCreateApiKeyModal(${company.id})">New Key</button>`;
+                        actionButtons += ` <button class="btn" onclick="editCompany(${company.id})">Edit</button>`;
+                        actionButtons += ` <button class="btn btn-danger" onclick="deleteCompany(${company.id})">Delete</button>`;
+                    }
+                    row.innerHTML = `
+                        <td>${company.id}</td>
+                        <td>${company.name}</td>
+                        <td>${company.code}</td>
+                        <td>${company.description || '-'}</td>
+                        <td>${new Date(company.created_at).toLocaleString()}</td>
+                        <td>${actionButtons}</td>
+                    `;
+                });
+            } catch (error) {
+                showStatus('Error loading companies: ' + error.message, 'error');
+            }
+        }
+        
+        function showCreateApiKeyModal(companyId) {
+            const company = companiesById[companyId];
+            if (!company) {
+                showStatus('Company not found', 'error');
+                return;
+            }
+            
+            document.getElementById('create-api-key-company-id').value = companyId;
+            document.getElementById('create-api-key-company-name').textContent = company.name;
+            document.getElementById('create-api-key-name').value = '';
+            document.getElementById('create-api-key-expires').value = '';
+            
+            document.getElementById('create-api-key-modal').style.display = 'block';
+        }
+        
+        function editCompany(companyId) {
+            const company = companiesById[companyId];
+            if (!company) {
+                showStatus('Company not found', 'error');
+                return;
+            }
+            
+            editingCompanyId = companyId;
+            document.getElementById('edit-company-id').value = companyId;
+            document.getElementById('edit-company-name').value = company.name || '';
+            document.getElementById('edit-company-code').value = company.code || '';
+            document.getElementById('edit-company-description').value = company.description || '';
+            
+            document.getElementById('edit-company-modal').style.display = 'block';
+        }
+        
+        function goToCompanyApps(companyId) {
+            // Switch to Apps tab content
+            document.querySelectorAll('.tab-content').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            document.getElementById('apps-tab').classList.add('active');
+            
+            // Activate the Apps tab button
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            const appsTabButton = document.querySelector('.tab[onclick="showTab(\'apps\')"]');
+            if (appsTabButton) {
+                appsTabButton.classList.add('active');
+            }
+            
+            // Scroll to tabs section
+            const tabsSection = document.querySelector('.tabs');
+            if (tabsSection) {
+                tabsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+            
+            // Set company select and load filtered apps
+            const companySelect = document.getElementById('apps-company-select');
+            if (companySelect) {
+                companySelect.value = companyId;
+            }
+            loadApps();
+            
+            // Store current company context (optional - for future filtering)
+            sessionStorage.setItem('current_company_id', companyId);
+            const company = companiesById[companyId];
+            showToast(`Viewing apps for ${company ? company.name : 'company ' + companyId}`, 'info');
+        }
+        
+        async function deleteCompany(companyId) {
+            if (!confirm('Are you sure you want to delete this company? This will also delete all its API keys and cannot be undone.')) return;
+            
+            try {
+                const response = await fetch(`${API_BASE}/admin/companies/${companyId}`, {
+                    method: 'DELETE',
+                    headers: getFetchHeaders()
+                });
+                
+                if (response.status === 401) {
+                    showStatus('Unauthorized: Admin API Key required', 'error');
+                    return;
+                }
+                
+                if (response.ok) {
+                    showToast('Company deleted successfully', 'success');
+                    loadCompanies();
+                } else {
+                    const error = await response.json();
+                    showStatus('Error deleting company: ' + (error.error || 'Unknown error'), 'error');
+                }
+            } catch (error) {
+                showStatus('Error deleting company: ' + error.message, 'error');
+            }
+        }
+        
+        // Create company form submission
+        document.addEventListener('DOMContentLoaded', function() {
+            const createCompanyForm = document.getElementById('create-company-form');
+            if (createCompanyForm) {
+                createCompanyForm.addEventListener('submit', async function(e) {
+                    e.preventDefault();
+                    
+                    const formData = {
+                        name: document.getElementById('company-name').value,
+                        code: document.getElementById('company-code').value,
+                        description: document.getElementById('company-description').value,
+                        expires_days: document.getElementById('api-key-expires').value || null
+                    };
+                    
+                    try {
+                        const response = await fetch(`${API_BASE}/admin/companies`, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                ...getFetchHeaders()
+                            },
+                            body: JSON.stringify(formData)
+                        });
+                        
+                        if (response.status === 401) {
+                            showStatus('Unauthorized: Please set a valid Admin API Key', 'error');
+                            return;
+                        }
+                        
+                        if (response.ok) {
+                            const data = await response.json();
+                            showToast('Company created successfully', 'success');
+                            closeModal('create-company-modal');
+                            loadCompanies();
+                            
+                            // Show API Key modal
+                            if (data.api_key) {
+                                currentApiKey = data.api_key;
+                                document.getElementById('api-key-company-name').textContent = data.company.name;
+                                document.getElementById('api-key-display').value = data.api_key;
+                                document.getElementById('api-key-expires-display').textContent = data.expires_at ? new Date(data.expires_at).toLocaleString() : 'Never';
+                                document.getElementById('api-key-modal').style.display = 'block';
+                            }
+                        } else {
+                            const error = await response.json();
+                            showStatus('Error creating company: ' + error.error, 'error');
+                        }
+                    } catch (error) {
+                        showStatus('Error creating company: ' + error.message, 'error');
+                    }
+                });
+            }
+            
+            // Edit company form submission
+            const editCompanyForm = document.getElementById('edit-company-form');
+            if (editCompanyForm) {
+                editCompanyForm.addEventListener('submit', async function(e) {
+                    e.preventDefault();
+                    
+                    const companyId = document.getElementById('edit-company-id').value;
+                    const formData = {
+                        name: document.getElementById('edit-company-name').value,
+                        code: document.getElementById('edit-company-code').value,
+                        description: document.getElementById('edit-company-description').value
+                    };
+                    
+                    try {
+                        const response = await fetch(`${API_BASE}/admin/companies/${companyId}`, {
+                            method: 'PUT',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                ...getFetchHeaders()
+                            },
+                            body: JSON.stringify(formData)
+                        });
+                        
+                        if (response.status === 401) {
+                            showStatus('Unauthorized: Admin API Key required', 'error');
+                            return;
+                        }
+                        
+                        if (response.ok) {
+                            showToast('Company updated successfully', 'success');
+                            closeModal('edit-company-modal');
+                            editingCompanyId = null;
+                            loadCompanies();
+                        } else {
+                            const error = await response.json();
+                            showStatus('Error updating company: ' + error.error, 'error');
+                        }
+                    } catch (error) {
+                        showStatus('Error updating company: ' + error.message, 'error');
+                    }
+                });
+            }
+            
+            // Create API Key form submission
+            const createApiKeyForm = document.getElementById('create-api-key-form');
+            if (createApiKeyForm) {
+                createApiKeyForm.addEventListener('submit', async function(e) {
+                    e.preventDefault();
+                    
+                    const companyId = document.getElementById('create-api-key-company-id').value;
+                    const expiresDays = document.getElementById('create-api-key-expires').value;
+                    const formData = {
+                        name: document.getElementById('create-api-key-name').value || 'New Key',
+                        expires_days: expiresDays ? parseInt(expiresDays) : null
+                    };
+                    
+                    try {
+                        const response = await fetch(`${API_BASE}/admin/companies/${companyId}/api-keys`, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                ...getFetchHeaders()
+                            },
+                            body: JSON.stringify(formData)
+                        });
+                        
+                        if (response.status === 401) {
+                            showStatus('Unauthorized: Admin API Key required', 'error');
+                            return;
+                        }
+                        
+                        if (response.ok) {
+                            const data = await response.json();
+                            closeModal('create-api-key-modal');
+                            
+                            // Show API Key in display modal
+                            if (data.api_key) {
+                                currentApiKey = data.api_key;
+                                document.getElementById('api-key-company-name').textContent = data.company ? data.company.name : '';
+                                document.getElementById('api-key-display').value = data.api_key;
+                                document.getElementById('api-key-expires-display').textContent = data.expires_at ? new Date(data.expires_at).toLocaleString() : 'Never';
+                                document.getElementById('api-key-modal').style.display = 'block';
+                            }
+                        } else {
+                            const error = await response.json();
+                            showStatus('Error creating API key: ' + error.error, 'error');
+                        }
+                    } catch (error) {
+                        showStatus('Error creating API key: ' + error.message, 'error');
+                    }
+                });
+            }
+        });
+        
+        let currentApiKeysCompanyId = null;
+        
+        async function viewCompanyApiKeys(companyId) {
+            try {
+                const response = await fetch(`${API_BASE}/admin/companies/${companyId}/api-keys`, {
+                    headers: getFetchHeaders()
+                });
+                
+                if (response.status === 401) {
+                    showStatus('Unauthorized: Please set a valid Admin API Key', 'error');
+                    return;
+                }
+                
+                const data = await response.json();
+                
+                if (!data.api_keys || data.api_keys.length === 0) {
+                    showToast('No API keys found for this company', 'info');
+                    return;
+                }
+                
+                currentApiKeysCompanyId = companyId;
+                const company = companiesById[companyId];
+                document.getElementById('api-keys-company-name').textContent = company ? company.name : `Company ID: ${companyId}`;
+                
+                // Populate table
+                const tbody = document.querySelector('#api-keys-table tbody');
+                tbody.innerHTML = '';
+                
+                data.api_keys.forEach(k => {
+                    const row = tbody.insertRow();
+                    const status = k.is_active ? 'Active' : 'Inactive';
+                    const statusClass = k.is_active ? 'color: green;' : 'color: red;';
+                    const expires = k.expires_at ? new Date(k.expires_at).toLocaleString() : 'Never';
+                    const lastUsed = k.last_used_at ? new Date(k.last_used_at).toLocaleString() : 'Never';
+                    
+                    let actions = `<button class="btn btn-sm" onclick="toggleApiKey(${k.id}, ${!k.is_active})">${k.is_active ? 'Deactivate' : 'Activate'}</button>`;
+                    actions += ` <button class="btn btn-danger btn-sm" onclick="deleteApiKey(${k.id})">Delete</button>`;
+                    
+                    row.innerHTML = `
+                        <td>${k.id}</td>
+                        <td>${k.name || 'N/A'}</td>
+                        <td style="${statusClass}">${status}</td>
+                        <td>${expires}</td>
+                        <td>${lastUsed}</td>
+                        <td>${actions}</td>
+                    `;
+                });
+                
+                document.getElementById('api-keys-list-modal').style.display = 'block';
+            } catch (error) {
+                showStatus('Error loading API keys: ' + error.message, 'error');
+            }
+        }
+        
+        async function toggleApiKey(keyId, activate) {
+            try {
+                const response = await fetch(`${API_BASE}/admin/api-keys/${keyId}/toggle`, {
+                    method: 'POST',
+                    headers: getFetchHeaders()
+                });
+                
+                if (response.ok) {
+                    showToast(`API Key ${activate ? 'activated' : 'deactivated'} successfully`, 'success');
+                    // Refresh the list
+                    if (currentApiKeysCompanyId) {
+                        viewCompanyApiKeys(currentApiKeysCompanyId);
+                    }
+                } else {
+                    const error = await response.json();
+                    showStatus('Error: ' + error.error, 'error');
+                }
+            } catch (error) {
+                showStatus('Error toggling API key: ' + error.message, 'error');
+            }
+        }
+        
+        async function deleteApiKey(keyId) {
+            if (!confirm('Are you sure you want to delete this API Key? This action cannot be undone.')) return;
+            
+            try {
+                const response = await fetch(`${API_BASE}/admin/api-keys/${keyId}`, {
+                    method: 'DELETE',
+                    headers: getFetchHeaders()
+                });
+                
+                if (response.ok) {
+                    showToast('API Key deleted successfully', 'success');
+                    // Refresh the list
+                    if (currentApiKeysCompanyId) {
+                        viewCompanyApiKeys(currentApiKeysCompanyId);
+                    }
+                } else {
+                    const error = await response.json();
+                    showStatus('Error: ' + error.error, 'error');
+                }
+            } catch (error) {
+                showStatus('Error deleting API key: ' + error.message, 'error');
+            }
+        }
+        
+        async function createApiKeyForCompany(companyId) {
+            const name = prompt('Enter a name for this API Key (optional):');
+            const expiresDays = prompt('Enter expiration days (optional, leave empty for no expiration):');
+            
+            try {
+                const formData = {
+                    name: name || 'New Key',
+                    expires_days: expiresDays ? parseInt(expiresDays) : null
+                };
+                
+                const response = await fetch(`${API_BASE}/admin/companies/${companyId}/api-keys`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        ...getFetchHeaders()
+                    },
+                    body: JSON.stringify(formData)
+                });
+                
+                if (response.status === 401) {
+                    showStatus('Unauthorized: Please set a valid Admin API Key', 'error');
+                    return;
+                }
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    showToast('API Key created successfully', 'success');
+                    
+                    // Show API Key modal
+                    if (data.api_key) {
+                        currentApiKey = data.api_key;
+                        const company = companiesById[companyId];
+                        document.getElementById('api-key-company-name').textContent = company ? company.name : 'Unknown';
+                        document.getElementById('api-key-display').value = data.api_key;
+                        document.getElementById('api-key-expires-display').textContent = data.expires_at ? new Date(data.expires_at).toLocaleString() : 'Never';
+                        document.getElementById('api-key-modal').style.display = 'block';
+                    }
+                } else {
+                    const error = await response.json();
+                    showStatus('Error creating API key: ' + error.error, 'error');
+                }
+            } catch (error) {
+                showStatus('Error creating API key: ' + error.message, 'error');
+            }
+        }
+        
+        function copyApiKey() {
+            const apiKeyDisplay = document.getElementById('api-key-display');
+            apiKeyDisplay.select();
+            document.execCommand('copy');
+            showToast('API Key copied to clipboard', 'success');
         }
         
         // Close modals when clicking outside
