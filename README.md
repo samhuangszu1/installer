@@ -1,12 +1,13 @@
 # HarmonyOS 应用安装工具（Modern GUI）
 
-一个用于华为 HarmonyOS 应用安装的现代化图形客户端，支持多应用、多版本、基于服务端的统一管理，界面中文化。
+一个用于华为 HarmonyOS 应用安装的现代化图形客户端，支持多应用、多版本、多租户（多公司隔离）、基于服务端的统一管理，界面中文化。
 
 ## 功能特性
 
 - **现代化 GUI**：深色主题、交互友好
 - **多应用管理**：集中管理多个 HarmonyOS 应用
 - **多版本管理**：每个应用支持多版本选择与安装
+- **多租户隔离**：支持多公司独立管理，数据隔离，API Key 鉴权
 - **客户端-服务端架构**：服务端统一管理应用/版本/文件
 - **跨平台**：Windows、macOS、Linux
 - **中文界面**：完整中文界面与提示
@@ -14,6 +15,7 @@
 - **实时日志**：完整的执行过程与错误信息
 - **一键安装**：自动化安装流程与错误处理
 - **Web 管理后台**：浏览器管理应用与版本
+- **用户认证**：Admin / Company Manager 登录，JWT 鉴权
 
 ## 架构说明
 
@@ -34,8 +36,10 @@
 - 应用/版本管理 REST API
 - 文件上传与版本文件管理
 - SQLite 元数据存储
-- Web 管理后台
+- Web 管理后台（Admin / Company Manager 分离入口）
 - 文件下载服务
+- 多租户公司隔离与 API Key 管理
+- 用户认证（JWT + API Key）
 
 ## 安装与运行
 
@@ -51,12 +55,28 @@ pip install -r requirements.txt
 python app.py
 ```
 
-可选（建议用于上传接口鉴权）：
-- 复制 `server/.env.example` 为 `server/.env`
-- 设置 `ADMIN_API_KEY=...`
-- 重启服务端
+### 配置环境变量（必须）
+
+复制 `server/.env.example` 为 `server/.env`，并设置 `ADMIN_API_KEY`：
+```bash
+cp server/.env.example server/.env
+# 编辑 .env，设置 ADMIN_API_KEY 为一个安全的随机字符串
+```
+
+> ⚠️ `ADMIN_API_KEY` 是 Admin 登录后自动存储到浏览器 localStorage 的关键凭证，未设置将导致 Admin 登录后后续接口报 401。
 
 不要提交真实的 `server/.env` 文件。
+
+### 创建 Admin 用户
+
+首次使用前需创建 Admin 用户：
+```bash
+cd server
+python create_admin.py <email> <password> [name]
+# 示例：python create_admin.py admin@test.com admin123 Administrator
+```
+
+> 只能在数据库无用户时执行，密码至少 8 位。
 
 服务端默认监听：`http://localhost:5000`
 
@@ -117,51 +137,69 @@ pyinstaller harmony_app_installer.spec
 7. **查看日志**：观察实时日志与错误提示
 
 ### 使用 Web 管理后台
-1. **打开后台**：访问 `http://localhost:5000/admin`
-2. **管理应用**：新增/编辑应用
-3. **上传版本**：上传 HAP/HSP 文件
+
+系统提供两个独立的登录入口：
+
+| 入口 | URL | 说明 |
+|------|-----|------|
+| Admin | `http://localhost:5000/admin` | 管理员登录，可切换到 Company Manager |
+| Company Manager | `http://localhost:5000/company/admin` | 公司管理员专用入口，仅显示 Company 登录 |
+
+1. **打开后台**：根据角色访问对应 URL
+2. **Admin 功能**：管理公司、创建 API Key、创建公司管理员、管理所有应用/版本
+3. **Company Manager 功能**：管理本公司应用/版本、上传 HAP/HSP 文件
 4. **配置与维护**：进行相关配置管理
 
 ## 项目结构
 
 ```
-harmony_test_pkg/
+installer/
 |   harmony_ultra_modern.py      # Main GUI client
-|   HarmonyOSInstaller.exe      # Compiled executable
 |   harmony_app_installer.spec   # PyInstaller specification
+|   installer.iss                # Inno Setup script
+|   .example.settings.json       # Example client settings
+|   logo.ico / logo.png          # App icon
 |   README.md                    # This file
 |   .gitignore                   # Git ignore file
 |   
 +---server/                      # Server directory
 |   |   app.py                   # Flask server application
-|   |   admin.html               # Web admin panel
+|   |   admin.html               # Web admin panel (Admin + Company Manager)
+|   |   create_admin.py          # Admin user creation script
 |   |   requirements.txt         # Server dependencies
+|   |   .env.example             # Environment variable template
+|   |   .env                     # Environment variables (not committed)
 |   |   .gitignore               # Server git ignore
-|   |   README.md                # Server documentation
-|   |   
+|   
 |   +---api/                     # API endpoints
 |   |   |   apps.py               # Application management API
 |   |   |   files.py              # File upload/download API
 |   |   |   versions.py           # Version management API
+|   |   |   auth.py               # Authentication & API key management API
 |   |   |   __init__.py           # API initialization
-|   |   
+|   
 |   +---database/                # Database components
 |   |   |   models.py             # Database models
+|   |   |   database.py           # Database initialization
 |   |   |   __init__.py           # Database initialization
-|   |   
-|   +---uploads/                  # Upload directory (uploads/apps/<app_id>/<version_id>/...)
 |   
+|   +---uploads/                  # Upload directory (uploads/apps/<app_id>/<version_id>/...)
+
 +---hdc_arm/                     # ARM architecture HDC tools
 +---hdc_win/                     # Windows HDC tools  
 +---hdc_x86/                     # x86 architecture HDC tools
-+---build/                       # PyInstaller build files
-+---dist/                        # Distribution directory
 ```
 
 ## API 接口
 
+### 认证
+- `POST /api/auth/login` - 登录（Admin / Company Manager），返回 JWT token + api_key
+- `POST /api/auth/logout` - 登出
+- `GET /api/auth/me` - 获取当前用户信息（需 JWT）
+- `POST /api/auth/setup` - 创建初始 Admin 用户（仅在无用户时可用，需 ADMIN_API_KEY）
+
 ### 应用管理
-- `GET /api/apps` - 获取应用列表
+- `GET /api/apps` - 获取应用列表（按公司隔离）
 - `POST /api/apps` - 创建应用
 - `PUT /api/apps/{id}` - 更新应用
 - `DELETE /api/apps/{id}` - 删除应用
@@ -182,11 +220,10 @@ harmony_test_pkg/
 - **Content-Type**: `multipart/form-data`
 
 鉴权说明：
-- 如果服务端使用环境变量 `ADMIN_API_KEY` 启动，则以下接口需要 header `X-API-Key: <ADMIN_API_KEY>`：
-  - `POST /api/versions/create-with-files`
-  - `POST /api/upload`
-  - `PUT /api/apps/{id}`
-  - `PUT /api/versions/{id}`
+- 所有受保护接口需要 header `X-API-Key: <your_api_key>`
+- Admin 使用 `ADMIN_API_KEY`（环境变量），Company Manager 使用公司分配的 API Key
+- 登录后 API Key 会自动存储到浏览器 localStorage
+- JWT token 通过 `Authorization: Bearer <token>` 传递
 
 表单字段：
 - `app_id` (required, int)
@@ -252,7 +289,17 @@ print(resp.text)
 - `GET /api/files/{id}` - 根据 file id 下载文件
 - `DELETE /api/files/{id}` - 根据 file id 删除文件
 - `GET /api/versions/{version_id}/files/{file_type}/download` - 下载版本的指定文件（hap/hsp）
-- `GET /files/{filename}` - 按文件名下载（legacy/compat）
+
+### 公司与 API Key 管理（Admin）
+- `GET /api/admin/companies` - 获取公司列表
+- `POST /api/admin/companies` - 创建公司（自动生成 API Key）
+- `PUT /api/admin/companies/{id}` - 更新公司信息
+- `DELETE /api/admin/companies/{id}` - 删除公司及关联 API Key
+- `GET /api/admin/companies/{id}/api-keys` - 获取公司 API Key 列表
+- `POST /api/admin/companies/{id}/api-keys` - 为公司创建新 API Key
+- `DELETE /api/admin/api-keys/{id}` - 撤销 API Key
+- `POST /api/admin/api-keys/{id}/toggle` - 启用/禁用 API Key
+- `POST /api/admin/companies/{id}/managers` - 创建公司管理员用户
 
 ## 安装流程
 
@@ -268,13 +315,16 @@ print(resp.text)
 ## 配置说明
 
 ### 客户端配置
-- 服务端 URL
+- 服务端 URL（参考 `.example.settings.json`）
 - 下载目录
+- API Key（用于访问受保护接口）
 - HDC 工具检测
 
 ### 服务端配置
-- 数据库
-- 文件存储路径
+- `ADMIN_API_KEY`：Admin API 密钥（环境变量，**必须设置**）
+- `JWT_SECRET_KEY`：JWT 签名密钥（环境变量，可选，未设置则自动生成）
+- 数据库：SQLite（`server/database/harmony_installer.db`）
+- 文件存储路径：`uploads/apps/<app_id>/<version_id>/`
 - 上传限制
 - API 接口
 
@@ -297,7 +347,13 @@ print(resp.text)
 
 ## 更新记录
 
-### v3.0（最新）
+### v4.0（最新）
+- **多租户隔离**：多公司独立管理，数据隔离
+- **用户认证**：Admin / Company Manager 登录，JWT + API Key 鉴权
+- **分离入口**：`/admin`（Admin）与 `/company/admin`（Company Manager）独立登录页
+- **API Key 管理**：公司 API Key 的创建、撤销、启用/禁用
+- **公司管理员**：Admin 可为公司创建管理员用户
+- **登录持久化**：API Key 自动存储到 localStorage
 - **现代 GUI**：深色主题界面
 - **中文化**：中文界面与提示
 - **客户端-服务端架构**：REST API 管理
@@ -305,6 +361,13 @@ print(resp.text)
 - **版本选择**：动态版本详情展示
 - **错误处理**：更清晰的错误反馈
 - **安装优化**：优化安装步骤与路径
+
+### v3.0
+- 现代 GUI 深色主题界面
+- 中文化界面与提示
+- 客户端-服务端架构：REST API 管理
+- Web 管理后台
+- 版本选择：动态版本详情展示
 
 ### v2.0
 - 多应用支持
@@ -328,7 +391,7 @@ print(resp.text)
 
 ### 依赖
 - **客户端**：tkinter, requests, subprocess
-- **服务端**：Flask, SQLite3, Werkzeug
+- **服务端**：Flask, SQLite3, Werkzeug, PyJWT, python-dotenv
 
 ## 许可证
 
