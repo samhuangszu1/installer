@@ -58,7 +58,7 @@ def create_app():
         if not protected:
             return None
 
-        # Validate company API key
+        # Validate authentication - try X-API-Key first, then JWT token
         provided_key = request.headers.get('X-API-Key')
         
         # Try company API key first
@@ -74,8 +74,20 @@ def create_app():
             g.company_id = None
             return None
         
+        # Try JWT token as fallback
+        auth_header = request.headers.get('Authorization')
+        if auth_header and auth_header.startswith('Bearer '):
+            token = auth_header.split(' ')[1]
+            from api.auth import verify_token
+            payload, error = verify_token(token)
+            if payload:
+                # JWT valid - set company_id from token (None for admin, specific ID for company_admin)
+                g.company_id = payload.get('company_id')
+                g.user = payload  # Store user info for potential use
+                return None
+        
         # If we get here, authentication failed
-        return jsonify({'error': 'Unauthorized - Valid X-API-Key header required'}), 401
+        return jsonify({'error': 'Unauthorized - Valid X-API-Key or JWT token required'}), 401
 
     # Initialize database
     db.ensure_database_exists()
@@ -90,24 +102,76 @@ def create_app():
 
     @app.route('/health')
     def health_check():
-        """Health check endpoint"""
+        """Health check endpoint with user-aware statistics"""
         try:
+            # Check for JWT authentication
+            user = None
+            token = None
+            auth_header = request.headers.get('Authorization')
+            if auth_header and auth_header.startswith('Bearer '):
+                token = auth_header.split(' ')[1]
+            if not token:
+                token = request.cookies.get('auth_token')
+            
+            if token:
+                # Import here to avoid circular dependency
+                from api.auth import verify_token
+                payload, error = verify_token(token)
+                if payload:
+                    user = payload
+            
             with db.get_connection() as conn:
-                cursor = conn.execute("SELECT COUNT(*) FROM apps")
-                app_count = cursor.fetchone()[0]
+                # Build queries based on user role
+                if user and user.get('role') == 'admin' and user.get('company_id') is None:
+                    # Admin - count all
+                    cursor = conn.execute("SELECT COUNT(*) FROM apps")
+                    app_count = cursor.fetchone()[0]
 
-                cursor = conn.execute("SELECT COUNT(*) FROM versions")
-                version_count = cursor.fetchone()[0]
+                    cursor = conn.execute("SELECT COUNT(*) FROM versions")
+                    version_count = cursor.fetchone()[0]
 
-                cursor = conn.execute("SELECT COUNT(*) FROM files")
-                file_count = cursor.fetchone()[0]
+                    cursor = conn.execute("SELECT COUNT(*) FROM files")
+                    file_count = cursor.fetchone()[0]
+                elif user and user.get('company_id'):
+                    # Company admin - count only their company's data
+                    company_id = user.get('company_id')
+                    
+                    cursor = conn.execute("SELECT COUNT(*) FROM apps WHERE company_id = ?", (company_id,))
+                    app_count = cursor.fetchone()[0]
+
+                    cursor = conn.execute("""
+                        SELECT COUNT(*) FROM versions v
+                        JOIN apps a ON v.app_id = a.id
+                        WHERE a.company_id = ?
+                    """, (company_id,))
+                    version_count = cursor.fetchone()[0]
+
+                    cursor = conn.execute("""
+                        SELECT COUNT(*) FROM files f
+                        JOIN versions v ON f.version_id = v.id
+                        JOIN apps a ON v.app_id = a.id
+                        WHERE a.company_id = ?
+                    """, (company_id,))
+                    file_count = cursor.fetchone()[0]
+                else:
+                    # No JWT or unknown role - count all (backward compatible)
+                    cursor = conn.execute("SELECT COUNT(*) FROM apps")
+                    app_count = cursor.fetchone()[0]
+
+                    cursor = conn.execute("SELECT COUNT(*) FROM versions")
+                    version_count = cursor.fetchone()[0]
+
+                    cursor = conn.execute("SELECT COUNT(*) FROM files")
+                    file_count = cursor.fetchone()[0]
 
                 return jsonify({
                     'status': 'healthy',
                     'database': 'connected',
                     'apps': app_count,
                     'versions': version_count,
-                    'files': file_count
+                    'files': file_count,
+                    'user_role': user.get('role') if user else None,
+                    'company_id': user.get('company_id') if user else None
                 })
         except Exception as e:
             return jsonify({

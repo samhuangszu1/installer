@@ -37,6 +37,23 @@ class Database:
                     FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE CASCADE
                 );
                 
+                CREATE TABLE IF NOT EXISTS users (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    email VARCHAR(255) UNIQUE NOT NULL,
+                    password_hash VARCHAR(255) NOT NULL,
+                    name VARCHAR(100),
+                    role VARCHAR(20) DEFAULT 'admin',  -- 'admin' or 'company_admin'
+                    company_id INTEGER,  -- NULL for super admin, set for company admin
+                    is_active BOOLEAN DEFAULT 1,
+                    last_login_at TIMESTAMP,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE SET NULL
+                );
+                
+                CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
+                CREATE INDEX IF NOT EXISTS idx_users_company_id ON users(company_id);
+                
                 CREATE TABLE IF NOT EXISTS apps (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     company_id INTEGER,

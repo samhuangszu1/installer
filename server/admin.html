@@ -290,13 +290,182 @@
             color: #666;
             margin-top: 5px;
         }
+
+        /* Login Page Styles */
+        #login-page {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+        }
+
+        .login-container {
+            background: white;
+            padding: 40px;
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            width: 100%;
+            max-width: 400px;
+        }
+
+        .login-header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .login-header h1 {
+            color: #333;
+            font-size: 24px;
+            margin-bottom: 10px;
+        }
+
+        .login-header p {
+            color: #666;
+            font-size: 14px;
+        }
+
+        .login-form .form-group {
+            margin-bottom: 20px;
+        }
+
+        .login-form label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .login-form input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 6px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+
+        .login-form input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .login-btn {
+            width: 100%;
+            padding: 12px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .login-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .login-btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .login-error {
+            background: #fee;
+            color: #c33;
+            padding: 12px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            font-size: 14px;
+            display: none;
+        }
+
+        .login-error.show {
+            display: block;
+        }
+
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: #f0f0f0;
+            padding: 10px 15px;
+            border-radius: 6px;
+            margin-top: 10px;
+            margin-bottom: 20px;
+        }
+
+        .user-info span {
+            font-size: 14px;
+            color: #333;
+        }
+
+        .logout-btn {
+            background: #ff5722;
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+
+        .logout-btn:hover {
+            background: #e64a19;
+        }
+
+        #main-app {
+            display: none;
+        }
+
+        #main-app.show {
+            display: block;
+        }
     </style>
     </head>
     <body>
+        <!-- Login Page -->
+        <div id="login-page">
+            <div class="login-container">
+                <div class="login-header">
+                    <h1>🔐 Admin Login</h1>
+                    <p>HarmonyOS Installer Management Panel</p>
+                </div>
+                <div class="login-error" id="login-error"></div>
+                <form class="login-form" id="login-form">
+                    <div class="form-group">
+                        <label for="login-email">Email</label>
+                        <input type="email" id="login-email" required placeholder="admin@example.com">
+                    </div>
+                    <div class="form-group">
+                        <label for="login-password">Password</label>
+                        <input type="password" id="login-password" required placeholder="Enter your password">
+                    </div>
+                    <button type="submit" class="login-btn" id="login-btn">Login</button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Main Application -->
+        <div id="main-app">
         <div class="container">
             <div class="header">
                 <h1>HarmonyOS Installer - Admin Panel</h1>
                 <p>Manage applications and versions</p>
+                <div class="user-info" id="user-info-bar" style="display: none;">
+                    <span id="user-email"></span>
+                    <button class="logout-btn" onclick="logout()">Logout</button>
+                </div>
             </div>
 
             <div class="card">
@@ -737,6 +906,32 @@
             </div>
         </div>
 
+        <!-- Create Company Manager Modal -->
+        <div id="create-manager-modal" class="modal">
+            <div class="modal-content">
+                <span class="close" onclick="closeModal('create-manager-modal')">&times;</span>
+                <h2>Create Company Manager</h2>
+                <div id="create-manager-company-name" style="font-weight: bold; margin-bottom: 15px; color: #666;"></div>
+                <form id="create-manager-form">
+                    <input type="hidden" id="create-manager-company-id">
+                    <div class="form-group">
+                        <label for="create-manager-email">Email:</label>
+                        <input type="email" id="create-manager-email" required placeholder="manager@company.com">
+                    </div>
+                    <div class="form-group">
+                        <label for="create-manager-name">Name:</label>
+                        <input type="text" id="create-manager-name" placeholder="Company Manager">
+                    </div>
+                    <div class="form-group">
+                        <label for="create-manager-password">Password (min 8 chars):</label>
+                        <input type="password" id="create-manager-password" required minlength="8" placeholder="Enter password">
+                    </div>
+                    <button type="submit" class="btn">Create Manager</button>
+                    <button type="button" class="btn" onclick="closeModal('create-manager-modal')">Cancel</button>
+                </form>
+            </div>
+        </div>
+
         <div id="status-message"></div>
 
         <script>
@@ -759,10 +954,171 @@
         function getFetchHeaders() {
             const headers = {};
             const apiKey = getApiKey();
+            const token = getAuthToken();
+            
             if (apiKey) {
                 headers['X-API-Key'] = apiKey;
             }
+            // Add JWT token for authentication
+            if (token) {
+                headers['Authorization'] = `Bearer ${token}`;
+            }
             return headers;
+        }
+
+        // ==================== Authentication ====================
+        function getAuthToken() {
+            try {
+                return localStorage.getItem('AUTH_TOKEN') || '';
+            } catch (e) {
+                return '';
+            }
+        }
+
+        function setAuthToken(token) {
+            try {
+                if (token) {
+                    localStorage.setItem('AUTH_TOKEN', token);
+                } else {
+                    localStorage.removeItem('AUTH_TOKEN');
+                }
+            } catch (e) {
+                console.error('Error saving auth token:', e);
+            }
+        }
+
+        function getCurrentUser() {
+            try {
+                const userJson = localStorage.getItem('CURRENT_USER');
+                return userJson ? JSON.parse(userJson) : null;
+            } catch (e) {
+                return null;
+            }
+        }
+
+        function setCurrentUser(user) {
+            try {
+                if (user) {
+                    localStorage.setItem('CURRENT_USER', JSON.stringify(user));
+                } else {
+                    localStorage.removeItem('CURRENT_USER');
+                }
+            } catch (e) {
+                console.error('Error saving user:', e);
+            }
+        }
+
+        function showLoginPage() {
+            document.getElementById('login-page').style.display = 'flex';
+            document.getElementById('main-app').classList.remove('show');
+        }
+
+        function showMainApp() {
+            document.getElementById('login-page').style.display = 'none';
+            document.getElementById('main-app').classList.add('show');
+            
+            // Update user info bar
+            const user = getCurrentUser();
+            if (user) {
+                document.getElementById('user-email').textContent = `${user.name} (${user.email})`;
+                document.getElementById('user-info-bar').style.display = 'flex';
+            }
+        }
+
+        async function login(email, password) {
+            try {
+                const response = await fetch(`${API_BASE}/auth/login`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ email, password })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    setAuthToken(data.token);
+                    setCurrentUser(data.user);
+                    
+                    // Auto-save API key if returned (admin users get it automatically)
+                    if (data.api_key) {
+                        setApiKey(data.api_key);
+                        // Update the API key input field
+                        const apiKeyInput = document.getElementById('api-key-input');
+                        if (apiKeyInput) {
+                            apiKeyInput.value = data.api_key;
+                        }
+                    }
+                    
+                    showMainApp();
+                    showToast(`Welcome, ${data.user.name}!`, 'success');
+                    
+                    // Load data after login
+                    loadStats();
+                    loadCompanies();
+                    loadAppsCompanySelect();
+                    loadAppSelect();
+                    
+                    return true;
+                } else {
+                    showLoginError(data.error || 'Login failed');
+                    return false;
+                }
+            } catch (error) {
+                showLoginError('Network error. Please try again.');
+                return false;
+            }
+        }
+
+        function showLoginError(message) {
+            const errorDiv = document.getElementById('login-error');
+            errorDiv.textContent = message;
+            errorDiv.classList.add('show');
+            setTimeout(() => {
+                errorDiv.classList.remove('show');
+            }, 5000);
+        }
+
+        async function logout() {
+            try {
+                const token = getAuthToken();
+                if (token) {
+                    await fetch(`${API_BASE}/auth/logout`, {
+                        method: 'POST',
+                        headers: getFetchHeaders()
+                    });
+                }
+            } catch (e) {
+                console.error('Logout error:', e);
+            }
+            
+            // Clear local storage
+            setAuthToken(null);
+            setCurrentUser(null);
+            setApiKey('');
+            
+            // Clear API key input field
+            const apiKeyInput = document.getElementById('api-key-input');
+            if (apiKeyInput) {
+                apiKeyInput.value = '';
+            }
+            
+            showLoginPage();
+            showToast('Logged out successfully', 'info');
+        }
+
+        function checkAuth() {
+            const token = getAuthToken();
+            const user = getCurrentUser();
+            
+            if (token && user) {
+                showMainApp();
+                return true;
+            } else {
+                showLoginPage();
+                return false;
+            }
         }
 
         function editApp(appId) {
@@ -816,13 +1172,36 @@
         
         // Initialize
         document.addEventListener('DOMContentLoaded', function() {
-            const apiKeyInput = document.getElementById('api-key-input');
-            if (apiKeyInput) {
-                apiKeyInput.value = getApiKey();
+            // Setup login form handler
+            const loginForm = document.getElementById('login-form');
+            if (loginForm) {
+                loginForm.addEventListener('submit', async function(e) {
+                    e.preventDefault();
+                    const btn = document.getElementById('login-btn');
+                    btn.disabled = true;
+                    btn.textContent = 'Logging in...';
+                    
+                    const email = document.getElementById('login-email').value;
+                    const password = document.getElementById('login-password').value;
+                    
+                    const success = await login(email, password);
+                    
+                    btn.disabled = false;
+                    btn.textContent = 'Login';
+                });
             }
-            loadStats();
-            loadCompanies();  // Load companies for default tab
-            loadAppsCompanySelect();  // Load company select for Apps tab
+            
+            // Check authentication status
+            if (checkAuth()) {
+                const apiKeyInput = document.getElementById('api-key-input');
+                if (apiKeyInput) {
+                    apiKeyInput.value = getApiKey();
+                }
+                loadStats();
+                loadCompanies();  // Load companies for default tab
+                loadAppsCompanySelect();  // Load company select for Apps tab
+                loadAppSelect();  // Load app select for Versions tab
+            }
         });
 
         document.getElementById('edit-app-form').addEventListener('submit', async function(e) {
@@ -932,7 +1311,9 @@
         // Load statistics
         async function loadStats() {
             try {
-                const response = await fetch('/health');
+                const response = await fetch('/health', {
+                    headers: getFetchHeaders()
+                });
                 const data = await response.json();
                 
                 document.getElementById('appCount').textContent = data.apps || 0;
@@ -1840,10 +2221,11 @@
                 data.companies.forEach(company => {
                     const row = tbody.insertRow();
                     // Show different buttons based on user type
-                    let actionButtons = `<button class="btn" onclick="viewCompanyApiKeys(${company.id})">View API Keys</button>`;
-                    actionButtons += ` <button class="btn btn-primary" onclick="goToCompanyApps(${company.id})">View Apps</button>`;
+                    let actionButtons = `<button class="btn" onclick="viewCompanyApiKeys(${company.id})">API Keys</button>`;
+                    actionButtons += ` <button class="btn btn-primary" onclick="goToCompanyApps(${company.id})">Apps</button>`;
                     if (isAdminUser) {
                         actionButtons += ` <button class="btn btn-success" onclick="showCreateApiKeyModal(${company.id})">New Key</button>`;
+                        actionButtons += ` <button class="btn btn-warning" onclick="showCreateManagerModal(${company.id})">New Manager</button>`;
                         actionButtons += ` <button class="btn" onclick="editCompany(${company.id})">Edit</button>`;
                         actionButtons += ` <button class="btn btn-danger" onclick="deleteCompany(${company.id})">Delete</button>`;
                     }
@@ -1874,6 +2256,22 @@
             document.getElementById('create-api-key-expires').value = '';
             
             document.getElementById('create-api-key-modal').style.display = 'block';
+        }
+        
+        function showCreateManagerModal(companyId) {
+            const company = companiesById[companyId];
+            if (!company) {
+                showStatus('Company not found', 'error');
+                return;
+            }
+            
+            document.getElementById('create-manager-company-id').value = companyId;
+            document.getElementById('create-manager-company-name').textContent = `Company: ${company.name}`;
+            document.getElementById('create-manager-email').value = '';
+            document.getElementById('create-manager-name').value = '';
+            document.getElementById('create-manager-password').value = '';
+            
+            document.getElementById('create-manager-modal').style.display = 'block';
         }
         
         function editCompany(companyId) {
@@ -2098,6 +2496,53 @@
                     }
                 });
             }
+            
+            // Create Manager form submission
+            const createManagerForm = document.getElementById('create-manager-form');
+            if (createManagerForm) {
+                createManagerForm.addEventListener('submit', async function(e) {
+                    e.preventDefault();
+                    
+                    const companyId = document.getElementById('create-manager-company-id').value;
+                    const formData = {
+                        email: document.getElementById('create-manager-email').value,
+                        name: document.getElementById('create-manager-name').value || 'Company Manager',
+                        password: document.getElementById('create-manager-password').value
+                    };
+                    
+                    try {
+                        const response = await fetch(`${API_BASE}/admin/companies/${companyId}/managers`, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                ...getFetchHeaders()
+                            },
+                            body: JSON.stringify(formData)
+                        });
+                        
+                        if (response.status === 401) {
+                            showStatus('Unauthorized: Admin access required', 'error');
+                            return;
+                        }
+                        
+                        if (response.ok) {
+                            const data = await response.json();
+                            closeModal('create-manager-modal');
+                            showToast(`Manager "${data.user.name}" created successfully!`, 'success');
+                            
+                            // Clear form
+                            document.getElementById('create-manager-email').value = '';
+                            document.getElementById('create-manager-name').value = '';
+                            document.getElementById('create-manager-password').value = '';
+                        } else {
+                            const error = await response.json();
+                            showStatus('Error creating manager: ' + error.error, 'error');
+                        }
+                    } catch (error) {
+                        showStatus('Error creating manager: ' + error.message, 'error');
+                    }
+                });
+            }
         });
         
         let currentApiKeysCompanyId = null;
@@ -2260,5 +2705,6 @@
             }
         }
     </script>
+    </div> <!-- Close main-app -->
     </body>
 </html>

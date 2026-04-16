@@ -5,9 +5,41 @@ Supports multi-tenant SaaS with company isolation
 import hashlib
 import secrets
 import datetime
+import os
 from functools import wraps
 from flask import request, jsonify, g
 from database.database import db
+import jwt
+from werkzeug.security import generate_password_hash, check_password_hash
+
+
+# JWT Configuration (module level for shared access)
+JWT_SECRET = os.environ.get('JWT_SECRET_KEY') or secrets.token_hex(32)
+JWT_EXPIRATION_HOURS = 24
+
+
+def generate_token(user_id, email, role, company_id=None):
+    """Generate JWT token for user"""
+    payload = {
+        'user_id': user_id,
+        'email': email,
+        'role': role,
+        'company_id': company_id,
+        'exp': datetime.datetime.utcnow() + datetime.timedelta(hours=JWT_EXPIRATION_HOURS),
+        'iat': datetime.datetime.utcnow()
+    }
+    return jwt.encode(payload, JWT_SECRET, algorithm='HS256')
+
+
+def verify_token(token):
+    """Verify JWT token and return payload"""
+    try:
+        payload = jwt.decode(token, JWT_SECRET, algorithms=['HS256'])
+        return payload, None
+    except jwt.ExpiredSignatureError:
+        return None, 'Token has expired'
+    except jwt.InvalidTokenError:
+        return None, 'Invalid token'
 
 
 def generate_api_key():
@@ -106,9 +138,47 @@ def init_auth_routes(app):
         import os
         from datetime import datetime
         
+        # First try JWT authentication
+        user = None
+        token = None
+        auth_header = request.headers.get('Authorization')
+        if auth_header and auth_header.startswith('Bearer '):
+            token = auth_header.split(' ')[1]
+        if not token:
+            token = request.cookies.get('auth_token')
+        
+        if token:
+            payload, error = verify_token(token)
+            if payload:
+                user = payload
+        
+        # If JWT auth successful
+        if user:
+            is_admin = user.get('role') == 'admin' and user.get('company_id') is None
+            with db.get_connection() as conn:
+                if is_admin:
+                    cursor = conn.execute(
+                        "SELECT id, name, code, description, created_at, updated_at FROM companies ORDER BY created_at DESC"
+                    )
+                    companies = [dict(row) for row in cursor.fetchall()]
+                    return jsonify({'companies': companies, 'is_admin': True})
+                else:
+                    # Company admin - return only their company
+                    company_id = user.get('company_id')
+                    if company_id:
+                        cursor = conn.execute(
+                            "SELECT id, name, code, description, created_at, updated_at FROM companies WHERE id = ?",
+                            (company_id,)
+                        )
+                        company = cursor.fetchone()
+                        if company:
+                            return jsonify({'companies': [dict(company)], 'is_admin': False})
+                    return jsonify({'companies': [], 'is_admin': False})
+        
+        # Fall back to API key authentication
         provided_key = request.headers.get('X-API-Key') 
         if not provided_key:
-            return jsonify({'error': 'Unauthorized - API Key required'}), 401
+            return jsonify({'error': 'Unauthorized - API Key or Login required'}), 401
         
         admin_api_key = os.environ.get('ADMIN_API_KEY')
         is_admin = provided_key == admin_api_key
@@ -426,3 +496,255 @@ def init_auth_routes(app):
             conn.commit()
             
             return jsonify({'message': 'Company updated successfully'})
+
+    # ==================== JWT Authentication for Admin Panel ====================
+    
+    # Note: generate_token, verify_token, JWT_SECRET are defined at module level
+    
+    def require_auth(f):
+        """Decorator to require JWT authentication"""
+        @wraps(f)
+        def decorated(*args, **kwargs):
+            token = None
+            # Check for token in header
+            auth_header = request.headers.get('Authorization')
+            if auth_header and auth_header.startswith('Bearer '):
+                token = auth_header.split(' ')[1]
+            
+            # Also check for token in cookie
+            if not token:
+                token = request.cookies.get('auth_token')
+            
+            if not token:
+                return jsonify({'error': 'Authentication required'}), 401
+            
+            payload, error = verify_token(token)
+            if error:
+                return jsonify({'error': error}), 401
+            
+            # Set user info in g
+            g.user_id = payload.get('user_id')
+            g.user_email = payload.get('email')
+            g.user_role = payload.get('role')
+            g.user_company_id = payload.get('company_id')
+            
+            return f(*args, **kwargs)
+        return decorated
+    
+    @app.route('/api/auth/login', methods=['POST'])
+    def login():
+        """Login with email and password, return JWT token"""
+        data = request.get_json()
+        
+        if not data or not data.get('email') or not data.get('password'):
+            return jsonify({'error': 'Email and password required'}), 400
+        
+        email = data.get('email').lower().strip()
+        password = data.get('password')
+        
+        with db.get_connection() as conn:
+            cursor = conn.execute(
+                "SELECT id, email, password_hash, name, role, company_id, is_active FROM users WHERE email = ?",
+                (email,)
+            )
+            user = cursor.fetchone()
+            
+            if not user:
+                return jsonify({'error': 'Invalid email or password'}), 401
+            
+            if not user['is_active']:
+                return jsonify({'error': 'Account is deactivated'}), 401
+            
+            # Verify password
+            if not check_password_hash(user['password_hash'], password):
+                return jsonify({'error': 'Invalid email or password'}), 401
+            
+            # Update last login
+            conn.execute(
+                "UPDATE users SET last_login_at = CURRENT_TIMESTAMP WHERE id = ?",
+                (user['id'],)
+            )
+            conn.commit()
+            
+            # Generate token
+            token = generate_token(
+                user_id=user['id'],
+                email=user['email'],
+                role=user['role'],
+                company_id=user['company_id']
+            )
+            
+            # Get API key based on user role
+            api_key = None
+            is_admin = user['role'] == 'admin' and user['company_id'] is None
+            
+            if is_admin:
+                # Return admin API key
+                api_key = os.environ.get('ADMIN_API_KEY')
+            else:
+                # For company user, find their company's API key
+                cursor = conn.execute(
+                    """SELECT key_hash FROM api_keys 
+                       WHERE company_id = ? AND is_active = 1 
+                       ORDER BY created_at DESC LIMIT 1""",
+                    (user['company_id'],)
+                )
+                key_row = cursor.fetchone()
+                # Note: we can't return the original API key since we only store hash
+                # The user needs to use their existing API key or get one from admin
+                api_key = None  # Company users need to manually set their API key
+            
+            return jsonify({
+                'token': token,
+                'api_key': api_key,
+                'user': {
+                    'id': user['id'],
+                    'email': user['email'],
+                    'name': user['name'],
+                    'role': user['role'],
+                    'company_id': user['company_id']
+                }
+            })
+    
+    @app.route('/api/auth/logout', methods=['POST'])
+    def logout():
+        """Logout - client should clear token"""
+        # JWT is stateless, just return success
+        # Client needs to remove token from storage
+        return jsonify({'message': 'Logged out successfully'})
+    
+    @app.route('/api/auth/me', methods=['GET'])
+    @require_auth
+    def get_current_user():
+        """Get current authenticated user info"""
+        return jsonify({
+            'user': {
+                'id': g.user_id,
+                'email': g.user_email,
+                'role': g.user_role,
+                'company_id': g.user_company_id
+            }
+        })
+    
+    @app.route('/api/auth/setup', methods=['POST'])
+    def setup_admin():
+        """Create initial admin user - can only be used when no users exist"""
+        data = request.get_json()
+        
+        if not data or not data.get('email') or not data.get('password'):
+            return jsonify({'error': 'Email and password required'}), 400
+        
+        # Check if admin API key is provided for security
+        admin_api_key = os.environ.get('ADMIN_API_KEY')
+        provided_key = request.headers.get('X-API-Key')
+        if not provided_key or provided_key != admin_api_key:
+            return jsonify({'error': 'Unauthorized - Valid Admin API Key required'}), 401
+        
+        with db.get_connection() as conn:
+            # Check if any users exist
+            cursor = conn.execute("SELECT COUNT(*) as count FROM users")
+            if cursor.fetchone()['count'] > 0:
+                return jsonify({'error': 'Setup already completed. Use admin panel to create users.'}), 400
+            
+            email = data.get('email').lower().strip()
+            password = data.get('password')
+            name = data.get('name', 'Admin')
+            
+            # Validate password strength
+            if len(password) < 8:
+                return jsonify({'error': 'Password must be at least 8 characters'}), 400
+            
+            # Create admin user
+            password_hash = generate_password_hash(password)
+            cursor = conn.execute(
+                """INSERT INTO users (email, password_hash, name, role, company_id, is_active)
+                   VALUES (?, ?, ?, 'admin', NULL, 1)""",
+                (email, password_hash, name)
+            )
+            user_id = cursor.lastrowid
+            conn.commit()
+            
+            return jsonify({
+                'message': 'Admin user created successfully',
+                'user': {
+                    'id': user_id,
+                    'email': email,
+                    'name': name,
+                    'role': 'admin'
+                }
+            }), 201
+    
+    @app.route('/api/admin/companies/<int:company_id>/managers', methods=['POST'])
+    def create_company_manager(company_id):
+        """Create a company manager user (admin only)"""
+        # Check if admin API key is provided for security
+        admin_api_key = os.environ.get('ADMIN_API_KEY')
+        provided_key = request.headers.get('X-API-Key')
+        
+        # Also check JWT auth
+        user = None
+        token = None
+        auth_header = request.headers.get('Authorization')
+        if auth_header and auth_header.startswith('Bearer '):
+            token = auth_header.split(' ')[1]
+        if not token:
+            token = request.cookies.get('auth_token')
+        if token:
+            payload, error = verify_token(token)
+            if payload:
+                user = payload
+        
+        is_admin = False
+        if user and user.get('role') == 'admin' and user.get('company_id') is None:
+            is_admin = True
+        elif provided_key and provided_key == admin_api_key:
+            is_admin = True
+        
+        if not is_admin:
+            return jsonify({'error': 'Unauthorized - Admin access required'}), 401
+        
+        data = request.get_json()
+        if not data or not data.get('email') or not data.get('password'):
+            return jsonify({'error': 'Email and password required'}), 400
+        
+        email = data.get('email').lower().strip()
+        password = data.get('password')
+        name = data.get('name', 'Company Manager')
+        
+        # Validate password strength
+        if len(password) < 8:
+            return jsonify({'error': 'Password must be at least 8 characters'}), 400
+        
+        with db.get_connection() as conn:
+            # Check if company exists
+            cursor = conn.execute("SELECT id, name FROM companies WHERE id = ?", (company_id,))
+            company = cursor.fetchone()
+            if not company:
+                return jsonify({'error': 'Company not found'}), 404
+            
+            # Check if email already exists
+            cursor = conn.execute("SELECT id FROM users WHERE email = ?", (email,))
+            if cursor.fetchone():
+                return jsonify({'error': 'Email already registered'}), 400
+            
+            # Create company manager user
+            password_hash = generate_password_hash(password)
+            cursor = conn.execute(
+                """INSERT INTO users (email, password_hash, name, role, company_id, is_active)
+                   VALUES (?, ?, ?, 'company_admin', ?, 1)""",
+                (email, password_hash, name, company_id)
+            )
+            user_id = cursor.lastrowid
+            conn.commit()
+            
+            return jsonify({
+                'message': 'Company manager created successfully',
+                'user': {
+                    'id': user_id,
+                    'email': email,
+                    'name': name,
+                    'role': 'company_admin',
+                    'company_id': company_id,
+                    'company_name': company['name']
+                }
+            }), 201
