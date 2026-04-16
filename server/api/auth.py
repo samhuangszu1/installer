@@ -559,6 +559,52 @@ def init_auth_routes(app):
             if not check_password_hash(user['password_hash'], password):
                 return jsonify({'error': 'Invalid email or password'}), 401
             
+            # Check login type and user role match
+            login_type = data.get('login_type', 'admin')
+            is_admin = user['role'] == 'admin' and user['company_id'] is None
+            
+            if login_type == 'admin' and not is_admin:
+                return jsonify({'error': '不是 admin 账号，请切换到「公司管理员」登录'}), 401
+            
+            if login_type == 'company' and is_admin:
+                return jsonify({'error': '不是公司管理员账号，请切换到「Admin」登录'}), 401
+            
+            # For company admin, verify API Key
+            if not is_admin:
+                # Company manager must provide valid API Key
+                provided_api_key = request.headers.get('X-API-Key')
+                if not provided_api_key:
+                    return jsonify({'error': 'API Key required for company manager login'}), 401
+                
+                # Verify API Key belongs to the user's company
+                key_hash = hash_api_key(provided_api_key)
+                cursor = conn.execute(
+                    """SELECT id, company_id, expires_at, is_active FROM api_keys 
+                       WHERE key_hash = ? AND company_id = ?""",
+                    (key_hash, user['company_id'])
+                )
+                api_key_row = cursor.fetchone()
+                
+                if not api_key_row:
+                    return jsonify({'error': 'Invalid API Key - Key does not belong to your company'}), 401
+                
+                if not api_key_row['is_active']:
+                    return jsonify({'error': 'API Key is deactivated - Contact admin'}), 401
+                
+                # Check expiration
+                if api_key_row['expires_at']:
+                    expires_at_str = api_key_row['expires_at']
+                    # Parse and ensure offset-aware
+                    if expires_at_str.endswith('Z'):
+                        expires_at_str = expires_at_str[:-1] + '+00:00'
+                    expires_at = datetime.datetime.fromisoformat(expires_at_str)
+                    # Make offset-aware if not already
+                    if expires_at.tzinfo is None:
+                        expires_at = expires_at.replace(tzinfo=datetime.timezone.utc)
+                    now = datetime.datetime.now(datetime.timezone.utc)
+                    if expires_at < now:
+                        return jsonify({'error': 'API Key has expired - Contact admin to renew'}), 401
+            
             # Update last login
             conn.execute(
                 "UPDATE users SET last_login_at = CURRENT_TIMESTAMP WHERE id = ?",
