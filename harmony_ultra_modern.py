@@ -1887,7 +1887,31 @@ class ModernDesignInstaller:
 
         return os.path.join(settings_dir, 'settings.json')
 
-    def _get_default_download_dir(self):
+    def _get_app_dir(self):
+        """Get the directory where the executable/script is located"""
+        if getattr(sys, 'frozen', False):
+            # Running as compiled executable (PyInstaller)
+            return os.path.dirname(sys.executable)
+        else:
+            # Running as script
+            return os.path.dirname(os.path.abspath(__file__))
+
+    def _is_dir_writable(self, path):
+        """Check if a directory is writable (create if not exists)"""
+        try:
+            if not os.path.exists(path):
+                os.makedirs(path, exist_ok=True)
+            # Try to create a test file
+            test_file = os.path.join(path, '.write_test')
+            with open(test_file, 'w') as f:
+                f.write('test')
+            os.remove(test_file)
+            return True
+        except (OSError, IOError, PermissionError):
+            return False
+
+    def _get_system_download_dir(self):
+        """Get system default download directory"""
         system = platform.system()
         home = os.path.expanduser('~')
 
@@ -1904,6 +1928,21 @@ class ModernDesignInstaller:
         if not data_home:
             data_home = os.path.join(home, '.local', 'share')
         return os.path.join(data_home, 'HarmonyOSInstaller', 'downloads')
+
+    def _get_default_download_dir(self):
+        """Get default download directory
+        Priority: 1. App/exe directory (if writable)
+                  2. System directory (fallback)
+        """
+        # First try app directory
+        app_dir = self._get_app_dir()
+        app_download_dir = os.path.join(app_dir, 'downloads')
+
+        if self._is_dir_writable(app_download_dir):
+            return app_download_dir
+
+        # Fallback to system directory
+        return self._get_system_download_dir()
 
     def check_initial_config(self):
         """检查初始配置"""
