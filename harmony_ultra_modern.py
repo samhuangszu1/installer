@@ -199,7 +199,8 @@ class ModernDesignInstaller:
             try:
                 if not apps_url:
                     raise Exception("服务器地址无效")
-                response = requests.get(apps_url, headers=self._get_api_headers(), timeout=10)
+                response = requests.get(
+                    apps_url, headers=self._get_api_headers(), timeout=10)
                 if response.status_code == 401:
                     error_msg = 'API Key 无效或已过期'
                     try:
@@ -299,11 +300,12 @@ class ModernDesignInstaller:
                              darkcolor=self.colors['bg_accent'])
 
         # Treeview 样式优化
+        tree_rowheight = max(28, int(round(40 * float(self.ui_scale or 1.0))))
         self.style.configure('Modern.Treeview',
                              background=self.colors['bg_card'],
                              foreground=self.colors['text_primary'],
                              fieldbackground=self.colors['bg_card'],
-                             rowheight=40,
+                             rowheight=tree_rowheight,
                              font=self.fonts['body'],
                              borderwidth=0,
                              relief='flat')
@@ -315,9 +317,9 @@ class ModernDesignInstaller:
         pad_y = 4
         try:
             row_h = int(self.style.lookup(
-                'Modern.Treeview', 'rowheight') or 40)
+                'Modern.Treeview', 'rowheight') or tree_rowheight)
         except Exception:
-            row_h = 40
+            row_h = tree_rowheight
 
         try:
             f = tkfont.Font(self.root, font=heading_font)
@@ -1167,6 +1169,7 @@ class ModernDesignInstaller:
         tree.bind('<Map>', lambda e: tree.after(
             0, update_column_separators), add=True)
         # Configure 事件在缩放时触发，但布局可能还没稳定，延迟执行
+
         def _on_configure(*_):
             tree.after(50, update_column_separators)
         tree.bind('<Configure>', _on_configure, add=True)
@@ -1842,7 +1845,8 @@ class ModernDesignInstaller:
             apps_url = f"{self.server_base_url}/api/apps"
             self.log(f"🌐 获取应用列表: {apps_url}")
 
-            response = requests.get(apps_url, headers=self._get_api_headers(), timeout=10)
+            response = requests.get(
+                apps_url, headers=self._get_api_headers(), timeout=10)
             if response.status_code == 401:
                 error_msg = 'API Key 无效或已过期'
                 try:
@@ -2193,7 +2197,8 @@ class ModernDesignInstaller:
 
         def _worker():
             try:
-                response = requests.get(versions_url, headers=self._get_api_headers(), timeout=10)
+                response = requests.get(
+                    versions_url, headers=self._get_api_headers(), timeout=10)
                 if response.status_code == 401:
                     error_msg = 'API Key 无效或已过期'
                     try:
@@ -2202,7 +2207,8 @@ class ModernDesignInstaller:
                             error_msg = error_data.get('error')
                     except Exception:
                         pass
-                    raise Exception(f"认证失败: {error_msg}\n\n请在设置中更新有效的 API Key。")
+                    raise Exception(
+                        f"认证失败: {error_msg}\n\n请在设置中更新有效的 API Key。")
                 if response.status_code != 200:
                     raise Exception(f"服务器响应错误: {response.status_code}")
                 data = response.json()
@@ -2262,12 +2268,14 @@ class ModernDesignInstaller:
 
                 try:
                     self.version_tree.insert('', 'end', iid=iid, text=description,
-                                             values=(version, release_date, status),
+                                             values=(
+                                                 version, release_date, status),
                                              tags=(row_tag,))
                 except Exception:
                     pass
 
-            self.log(f"📦 已加载第 {page} 页，共 {len(versions)} 个版本 (总计 {len(self.current_versions)}/{total})")
+            self.log(
+                f"📦 已加载第 {page} 页，共 {len(versions)} 个版本 (总计 {len(self.current_versions)}/{total})")
 
             if select_first and page == 1:
                 try:
@@ -2304,7 +2312,8 @@ class ModernDesignInstaller:
         if self._ver_loading or not self._ver_has_more:
             return
         next_page = self._ver_page + 1
-        self.load_version_list_async(select_first=False, page=next_page, append=True)
+        self.load_version_list_async(
+            select_first=False, page=next_page, append=True)
 
     def detect_hdc_tool(self):
         """检测HDC工具"""
@@ -3110,7 +3119,8 @@ class ModernDesignInstaller:
             url = f"{self.server_base_url}/api/versions/{vid}/info"
             self.log(f"🌐 获取版本信息: {url}")
 
-            response = requests.get(url, headers=self._get_api_headers(), timeout=10)
+            response = requests.get(
+                url, headers=self._get_api_headers(), timeout=10)
             if response.status_code == 401:
                 error_msg = 'API Key 无效或已过期'
                 try:
@@ -3211,7 +3221,8 @@ class ModernDesignInstaller:
             except Exception:
                 pass
 
-            response = requests.get(url, headers=self._get_api_headers(), stream=True, timeout=30)
+            response = requests.get(
+                url, headers=self._get_api_headers(), stream=True, timeout=30)
             if response.status_code == 401:
                 error_msg = 'API Key 无效或已过期'
                 try:
