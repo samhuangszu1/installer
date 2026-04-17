@@ -1870,7 +1870,7 @@
             } catch (e) {
             }
             try {
-                document.getElementById('version-no').value = '1';
+                document.getElementById('version-no').value = Math.floor(Date.now() / 1000);
             } catch (e) {
             }
             document.getElementById('create-version-modal').style.display = 'block';
