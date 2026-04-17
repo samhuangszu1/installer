@@ -2380,7 +2380,7 @@
                 data.companies.forEach(company => {
                     const row = tbody.insertRow();
                     // Show different buttons based on user type
-                    let actionButtons = `<button class="btn" onclick="viewCompanyApiKeys(${company.id})">API Keys</button>`;
+                    let actionButtons = `<button class="btn" onclick="viewCompanyApiKeys(${company.id})">Keys</button>`;
                     actionButtons += ` <button class="btn btn-primary" onclick="goToCompanyApps(${company.id})">Apps</button>`;
                     if (isAdminUser) {
                         actionButtons += ` <button class="btn btn-success" onclick="showCreateApiKeyModal(${company.id})">New Key</button>`;
