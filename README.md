@@ -220,14 +220,16 @@ installer/
 - **Content-Type**: `multipart/form-data`
 
 鉴权说明：
-- 所有受保护接口需要 header `X-API-Key: <your_api_key>`
-- Admin 使用 `ADMIN_API_KEY`（环境变量），Company Manager 使用公司分配的 API Key
+- 支持两种鉴权方式：
+  - Header `X-API-Key: <your_api_key>` - Admin 使用 `ADMIN_API_KEY`，Company Manager 使用公司分配的 API Key
+  - Header `Authorization: Bearer <jwt_token>` - 登录后获取的 JWT Token
 - 登录后 API Key 会自动存储到浏览器 localStorage
-- JWT token 通过 `Authorization: Bearer <token>` 传递
+- Web 后台使用 JWT 鉴权，命令行/API 调用可使用 API Key
 
 表单字段：
 - `app_id` (required, int)
-- `version` (required, string)
+- `version` (required, string, 如 `1.0.2`)
+- `version_no` (required, int, 如 `1`，用于排序和区分同版本号)
 - `description` (optional)
 - `release_date` (optional, e.g. `2026-04-10`)
 - `deploy_path` (optional, default: `/data/local/tmp`)
@@ -238,8 +240,8 @@ Files:
 - `hsp_file` (required, `.hsp`)
 
 覆盖规则：
-- 版本去重规则为 `(app_id, version)`
-- 若版本已存在，会覆盖旧版本的 `hap/hsp` 记录（每种类型仅保留 1 个文件）
+- 版本去重规则为 `(app_id, version, version_no)` 三者联合
+- 若该组合已存在，会覆盖旧版本的 `hap/hsp` 记录（每种类型仅保留 1 个文件）
 
 示例（Windows PowerShell curl）：
 ```powershell
@@ -247,6 +249,7 @@ curl -X POST "http://127.0.0.1:5000/api/versions/create-with-files" `
   -H "X-API-Key: YOUR_ADMIN_API_KEY" `
   -F "app_id=1" `
   -F "version=1.0.2" `
+  -F "version_no=1" `
   -F "description=second release" `
   -F "release_date=2026-04-10" `
   -F "deploy_path=/data/local/tmp" `
@@ -264,6 +267,7 @@ url = "http://127.0.0.1:5000/api/versions/create-with-files"
 data = {
     "app_id": "1",
     "version": "1.0.2",
+    "version_no": "1",
     "description": "second release",
     "release_date": "2026-04-10",
     "deploy_path": "/data/local/tmp",
@@ -322,7 +326,7 @@ print(resp.text)
 
 ### 服务端配置
 - `ADMIN_API_KEY`：Admin API 密钥（环境变量，**必须设置**）
-- `JWT_SECRET_KEY`：JWT 签名密钥（环境变量，可选，未设置则自动生成）
+- `JWT_SECRET_KEY`：JWT 签名密钥（环境变量，**可选**，未设置则自动生成随机密钥）
 - 数据库：SQLite（`server/database/harmony_installer.db`）
 - 文件存储路径：`uploads/apps/<app_id>/<version_id>/`
 - 上传限制
@@ -354,7 +358,7 @@ print(resp.text)
 - **API Key 管理**：公司 API Key 的创建、撤销、启用/禁用
 - **公司管理员**：Admin 可为公司创建管理员用户
 - **登录持久化**：API Key 自动存储到 localStorage
-- **现代 GUI**：深色主题界面
+- **现代 GUI**：深色主题界面，自适应 UI 缩放
 - **中文化**：中文界面与提示
 - **客户端-服务端架构**：REST API 管理
 - **Web 管理后台**：浏览器管理
