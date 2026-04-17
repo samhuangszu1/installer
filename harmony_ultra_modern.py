@@ -1381,7 +1381,7 @@ class ModernDesignInstaller:
         console_frame.pack(fill=tk.BOTH, expand=True)
 
         # 控制台文本区域
-        self.log_text = self.create_modern_text(console_frame, height=10)
+        self.log_text = self.create_modern_text(console_frame, height=20)
         self.log_text._container.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
 
         # 控制台按钮
