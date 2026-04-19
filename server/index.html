@@ -1,0 +1,724 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>HarmonyOS App Installer - 企业级应用分发专家</title>
+        <link rel="stylesheet"
+            href="https://cdn.staticfile.org/font-awesome/6.4.0/css/all.min.css">
+        <style>
+        :root {
+            --primary: #2563eb;
+            --primary-dark: #1e40af;
+            --secondary: #6366f1;
+            --accent: #f59e0b;
+            --text-main: #1f2937;
+            --text-light: #6b7280;
+            --bg-light: #f9fafb;
+            --white: #ffffff;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        }
+
+        body {
+            color: var(--text-main);
+            line-height: 1.6;
+            overflow-x: hidden;
+        }
+
+        /* Navigation */
+        nav {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1.5rem 5%;
+            position: fixed;
+            width: 100%;
+            top: 0;
+            background: rgba(255, 255, 255, 0.9);
+            backdrop-filter: blur(10px);
+            z-index: 1000;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        .logo {
+            font-size: 1.5rem;
+            font-weight: 800;
+            color: var(--primary);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 2rem;
+            list-style: none;
+        }
+
+        .nav-links a {
+            text-decoration: none;
+            color: var(--text-main);
+            font-weight: 500;
+            transition: color 0.3s;
+        }
+
+        .nav-links a:hover {
+            color: var(--primary);
+        }
+
+        .btn-nav {
+            background: var(--primary);
+            color: white !important;
+            padding: 0.6rem 1.2rem;
+            border-radius: 50px;
+            transition: transform 0.3s;
+        }
+
+        /* Hero Section */
+        .hero {
+            padding: 180px 5% 100px;
+            background: linear-gradient(135deg, #eff6ff 0%, #ffffff 100%);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 2rem;
+        }
+
+        .hero-content {
+            flex: 1;
+            max-width: 600px;
+        }
+
+        .hero-content h1 {
+            font-size: 3.5rem;
+            line-height: 1.2;
+            margin-bottom: 1.5rem;
+            background: linear-gradient(to right, var(--primary), var(--secondary));
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .hero-content p {
+            font-size: 1.25rem;
+            color: var(--text-light);
+            margin-bottom: 2rem;
+        }
+
+        .cta-group {
+            display: flex;
+            gap: 1rem;
+        }
+
+        .btn {
+            padding: 1rem 2rem;
+            border-radius: 8px;
+            font-weight: 600;
+            text-decoration: none;
+            transition: all 0.3s;
+            cursor: pointer;
+            border: none;
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: var(--white);
+            box-shadow: 0 4px 14px rgba(37, 99, 235, 0.3);
+        }
+
+        .btn-primary:hover {
+            background: var(--primary-dark);
+            transform: translateY(-2px);
+        }
+
+        .btn-outline {
+            border: 2px solid var(--primary);
+            color: var(--primary);
+        }
+
+        .hero-image {
+            flex: 1;
+            text-align: center;
+            position: relative;
+        }
+
+        .hero-image img {
+            max-width: 100%;
+            border-radius: 20px;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.1);
+        }
+
+        /* Features Section */
+        .features {
+            padding: 100px 5%;
+            background: var(--white);
+        }
+
+        .section-header {
+            text-align: center;
+            margin-bottom: 4rem;
+        }
+
+        .section-header h2 {
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .section-header p {
+            color: var(--text-light);
+            font-size: 1.1rem;
+        }
+
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+        }
+
+        .feature-card {
+            padding: 1.5rem;
+            border-radius: 16px;
+            background: var(--bg-light);
+            border: 1px solid #eee;
+            transition: all 0.3s;
+            display: flex;
+            gap: 1.2rem;
+            align-items: flex-start;
+        }
+
+        .feature-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.05);
+            border-color: var(--primary);
+        }
+
+        .icon-box {
+            flex-shrink: 0;
+            width: 48px;
+            height: 48px;
+            background: var(--primary);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 12px;
+            font-size: 1.2rem;
+        }
+
+        .feature-content h3 {
+            font-size: 1.15rem;
+            margin-bottom: 0.5rem;
+            color: var(--text-main);
+        }
+
+        .feature-content p {
+            font-size: 0.95rem;
+            color: var(--text-light);
+            line-height: 1.5;
+        }
+
+        /* Benefits */
+        .benefits {
+            padding: 100px 5%;
+            background: #0f172a;
+            color: white;
+        }
+
+        .benefit-item {
+            display: flex;
+            align-items: center;
+            gap: 4rem;
+            margin-bottom: 6rem;
+        }
+
+        .benefit-item:nth-child(even) {
+            flex-direction: row-reverse;
+        }
+
+        .benefit-img {
+            flex: 1;
+        }
+
+        .benefit-img img {
+            width: 100%;
+            border-radius: 12px;
+        }
+
+        .benefit-content {
+            flex: 1;
+        }
+
+        .benefit-content h3 {
+            font-size: 2rem;
+            margin-bottom: 1.5rem;
+            color: #38bdf8;
+        }
+
+        .benefit-content ul {
+            list-style: none;
+        }
+
+        .benefit-content li {
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.8rem;
+        }
+
+        .benefit-content i {
+            color: #10b981;
+        }
+
+        /* CTA Section */
+        .final-cta {
+            padding: 100px 5%;
+            text-align: center;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+            color: white;
+        }
+
+        .final-cta h2 {
+            font-size: 3rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .final-cta p {
+            font-size: 1.2rem;
+            margin-bottom: 2.5rem;
+            opacity: 0.9;
+        }
+
+        .btn-white {
+            background: white;
+            color: var(--primary);
+        }
+
+        footer {
+            padding: 3rem 5%;
+            text-align: center;
+            border-top: 1px solid #eee;
+            color: var(--text-light);
+        }
+
+        /* Contact Modal Styles */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 2000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(15, 23, 42, 0.8);
+            backdrop-filter: blur(8px);
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal.show {
+            display: flex;
+        }
+
+        .modal-content {
+            background: white;
+            padding: 2.5rem;
+            border-radius: 24px;
+            max-width: 450px;
+            width: 90%;
+            position: relative;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+            text-align: center;
+        }
+
+        .close-modal {
+            position: absolute;
+            top: 1.5rem;
+            right: 1.5rem;
+            font-size: 1.5rem;
+            color: var(--text-light);
+            cursor: pointer;
+            transition: color 0.3s;
+        }
+
+        .close-modal:hover {
+            color: var(--primary);
+        }
+
+        .contact-info-list {
+            list-style: none;
+            text-align: left;
+            margin: 2rem 0;
+        }
+
+        .contact-info-list li {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            padding: 1rem;
+            background: var(--bg-light);
+            border-radius: 12px;
+            margin-bottom: 0.8rem;
+            transition: transform 0.3s;
+        }
+
+        .contact-info-list li:hover {
+            transform: translateX(5px);
+            background: #eff6ff;
+        }
+
+        .contact-icon {
+            width: 40px;
+            height: 40px;
+            background: white;
+            color: var(--primary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        }
+
+        @media (max-width: 768px) {
+            .hero {
+                flex-direction: column;
+                padding-top: 120px;
+                text-align: center;
+            }
+            .hero-content h1 {
+                font-size: 2.5rem;
+            }
+            .cta-group {
+                justify-content: center;
+            }
+            .nav-links {
+                display: none;
+            }
+            .benefit-item {
+                flex-direction: column !important;
+                gap: 2rem;
+            }
+        }
+    </style>
+    </head>
+    <body>
+
+        <nav>
+            <div class="logo">
+                <i class="fas fa-rocket"></i> HarmonyInstaller
+            </div>
+            <ul class="nav-links">
+                <li><a href="#features">核心功能</a></li>
+                <li><a href="#benefits">方案优势</a></li>
+                <li><a href="javascript:void(0)"
+                        onclick="toggleContactModal(true)">联系我们</a></li>
+                <li><a href="/company/admin" class="btn-nav">管理后台</a></li>
+            </ul>
+        </nav>
+
+        <header class="hero">
+            <div class="hero-content">
+                <h1>让 HarmonyOS 应用分发变得简单、高效、安全</h1>
+                <p>专为 HarmonyOS
+                    企业级分发而生，一键完成复杂应用安装。打破审核枷锁，实现开发、测试、体验的零等待敏捷迭代，全面重塑研发效能。</p>
+                <div class="cta-group">
+                    <a href="#features" class="btn btn-primary">立即了解</a>
+                    <a href="/company/admin" class="btn btn-outline">进入管理后台</a>
+                </div>
+            </div>
+            <div class="hero-image">
+                <div
+                    style="position: relative; padding: 20px; background: linear-gradient(135deg, rgba(37, 99, 235, 0.1) 0%, rgba(99, 102, 241, 0.1) 100%); border-radius: 30px; border: 1px solid rgba(255,255,255,0.5); backdrop-filter: blur(10px);">
+                    <img
+                        src="https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&w=800&q=80"
+                        alt="Dashboard Preview"
+                        onerror="this.src='https://via.placeholder.com/800x500/2563eb/ffffff?text=HarmonyOS+Installer+Dashboard'">
+                </div>
+            </div>
+        </header>
+
+        <section class="benefits" id="benefits">
+            <div class="section-header">
+                <h2 style="color: white">效率革命：让开发更纯粹</h2>
+                <p style="color: #94a3b8">为企业降本增效，彻底告别无效等待</p>
+            </div>
+
+            <div class="benefit-item">
+                <div class="benefit-img">
+                    <img
+                        src="https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&w=800&q=80"
+                        alt="Efficiency">
+                </div>
+                <div class="benefit-content">
+                    <h3>跳过审核，交付快人一步</h3>
+                    <p>华为官方审核通常需要 2-12
+                        小时。使用本方案，您可以在开发完成的瞬间将应用送达相关方。</p>
+                    <ul>
+                        <li><i class="fas fa-check-circle"></i>
+                            <b>开发端：</b>即刻发布，实时验证</li>
+                        <li><i class="fas fa-check-circle"></i>
+                            <b>测试端：</b>第一时间介入，反馈更迅速</li>
+                        <li><i class="fas fa-check-circle"></i>
+                            <b>体验方：</b>无需等待，随时体验最新特性</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="benefit-item">
+                <div class="benefit-img">
+                    <img
+                        src="https://images.unsplash.com/photo-1558494949-ef010cbdcc31?auto=format&fit=crop&w=800&q=80"
+                        alt="History Management">
+                </div>
+                <div class="benefit-content">
+                    <h3>坚如磐石的版本管理</h3>
+                    <p>不仅仅是发布当前版本，更是应用演进的数字化档案库。</p>
+                    <ul>
+                        <li><i class="fas fa-check-circle"></i> <b>全量追溯：</b>每一份
+                            HAP/HSP 历史资产均可下载</li>
+                        <li><i class="fas fa-check-circle"></i> <b>灵活回滚：</b>遇到紧急
+                            Bug，秒级切换到稳定版本</li>
+                        <li><i class="fas fa-check-circle"></i>
+                            <b>对比分析：</b>方便测试人员针对不同版本进行性能对比</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="benefit-item">
+                <div class="benefit-img">
+                    <div style="position: relative;">
+                        <img
+                            src="https://images.unsplash.com/photo-1498050108023-c5249f4df085?auto=format&fit=crop&w=800&q=80"
+                            alt="PC Client Setup"
+                            style="width: 100%; border-radius: 20px; box-shadow: 0 20px 40px rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1);">
+                        <div
+                            style="position: absolute; bottom: -20px; right: -20px; background: var(--primary); color: white; padding: 15px 25px; border-radius: 12px; font-weight: bold; box-shadow: 0 10px 20px rgba(37,99,235,0.4);">
+                            一键安装 · 立即运行
+                        </div>
+                    </div>
+                </div>
+                <div class="benefit-content">
+                    <h3>零环境依赖，极简安装</h3>
+                    <p>我们深知环境配置的痛苦。HarmonyInstaller 提供了纯正的原生 PC
+                        客户端，让部署变得前所未有的简单。</p>
+                    <ul>
+                        <li><i class="fas fa-check-circle"
+                                style="color: #10b981;"></i> <b>告告别繁琐：</b>无需安装
+                            Bash、WSL 或 Python 环境</li>
+                        <li><i class="fas fa-check-circle"
+                                style="color: #10b981;"></i>
+                            <b>一键运行：</b>原生二进制客户端，双击即可直接使用</li>
+                        <li><i class="fas fa-check-circle"
+                                style="color: #10b981;"></i>
+                            <b>降低门槛：</b>非技术人员也能轻松完成应用部署与测试</li>
+                    </ul>
+                </div>
+            </div>
+        </section>
+
+        <section class="features" id="features">
+            <div class="section-header">
+                <h2>全方位分发能力</h2>
+                <p>支撑高效分发的强大技术核心</p>
+            </div>
+            <div class="feature-grid">
+                <div class="feature-card">
+                    <div class="icon-box">
+                        <svg width="24" height="24" viewBox="0 0 24 24"
+                            fill="none" stroke="currentColor" stroke-width="2"
+                            stroke-linecap="round" stroke-linejoin="round"><path
+                                d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"></path></svg>
+                    </div>
+                    <div class="feature-content">
+                        <h3>免华为审核，即刻发布</h3>
+                        <p>无需等待华为应用市场 2-12
+                            小时的冗长审核，开发完成即可交付。分钟级触达测试方与体验方，大幅缩短研发周期。</p>
+                    </div>
+                </div>
+                <div class="feature-card">
+                    <div class="icon-box">
+                        <svg width="24" height="24" viewBox="0 0 24 24"
+                            fill="none" stroke="currentColor" stroke-width="2"
+                            stroke-linecap="round" stroke-linejoin="round"><path
+                                d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline
+                                points="22,6 12,13 2,6"></polyline><line
+                                x1="12" y1="22.08" x2="12" y2="12"></line></svg>
+                    </div>
+                    <div class="feature-content">
+                        <h3>原生 HarmonyOS 支持</h3>
+                        <p>深度适配 HAP 与 HSP 文件类型，自动解析应用元数据，确保分发过程零差错。</p>
+                    </div>
+                </div>
+                <div class="feature-card">
+                    <div class="icon-box">
+                        <svg width="24" height="24" viewBox="0 0 24 24"
+                            fill="none" stroke="currentColor" stroke-width="2"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"><circle cx="12" cy="12"
+                                r="10"></circle><polyline
+                                points="12 8 12 12 16 14"></polyline><path
+                                d="M3.3 7a10 10 0 1 0 1.8-3.6L3 6"></path><path
+                                d="M3 1v5h5"></path></svg>
+                    </div>
+                    <div class="feature-content">
+                        <h3>全量版本回溯</h3>
+                        <p>支持历史版本管理与下载。无论是 Bug 定位、多版本对比还是紧急回滚，所有历史版本触手可及。</p>
+                    </div>
+                </div>
+                <div class="feature-card">
+                    <div class="icon-box">
+                        <svg width="24" height="24" viewBox="0 0 24 24"
+                            fill="none" stroke="currentColor" stroke-width="2"
+                            stroke-linecap="round" stroke-linejoin="round"><rect
+                                x="3" y="11" width="18" height="11" rx="2"
+                                ry="2"></rect><path
+                                d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+                    </div>
+                    <div class="feature-content">
+                        <h3>API Key 安全授权</h3>
+                        <p>基于现代 JWT 与 API Key 的多重认证，保护您的分发渠道不被非法利用。</p>
+                    </div>
+                </div>
+                <div class="feature-card">
+                    <div class="icon-box">
+                        <svg width="24" height="24" viewBox="0 0 24 24"
+                            fill="none" stroke="currentColor" stroke-width="2"
+                            stroke-linecap="round" stroke-linejoin="round"><path
+                                d="M22 12h-4l-3 9L9 3l-3 9H2"></path></svg>
+                    </div>
+                    <div class="feature-content">
+                        <h3>现代化控制台</h3>
+                        <p>极致丝滑的管理体验，实时输出部署日志，状态监控一目了然。</p>
+                    </div>
+                </div>
+                <div class="feature-card">
+                    <div class="icon-box">
+                        <svg width="24" height="24" viewBox="0 0 24 24"
+                            fill="none" stroke="currentColor" stroke-width="2"
+                            stroke-linecap="round" stroke-linejoin="round"><path
+                                d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline
+                                points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line
+                                x1="12" y1="22.08" x2="12" y2="12"></line></svg>
+                    </div>
+                    <div class="feature-content">
+                        <h3>CI/CD 深度集成</h3>
+                        <p>开放标准 RESTful API，完美对接 Jenkins、GitLab CI
+                            等主流自动化工具。让分发成为流水线上的一个标准环节。</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="final-cta">
+            <h2>准备好开启您的敏捷分发时代了吗？</h2>
+            <p>不再受困于漫长的审核与复杂的部署，现在就联系我们，获取专属于您的企业级分发方案。</p>
+            <a href="javascript:void(0)" class="btn btn-white"
+                onclick="toggleContactModal(true)">立即开启咨询</a>
+        </section>
+
+        <footer>
+            <p>&copy; 2026 HarmonyOS App Installer. All rights reserved.</p>
+            <p style="margin-top: 0.5rem; font-size: 0.8rem;">Powered by Harmony
+                Modern Tech Stack</p>
+        </footer>
+
+        <!-- Contact Modal -->
+        <div id="contact-modal" class="modal">
+            <div class="modal-content">
+                <span class="close-modal"
+                    onclick="toggleContactModal(false)">&times;</span>
+                <div class="icon-box"
+                    style="margin: 0 auto 1.5rem; background: var(--primary);">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round"><path
+                            d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l2.28-2.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>
+                </div>
+                <h2>联系我们</h2>
+                <p
+                    style="color: var(--text-light); margin-top: 0.5rem;">获取企业级支持与定制化分发方案</p>
+
+                <ul class="contact-info-list">
+                    <li>
+                        <div class="contact-icon">
+                            <svg width="20" height="20" viewBox="0 0 24 24"
+                                fill="none" stroke="currentColor"
+                                stroke-width="2" stroke-linecap="round"
+                                stroke-linejoin="round"><path
+                                    d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline
+                                    points="22,6 12,13 2,6"></polyline></svg>
+                        </div>
+                        <div>
+                            <div
+                                style="font-size: 0.8rem; color: var(--text-light);">官方邮箱</div>
+                            <div
+                                style="font-weight: 600;">support@harmony-installer.com</div>
+                        </div>
+                    </li>
+                    <li>
+                        <div class="contact-icon">
+                            <svg width="20" height="20" viewBox="0 0 24 24"
+                                fill="none" stroke="currentColor"
+                                stroke-width="2" stroke-linecap="round"
+                                stroke-linejoin="round"><path
+                                    d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 1 1-7.6-14.7 8.38 8.38 0 0 1 3.8.9L21 3.5v8z"></path></svg>
+                        </div>
+                        <div>
+                            <div
+                                style="font-size: 0.8rem; color: var(--text-light);">技术支持
+                                (微信)</div>
+                            <div
+                                style="font-weight: 600;">HarmonyOS_Expert</div>
+                        </div>
+                    </li>
+                    <li>
+                        <div class="contact-icon">
+                            <svg width="20" height="20" viewBox="0 0 24 24"
+                                fill="none" stroke="currentColor"
+                                stroke-width="2" stroke-linecap="round"
+                                stroke-linejoin="round"><path
+                                    d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line
+                                    x1="12" y1="9" x2="12" y2="13"></line><line
+                                    x1="12" y1="17" x2="12.01"
+                                    y2="17"></line></svg>
+                        </div>
+                        <div>
+                            <div
+                                style="font-size: 0.8rem; color: var(--text-light);">紧急响应</div>
+                            <div style="font-weight: 600;">400-888-XXXX</div>
+                        </div>
+                    </li>
+                </ul>
+
+                <button class="btn btn-primary" style="width: 100%;"
+                    onclick="toggleContactModal(false)">返回首页</button>
+            </div>
+        </div>
+
+        <script>
+        function toggleContactModal(show) {
+            const modal = document.getElementById('contact-modal');
+            if (show) {
+                modal.classList.add('show');
+                document.body.style.overflow = 'hidden'; // 禁止背景滚动
+            } else {
+                modal.classList.remove('show');
+                document.body.style.overflow = 'auto'; // 恢复滚动
+            }
+        }
+
+        // 点击背景关闭
+        window.onclick = function(event) {
+            const modal = document.getElementById('contact-modal');
+            if (event.target == modal) {
+                toggleContactModal(false);
+            }
+        }
+    </script>
+    </body>
+</html>

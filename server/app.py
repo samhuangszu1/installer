@@ -182,7 +182,16 @@ def create_app():
 
     @app.route('/')
     def index():
-        """Index page with API documentation"""
+        """Index page with marketing content"""
+        try:
+            with open(os.path.join(os.path.dirname(__file__), 'index.html'), 'r', encoding='utf-8') as f:
+                return f.read()
+        except FileNotFoundError:
+            return jsonify({'error': 'Index page not found'}), 404
+
+    @app.route('/api/docs')
+    def api_docs():
+        """API documentation"""
         return jsonify({
             'name': 'HarmonyOS Installer API',
             'version': '3.0.0',
